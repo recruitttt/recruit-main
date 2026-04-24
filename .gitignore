@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+# local dev tooling
+.claude/
+.playwright-cli/
+/output/

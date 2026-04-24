@@ -5,15 +5,15 @@ const stageStyles: Record<Stage, string> = {
   queued:
     "bg-[var(--color-surface-2)] text-[var(--color-fg-muted)] border-[var(--color-border)]",
   tailoring:
-    "bg-amber-500/10 text-amber-300 border-amber-500/30",
+    "bg-amber-500/10 text-amber-700 border-amber-500/30",
   reviewing:
-    "bg-violet-500/10 text-violet-300 border-violet-500/30",
+    "bg-violet-500/10 text-violet-700 border-violet-500/30",
   submitting:
-    "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
+    "bg-cyan-500/10 text-cyan-700 border-cyan-500/30",
   submitted:
-    "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
+    "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
   blocked:
-    "bg-red-500/10 text-red-300 border-red-500/30",
+    "bg-red-500/10 text-red-700 border-red-500/30",
 };
 
 export function StageBadge({
@@ -59,8 +59,8 @@ export function Pill({
       "bg-[var(--color-surface-1)] text-[var(--color-fg-muted)] border-[var(--color-border)]",
     accent:
       "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent-soft)]",
-    success: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-    warn: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+    success: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+    warn: "bg-amber-500/10 text-amber-700 border-amber-500/30",
   };
   return (
     <span

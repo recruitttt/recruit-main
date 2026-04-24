@@ -22,12 +22,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Recruit — Autonomous job-application agent",
+  title: "Recruit · Autonomous job-application agent",
   description:
     "Recruit applies to jobs for you, end to end. Sources roles, tailors artifacts, fills forms, and remembers what works.",
   metadataBase: new URL("https://recruit-mockup.vercel.app"),
   openGraph: {
-    title: "Recruit — Autonomous job-application agent",
+    title: "Recruit · Autonomous job-application agent",
     description:
       "Sources roles, tailors artifacts, fills forms, and remembers what works.",
     type: "website",

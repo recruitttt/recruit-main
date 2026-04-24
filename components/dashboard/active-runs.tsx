@@ -18,7 +18,7 @@ export function ActiveRuns() {
           </span>
         </div>
         <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-fg-muted)] font-mono">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
           3 live
         </span>
       </div>

@@ -60,35 +60,31 @@ export function AgentTicker() {
   const ev = events[index];
 
   return (
-    <div className="relative inline-flex items-center gap-3 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)]/90 backdrop-blur-xl py-2 pl-2 pr-5 text-[13px] font-mono shadow-[0_8px_32px_-12px_rgba(34,211,238,0.25)]">
-      <div className="absolute -inset-px rounded-full bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 pointer-events-none" />
-      <span className="relative flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 py-1 pl-1.5 pr-2.5">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-60" style={{ animation: "pulse-soft 1.6s ease-in-out infinite" }} />
-          <span className="relative h-2 w-2 rounded-full bg-emerald-400" />
+    <div className="inline-flex items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-sm py-1 pl-1.5 pr-3.5 text-[12px] font-mono">
+      <span className="flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-60" style={{ animation: "pulse-soft 1.6s ease-in-out infinite" }} />
+          <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-500" />
         </span>
-        <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-emerald-300">
+        <span className="text-[10px] uppercase tracking-[0.18em] font-medium text-emerald-700">
           Live
         </span>
       </span>
 
-      <div key={ev.company} className="relative flex items-center gap-2.5 min-w-0 transition-opacity duration-300">
+      <span className="h-3 w-px bg-[var(--color-border)]" />
+
+      <div key={ev.company} className="flex items-center gap-2 min-w-0 transition-opacity duration-300">
         <CompanyLogo
           bg={ev.logoBg}
           text={ev.logoText}
-          size={22}
-          className="rounded-[5px]"
+          size={16}
+          className="rounded-[4px]"
         />
-        <span className="font-sans text-[14px] text-[var(--color-fg)] truncate font-medium tracking-tight">
+        <span className="text-[var(--color-fg)] truncate tracking-tight">
           {ev.company}
         </span>
-        <span className="hidden sm:inline text-[var(--color-fg-subtle)] truncate text-[12px]">
-          {ev.role}
-        </span>
-        <span className="hidden sm:inline text-[var(--color-fg-subtle)]">
-          →
-        </span>
-        <span className="hidden sm:inline text-[var(--color-accent)] truncate text-[12px]">
+        <span className="text-[var(--color-fg-subtle)]">·</span>
+        <span className="text-[var(--color-fg-muted)] truncate">
           {ev.text}
         </span>
       </div>

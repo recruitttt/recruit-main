@@ -22,7 +22,7 @@ export default function DLQPage() {
           Dead-letter queue
         </h1>
         <p className="mt-1 text-[13px] text-[var(--color-fg-muted)] max-w-xl">
-          Questions the agent wouldn't guess — sponsorship, dates, comp, anything sensitive.
+          Questions the agent wouldn't guess. Sponsorship, dates, comp, anything sensitive.
           Each answer is cached and reused on every future application.
         </p>
       </div>
@@ -50,7 +50,7 @@ export default function DLQPage() {
       {open.length === 0 ? (
         <Card>
           <CardBody className="py-16 text-center">
-            <Check className="mx-auto h-10 w-10 text-emerald-400" strokeWidth={1.5} />
+            <Check className="mx-auto h-10 w-10 text-emerald-600" strokeWidth={1.5} />
             <p className="mt-4 font-serif text-[24px] tracking-tight text-[var(--color-fg)]">
               Inbox zero.
             </p>
@@ -99,17 +99,17 @@ function DLQCard({
 }) {
   const isQuestion = item.type === "unanswerable_question";
   return (
-    <Card className={cn("overflow-hidden", isQuestion ? "border-amber-500/30" : "border-red-500/30")}>
-      <CardHeader className={cn(isQuestion ? "bg-amber-500/[0.04]" : "bg-red-500/[0.04]")}>
+    <Card className={cn("overflow-hidden", isQuestion ? "border-amber-500/40" : "border-red-500/40")}>
+      <CardHeader className={cn(isQuestion ? "bg-amber-500/10" : "bg-red-500/10")}>
         <div className="flex items-center gap-3">
           {isQuestion ? (
-            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <AlertTriangle className="h-4 w-4 text-amber-700" />
           ) : (
-            <AlertCircle className="h-4 w-4 text-red-300" />
+            <AlertCircle className="h-4 w-4 text-red-700" />
           )}
           <div>
             <CardTitle>
-              <span className={isQuestion ? "text-amber-300" : "text-red-300"}>
+              <span className={isQuestion ? "text-amber-700" : "text-red-700"}>
                 {isQuestion ? "Unanswerable question" : "Submission error"}
               </span>
               <span className="text-[var(--color-fg-subtle)] mx-2">·</span>
@@ -167,7 +167,7 @@ function DLQCard({
           </>
         )}
         {!isQuestion && (
-          <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2.5">
+          <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5">
             <p className="text-[13px] text-[var(--color-fg-muted)] leading-relaxed">
               {item.context}
             </p>

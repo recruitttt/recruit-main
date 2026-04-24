@@ -24,17 +24,17 @@ const sourceLabels: Record<string, string> = {
 };
 
 const sourceColors: Record<string, string> = {
-  resume: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10",
-  settings: "text-violet-300 border-violet-500/30 bg-violet-500/10",
-  cache: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
-  model: "text-amber-300 border-amber-500/30 bg-amber-500/10",
+  resume: "text-cyan-700 border-cyan-500/30 bg-cyan-500/10",
+  settings: "text-violet-700 border-violet-500/30 bg-violet-500/10",
+  cache: "text-emerald-700 border-emerald-500/30 bg-emerald-500/10",
+  model: "text-amber-700 border-amber-500/30 bg-amber-500/10",
   user: "text-[var(--color-fg-muted)] border-[var(--color-border-strong)] bg-[var(--color-surface-1)]",
 };
 
 const verdictColors: Record<string, string> = {
-  Strong: "text-emerald-300",
-  "On the line": "text-amber-300",
-  Weak: "text-red-300",
+  Strong: "text-emerald-700",
+  "On the line": "text-amber-700",
+  Weak: "text-red-700",
 };
 
 export default async function ApplicationDetailPage({
@@ -138,8 +138,8 @@ export default async function ApplicationDetailPage({
                         <div
                           className={cn(
                             "flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-mono transition-colors",
-                            done && "bg-emerald-500/15 border-emerald-500/40 text-emerald-300",
-                            active && "bg-cyan-500/15 border-cyan-500/40 text-cyan-300 ring-2 ring-cyan-500/20",
+                            done && "bg-emerald-500/15 border-emerald-500/50 text-emerald-700",
+                            active && "bg-cyan-500/15 border-cyan-500/50 text-cyan-700 ring-2 ring-cyan-500/25",
                             !done && !active && "bg-[var(--color-bg)] border-[var(--color-border)] text-[var(--color-fg-subtle)]"
                           )}
                         >
@@ -189,8 +189,8 @@ export default async function ApplicationDetailPage({
                   <div className="ml-2 flex h-5 items-center rounded bg-[var(--color-bg)] px-2 text-[10px] text-[var(--color-fg-subtle)] font-mono">
                     {app.jobUrl}
                   </div>
-                  <span className="ml-auto flex items-center gap-1.5 text-[10px] text-emerald-300 font-mono">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
+                  <span className="ml-auto flex items-center gap-1.5 text-[10px] text-emerald-700 font-mono">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
                     Browserbase · Live
                   </span>
                 </div>

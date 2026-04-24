@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Search, Bell, ChevronDown } from "lucide-react";
+import { RoomToggle } from "@/components/room/room-toggle";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
@@ -48,6 +49,8 @@ export function Topnav() {
           })}
         </nav>
 
+        <RoomToggle />
+
         <div className="ml-auto flex items-center gap-2">
           <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-80">
             <Search className="h-3.5 w-3.5" />
@@ -60,7 +63,7 @@ export function Topnav() {
             <Bell className="h-4 w-4" />
           </Button>
           <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] pl-1 pr-2 hover:border-[var(--color-border-strong)] transition-colors">
-            <span className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-cyan-400 to-blue-600 text-[10px] font-medium">
+            <span className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-cyan-500 to-blue-700 text-[10px] font-medium text-white">
               MH
             </span>
             <ChevronDown className="h-3 w-3 text-[var(--color-fg-subtle)]" />
