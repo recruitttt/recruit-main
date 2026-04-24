@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 import { CompanyLogo } from "@/components/ui/logo";
 
@@ -73,36 +72,25 @@ export function AgentTicker() {
         </span>
       </span>
 
-      <div className="relative flex items-center gap-2 min-w-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={ev.company}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="flex items-center gap-2.5 min-w-0"
-          >
-            <CompanyLogo
-              bg={ev.logoBg}
-              text={ev.logoText}
-              size={22}
-              className="rounded-[5px]"
-            />
-            <span className="font-sans text-[14px] text-[var(--color-fg)] truncate font-medium tracking-tight">
-              {ev.company}
-            </span>
-            <span className="hidden sm:inline text-[var(--color-fg-subtle)] truncate text-[12px]">
-              {ev.role}
-            </span>
-            <span className="hidden sm:inline text-[var(--color-fg-subtle)]">
-              →
-            </span>
-            <span className="hidden sm:inline text-[var(--color-accent)] truncate text-[12px]">
-              {ev.text}
-            </span>
-          </motion.div>
-        </AnimatePresence>
+      <div key={ev.company} className="relative flex items-center gap-2.5 min-w-0 transition-opacity duration-300">
+        <CompanyLogo
+          bg={ev.logoBg}
+          text={ev.logoText}
+          size={22}
+          className="rounded-[5px]"
+        />
+        <span className="font-sans text-[14px] text-[var(--color-fg)] truncate font-medium tracking-tight">
+          {ev.company}
+        </span>
+        <span className="hidden sm:inline text-[var(--color-fg-subtle)] truncate text-[12px]">
+          {ev.role}
+        </span>
+        <span className="hidden sm:inline text-[var(--color-fg-subtle)]">
+          →
+        </span>
+        <span className="hidden sm:inline text-[var(--color-accent)] truncate text-[12px]">
+          {ev.text}
+        </span>
       </div>
     </div>
   );

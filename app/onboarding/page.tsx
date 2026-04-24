@@ -24,6 +24,7 @@ type State = {
   resume: { resumeFilename?: string };
   links: Record<string, string>;
   prefs: Record<string, string[]>;
+  searchedRole?: string;
 };
 
 const initial: State = {
@@ -39,12 +40,18 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [state, setState] = useState<State>(initial);
 
-  // hydrate from localStorage once on mount
+  // hydrate from localStorage + URL ?role= once on mount
   useEffect(() => {
+    let next: State = initial;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setState({ ...initial, ...JSON.parse(raw) });
+      if (raw) next = { ...initial, ...JSON.parse(raw) };
     } catch {}
+    try {
+      const role = new URLSearchParams(window.location.search).get("role");
+      if (role) next = { ...next, searchedRole: role };
+    } catch {}
+    setState(next);
   }, []);
 
   // persist on every state change
@@ -70,6 +77,16 @@ export default function OnboardingPage() {
       {step < steps.length - 1 && (
         <div className="py-4">
           <StepProgress current={step} steps={steps} />
+        </div>
+      )}
+
+      {/* searched-role acknowledgement */}
+      {state.searchedRole && step < steps.length - 1 && (
+        <div className="mt-2 inline-flex items-center gap-2 self-start rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] py-1 pl-2 pr-3 text-[12px] font-mono text-[var(--color-accent)] max-w-full">
+          <span className="text-[10px] uppercase tracking-[0.15em] opacity-70 shrink-0">
+            Looking for
+          </span>
+          <span className="truncate">{state.searchedRole}</span>
         </div>
       )}
 
