@@ -66,7 +66,7 @@ function IntakeInput({
         onSubmit(trimmed);
         setValue("");
       }}
-      className="pointer-events-auto absolute bottom-6 left-1/2 z-20 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 items-center gap-2 rounded-[20px] border border-white/55 bg-[#F8FBFF]/92 p-2 shadow-[0_24px_48px_-24px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.80)] backdrop-blur-xl"
+      className="pointer-events-auto absolute bottom-6 left-1/2 z-20 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 items-center gap-2 rounded-[20px] border border-white/55 bg-[#F8FBFF]/92 p-2 shadow-[0_24px_48px_-24px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.80)] backdrop-blur-xl transition-shadow duration-200 hover:shadow-[0_8px_20px_-12px_rgba(15,23,42,0.18)] focus-within:shadow-[0_12px_28px_-12px_rgba(15,23,42,0.22)] focus-within:ring-2 focus-within:ring-sky-400/25 focus-within:ring-offset-1"
     >
       <div className="pl-3 pr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6B7A90]">
         {pending ? "scout…" : `q${turnIndex + 1}`}
@@ -76,7 +76,7 @@ function IntakeInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={pending ? "Scout's thinking…" : "Tell Scout…"}
-        className="flex-1 bg-transparent px-2 py-2 text-[14px] text-[#101827] placeholder:text-[#6B7A90] outline-none disabled:cursor-not-allowed"
+        className="flex-1 bg-transparent px-2 text-[14px] leading-none text-[#101827] outline-none placeholder:leading-none placeholder:text-[#6B7A90] focus-visible:[outline:none] disabled:cursor-not-allowed"
         autoComplete="off"
         disabled={pending}
       />
