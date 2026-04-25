@@ -5,6 +5,22 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { STATIONS } from "@/lib/room/stations";
+import { InteractiveHotspot } from "./interactive-hotspot";
+import { useRoomStore } from "./room-store";
+
+function StationHoverRing({ stationKey, accent }: { stationKey: string; accent: string }) {
+  const hoveredKey = useRoomStore((s) => s.hoveredObjectKey);
+  const focused = useRoomStore(
+    (s) => s.focusTarget?.kind === "station" && `station:${s.focusTarget.id}` === stationKey,
+  );
+  const visible = hoveredKey === stationKey || focused;
+  return (
+    <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={visible}>
+      <ringGeometry args={[0.78, 0.92, 48]} />
+      <meshBasicMaterial color={accent} transparent opacity={0.55} toneMapped={false} />
+    </mesh>
+  );
+}
 
 export function RoomStations() {
   return (
@@ -31,6 +47,13 @@ function JobBoard() {
 
   return (
     <group position={[x, 0, z]}>
+      <InteractiveHotspot
+        target={{ kind: "station", id: "jobboard" }}
+        hotspotKey="station:jobboard"
+        size={[2.4, 2.6, 1.2]}
+        position={[0, 1.3, 0]}
+      />
+      <StationHoverRing stationKey="station:jobboard" accent={station.accent} />
       <mesh position={[0, 0.04, 0]}>
         <cylinderGeometry args={[0.55, 0.6, 0.08, 24]} />
         <meshStandardMaterial color="#C8BDA0" roughness={0.9} />
@@ -75,6 +98,13 @@ function Workbench() {
 
   return (
     <group position={[x, 0, z]}>
+      <InteractiveHotspot
+        target={{ kind: "station", id: "workbench" }}
+        hotspotKey="station:workbench"
+        size={[2.0, 1.8, 1.4]}
+        position={[0, 0.9, 0]}
+      />
+      <StationHoverRing stationKey="station:workbench" accent={station.accent} />
       <RoundedBox args={[1.8, 0.08, 1.05]} radius={0.025} smoothness={4} position={[0, 0.82, 0]}>
         <meshStandardMaterial color="#D9C9A7" roughness={0.78} />
       </RoundedBox>
@@ -129,6 +159,13 @@ function ReviewPanel() {
   ];
   return (
     <group position={[x, 0, z]}>
+      <InteractiveHotspot
+        target={{ kind: "station", id: "review" }}
+        hotspotKey="station:review"
+        size={[2.4, 2.6, 1.2]}
+        position={[0, 1.3, 0]}
+      />
+      <StationHoverRing stationKey="station:review" accent={station.accent} />
       <mesh position={[0, 0.04, 0]}><cylinderGeometry args={[0.68, 0.72, 0.08, 32]} /><meshStandardMaterial color="#D9C9A7" roughness={0.88} /></mesh>
       <mesh position={[0, 0.1, 0]}><cylinderGeometry args={[0.55, 0.55, 0.04, 32]} /><meshStandardMaterial color="#CBB990" roughness={0.85} /></mesh>
       <group ref={ref}>
@@ -159,6 +196,13 @@ function SubmitTerminal() {
   });
   return (
     <group position={[x, 0, z]}>
+      <InteractiveHotspot
+        target={{ kind: "station", id: "submit" }}
+        hotspotKey="station:submit"
+        size={[1.6, 2.4, 1.2]}
+        position={[0, 1.2, 0]}
+      />
+      <StationHoverRing stationKey="station:submit" accent={station.accent} />
       <RoundedBox args={[1.1, 1.6, 0.7]} radius={0.06} smoothness={4} position={[0, 0.8, 0]}>
         <meshStandardMaterial color="#E8DFC9" roughness={0.85} />
       </RoundedBox>
@@ -189,6 +233,13 @@ function CalendarDesk() {
   }, []);
   return (
     <group position={[x, 0, z]}>
+      <InteractiveHotspot
+        target={{ kind: "station", id: "calendar" }}
+        hotspotKey="station:calendar"
+        size={[2.0, 3.0, 1.3]}
+        position={[0, 1.6, 0]}
+      />
+      <StationHoverRing stationKey="station:calendar" accent={station.accent} />
       <RoundedBox args={[1.5, 0.08, 1.0]} radius={0.025} smoothness={4} position={[0, 0.82, 0]}>
         <meshStandardMaterial color="#D9C9A7" roughness={0.78} />
       </RoundedBox>

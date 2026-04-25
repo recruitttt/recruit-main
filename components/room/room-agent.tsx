@@ -13,6 +13,7 @@ import {
 } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
 import { AgentFigure, useAgentRefs } from "./agent-figure";
+import { AgentJobCard } from "./agent-job-card";
 import { useRoomStore } from "./room-store";
 
 type Props = {
@@ -164,6 +165,8 @@ export function RoomAgent({ agentId }: Props) {
   const handleOut = (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHovered(null); document.body.style.cursor = ""; };
   const handleClick = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); setSelected(selected ? null : agentId); };
 
+  const showJobCard = !scoutInterlude;
+
   return (
     <AgentFigure
       agentId={agentId}
@@ -173,7 +176,9 @@ export function RoomAgent({ agentId }: Props) {
       onPointerOver={handleOver}
       onPointerOut={handleOut}
       onClick={handleClick}
-    />
+    >
+      {showJobCard ? <AgentJobCard agentId={agentId} /> : null}
+    </AgentFigure>
   );
 }
 

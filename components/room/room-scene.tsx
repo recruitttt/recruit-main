@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { ContactShadows, AdaptiveDpr, PerformanceMonitor } from "@react-three/drei";
+import { ContactShadows, AdaptiveDpr, Environment, PerformanceMonitor } from "@react-three/drei";
 import * as THREE from "three";
 import { RoomLighting } from "./room-lighting";
 import { RoomFloor } from "./room-floor";
@@ -12,6 +12,7 @@ import { RoomCamera } from "./room-camera";
 import { RoomFurniture } from "./room-furniture";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
+import { PlayerCharacter } from "./player-character";
 
 export type RoomSceneProps = {
   introPhase?: RoomIntroPhase;
@@ -27,7 +28,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
 
   return (
     <Canvas
-      shadows={false}
+      shadows="soft"
       frameloop="always"
       dpr={[1, 2]}
       gl={{
@@ -44,12 +45,16 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
     >
       <PerformanceMonitor flipflops={3} />
       <AdaptiveDpr pixelated={false} />
+      <Suspense fallback={null}>
+        <Environment preset="apartment" background={false} environmentIntensity={0.55} />
+      </Suspense>
       <RoomLighting />
       <IntroRevealGroup phase={introPhase}>
         <RoomFloor />
         <RoomFurniture />
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
+        {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows
           position={[0, 0.004, -0.4]}
           opacity={0.38}

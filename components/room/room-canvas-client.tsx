@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Maximize2, Minimize2 } from "lucide-react";
-import { RoomDetailPanel } from "./room-detail-panel";
+import { Footprints, Maximize2, MessageSquare, Minimize2 } from "lucide-react";
+import { FocusPanel } from "./focus-panel";
+import { FlatChatOverlay } from "./flat-chat-overlay";
 import { ScoutIntakeInput } from "./scout-intake-input";
 import { useRoomStore, hasCompletedRoomIntake, markRoomIntakeDone } from "./room-store";
 import type { RoomSceneProps } from "./room-scene";
@@ -37,6 +38,10 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
   const startIntake = useRoomStore((s) => s.startIntake);
   const intakePhase = useRoomStore((s) => s.intakePhase);
   const intakeActive = intakePhase !== "inactive";
+  const playerMode = useRoomStore((s) => s.playerMode);
+  const togglePlayerMode = useRoomStore((s) => s.togglePlayerMode);
+  const chatMode = useRoomStore((s) => s.chatMode);
+  const setChatMode = useRoomStore((s) => s.setChatMode);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -79,17 +84,67 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
     >
       <RoomScene introPhase={introPhase} onReady={onSceneReady} />
       <div className={`pointer-events-none absolute inset-0 ${isFullscreen ? "" : "rounded-[24px]"} ring-1 ring-inset ring-white/20`} />
-      {showDetailPanel && !intakeActive ? <RoomDetailPanel /> : null}
+      {showDetailPanel && !intakeActive ? <FocusPanel /> : null}
       {!introPhase ? <ScoutIntakeInput /> : null}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        className="pointer-events-auto absolute right-4 top-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-[#F8FBFF]/82 text-[#101827] shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
-      >
-        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </button>
+      <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2">
+        {intakeActive ? (
+          <button
+            type="button"
+            onClick={() => setChatMode(chatMode === "3d" ? "flat" : "3d")}
+            aria-pressed={chatMode === "flat"}
+            aria-label={chatMode === "flat" ? "Back to 3D room" : "Open flat chat"}
+            title={chatMode === "flat" ? "Back to 3D room" : "Switch to flat chat"}
+            className={
+              (chatMode === "flat"
+                ? "border-sky-400/55 bg-sky-50 text-sky-900"
+                : "border-white/55 bg-[#F8FBFF]/82 text-[#101827]") +
+              " pointer-events-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
+            }
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+              {chatMode === "flat" ? "3D room" : "flat chat"}
+            </span>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={togglePlayerMode}
+          aria-pressed={playerMode === "walking"}
+          aria-label={playerMode === "walking" ? "Disable walk mode" : "Enable walk mode"}
+          title={playerMode === "walking" ? "Walking · click to disable" : "Walk around (W A S D)"}
+          className={
+            (playerMode === "walking"
+              ? "border-[#F97316]/65 bg-[#FFF6EE] text-[#9A3412]"
+              : "border-white/55 bg-[#F8FBFF]/82 text-[#101827]") +
+            " pointer-events-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
+          }
+        >
+          <Footprints className="h-4 w-4" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+            {playerMode === "walking" ? "walking" : "walk"}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-[#F8FBFF]/82 text-[#101827] shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+      </div>
+      {playerMode === "walking" ? <WasdHint /> : null}
+      <FlatChatOverlay />
+    </div>
+  );
+}
+
+function WasdHint() {
+  return (
+    <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 select-none rounded-full border border-white/55 bg-[#F8FBFF]/92 px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-[#6B7A90] shadow-[0_10px_22px_-12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-md">
+      <span className="text-[#101827]">W A S D</span> walk · <span className="text-[#101827]">E</span> talk
     </div>
   );
 }
