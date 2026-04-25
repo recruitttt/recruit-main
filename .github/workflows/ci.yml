@@ -3,10 +3,12 @@ name: CI
 on:
   push:
     branches:
+      - test-implementation
       - dev
       - prod
   pull_request:
     branches:
+      - test-implementation
       - dev
       - prod
   workflow_dispatch:

@@ -1,0 +1,203 @@
+import assert from "node:assert/strict";
+
+import { POST as postResearchJob } from "../app/api/research/job/route";
+import { POST as postTailorJob } from "../app/api/tailor/job/route";
+import { POST as postParseResume } from "../app/api/parse/resume/route";
+import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
+import { GET as getJobDetail } from "../app/api/dashboard/job-detail/route";
+import { POST as postCustomJd } from "../app/api/dashboard/custom-jd/route";
+import { GET as getFollowups, POST as postFollowups } from "../app/api/dashboard/followups/route";
+import { POST as postDashboardTailorJob } from "../app/api/dashboard/tailor-job/route";
+import type { UserProfile } from "../lib/profile";
+import type { Job, JobResearch } from "../lib/tailor/types";
+import { assertJsonResponse, badJsonRequest, jsonRequest, withEnvAsync } from "./helpers";
+
+async function main() {
+await assertJsonResponse(await postResearchJob(badJsonRequest()), 400, {
+  ok: false,
+  reason: "bad_request",
+});
+await assertJsonResponse(await postResearchJob(jsonRequest({})), 400, {
+  ok: false,
+  reason: "missing_job_fields",
+});
+await assertJsonResponse(
+  await postResearchJob(jsonRequest({ job: { id: "job_1", company: "Acme", role: "Engineer" } })),
+  400,
+  { ok: false, reason: "missing_job_url" }
+);
+await withEnvAsync({ OPENAI_API_KEY: undefined }, async () => {
+  await assertJsonResponse(
+    await postResearchJob(
+      jsonRequest({
+        job: {
+          id: "job_1",
+          company: "Acme",
+          role: "Engineer",
+          jobUrl: "https://jobs.example/acme/1",
+        },
+      })
+    ),
+    503,
+    { ok: false, reason: "no_api_key" }
+  );
+});
+
+await assertJsonResponse(await postTailorJob(badJsonRequest()), 400, {
+  ok: false,
+  reason: "bad_request",
+});
+await assertJsonResponse(await postTailorJob(jsonRequest({})), 400, {
+  ok: false,
+  reason: "missing_profile_or_research_or_job",
+});
+
+const job: Job = {
+  id: "job_1",
+  company: "Acme",
+  role: "Backend Engineer",
+  jobUrl: "https://jobs.example/acme/1",
+};
+const research: JobResearch = {
+  jobUrl: job.jobUrl,
+  company: job.company,
+  role: job.role,
+  jdSummary: "Build APIs.",
+  responsibilities: ["Build APIs"],
+  requirements: ["TypeScript"],
+  niceToHaves: [],
+  techStack: ["TypeScript"],
+  companyMission: "",
+  companyProducts: [],
+  cultureSignals: [],
+  source: "title-only",
+  modelDurationMs: 0,
+};
+const incompleteProfile = {
+  name: "Ada",
+  email: "ada@example.com",
+  links: {},
+  experience: [],
+  education: [],
+  skills: [],
+  prefs: { roles: [], locations: [] },
+  suggestions: [],
+  provenance: {},
+  log: [],
+  updatedAt: "2026-04-25T00:00:00.000Z",
+} satisfies UserProfile;
+
+await assertJsonResponse(
+  await postTailorJob(jsonRequest({ profile: incompleteProfile, research, job })),
+  400,
+  { ok: false, reason: "profile_incomplete" }
+);
+await withEnvAsync({ OPENAI_API_KEY: undefined }, async () => {
+  await assertJsonResponse(
+    await postTailorJob(
+      jsonRequest({
+        profile: {
+          ...incompleteProfile,
+          experience: [{ company: "Acme", title: "Engineer" }],
+        },
+        research,
+        job,
+      })
+    ),
+    503,
+    { ok: false, reason: "no_api_key" }
+  );
+});
+
+await assertJsonResponse(await postParseResume(badJsonRequest()), 400, {
+  ok: false,
+  reason: "bad_request",
+});
+await assertJsonResponse(
+  await postParseResume(new Request("http://test.local/api/parse/resume", { method: "POST", body: new FormData() })),
+  400,
+  { ok: false, reason: "missing_file" }
+);
+
+await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
+  await assertJsonResponse(await postRunFirst3(), 500, {
+    error: "NEXT_PUBLIC_CONVEX_URL is not configured.",
+  });
+  await assertJsonResponse(
+    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=job_1")),
+    503,
+    { error: "missing_convex_url" }
+  );
+  await assertJsonResponse(await postCustomJd(jsonRequest({})), 503, {
+    ok: false,
+    reason: "missing_convex_url",
+  });
+  const followupsJson = await assertJsonResponse(await getFollowups(), 200, {});
+  assert.deepEqual(followupsJson.summary, {
+    applications: [],
+    dueTasks: [],
+    scheduledTasks: [],
+    counts: {
+      applications: 0,
+      applied: 0,
+      due: 0,
+      responses: 0,
+      interviews: 0,
+      rejectedClosed: 0,
+    },
+  });
+  await assertJsonResponse(await postFollowups(jsonRequest({ action: "mark-applied" })), 503, {
+    ok: false,
+    reason: "missing_convex_url",
+  });
+  await assertJsonResponse(await postDashboardTailorJob(jsonRequest({ jobId: "job_1" })), 503, {
+    ok: false,
+    reason: "missing_convex_url",
+  });
+});
+
+await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test" }, async () => {
+  await assertJsonResponse(
+    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail")),
+    400,
+    { error: "missing_job_id" }
+  );
+  await assertJsonResponse(await postCustomJd(badJsonRequest()), 400, {
+    ok: false,
+    reason: "bad_request",
+  });
+  await assertJsonResponse(
+    await postCustomJd(jsonRequest({ company: "Acme", role: "Engineer", descriptionPlain: "" })),
+    400,
+    { ok: false, reason: "missing_required_custom_jd_fields" }
+  );
+  await assertJsonResponse(await postFollowups(badJsonRequest()), 400, {
+    ok: false,
+    reason: "bad_request",
+  });
+  await assertJsonResponse(await postFollowups(jsonRequest({ action: "unknown" })), 400, {
+    ok: false,
+    reason: "unknown_action",
+  });
+  await assertJsonResponse(
+    await postFollowups(jsonRequest({ action: "mark-applied", company: "", title: "" })),
+    400,
+    { ok: false, reason: "missing_application_fields" }
+  );
+  await assertJsonResponse(await postDashboardTailorJob(badJsonRequest()), 400, {
+    ok: false,
+    reason: "bad_request",
+  });
+  await assertJsonResponse(await postDashboardTailorJob(jsonRequest({})), 400, {
+    ok: false,
+    reason: "missing_job",
+  });
+});
+
+console.log("API contract tests passed");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

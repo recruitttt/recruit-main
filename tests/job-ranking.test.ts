@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildProfileSearchQuery,
   evaluateHardFilters,
+  normalizeScore,
   parseCompensation,
   type RankingJob,
   type RankingProfile,
@@ -58,6 +59,34 @@ const sales = evaluateHardFilters(
 );
 assert.equal(sales.status, "rejected");
 assert.ok(sales.reasons.includes("role_family_business_mismatch"));
+
+const localOnlyProfile: RankingProfile = {
+  ...seniorBackendProfile,
+  prefs: { ...seniorBackendProfile.prefs, locations: ["San Francisco"] },
+};
+const locationMismatch = evaluateHardFilters(
+  { ...baseJob, location: "New York", isRemote: false },
+  localOnlyProfile
+);
+assert.equal(locationMismatch.status, "rejected");
+assert.ok(locationMismatch.reasons.includes("location_mismatch"));
+
+const remoteAllowed = evaluateHardFilters(
+  { ...baseJob, location: "Remote - US", isRemote: true },
+  localOnlyProfile
+);
+assert.equal(remoteAllowed.status, "kept");
+
+const exactFamilyScore = evaluateHardFilters(baseJob, seniorBackendProfile).ruleScore;
+const genericScore = evaluateHardFilters(
+  { ...baseJob, title: "Software Engineer", department: undefined, team: undefined },
+  seniorBackendProfile
+).ruleScore;
+assert.ok(exactFamilyScore > genericScore);
+
+assert.equal(parseCompensation("Competitive equity only").max, null);
+assert.equal(normalizeScore(25, 50), 50);
+assert.equal(normalizeScore(Number.NaN, 50), 0);
 
 const query = buildProfileSearchQuery(seniorBackendProfile);
 assert.match(query, /Senior Backend Engineer/);
