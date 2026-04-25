@@ -1,0 +1,211 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+const isoString = v.string();
+const legacyTable = () => defineTable(v.any());
+
+export default defineSchema({
+  // Preserve indexes that already exist in the shared dev deployment. These
+  // tables are not part of the Ashby v1 path, so keep them schemaless here.
+  alerts: legacyTable().index("by_created", ["created_at"]),
+  audit_events: legacyTable().index("by_user_created", [
+    "user_id",
+    "created_at",
+  ]),
+  batch_jobs: legacyTable()
+    .index("by_provider_batch", ["provider_batch_id"])
+    .index("by_status", ["status"]),
+  batch_results: legacyTable().index("by_outbox", ["outbox_id"]),
+  consent_preferences: legacyTable().index("by_user_domain", [
+    "user_id",
+    "domain",
+  ]),
+  dlq_items: legacyTable().index("by_user", ["user_id"]),
+  essay_jobs: legacyTable().index("by_user", ["user_id"]),
+  llm_outbox: legacyTable()
+    .index("by_batch_ref", ["batch_ref"])
+    .index("by_dedup_key", ["template", "dedup_key"])
+    .index("by_status_urgency", ["status", "urgency"]),
+  processed_stripe_events: legacyTable().index("by_event_id", ["event_id"]),
+  queue_applications: legacyTable().index("by_user_status", [
+    "user_id",
+    "status",
+  ]),
+  ranking_jobs: legacyTable().index("by_user", ["user_id"]),
+  subscriptions: legacyTable().index("by_user", ["user_id"]),
+  tailoring_jobs: legacyTable().index("by_user", ["user_id"]),
+  users: legacyTable().index("by_clerk_id", ["clerk_id"]),
+
+  demoProfiles: defineTable({
+    demoUserId: v.string(),
+    profile: v.any(),
+    updatedAt: isoString,
+  }).index("by_demo_user", ["demoUserId"]),
+
+  ashbySources: defineTable({
+    company: v.string(),
+    slug: v.string(),
+    careersUrl: v.string(),
+    enabled: v.boolean(),
+    notes: v.optional(v.string()),
+    seededFrom: v.string(),
+    updatedAt: isoString,
+  })
+    .index("by_slug", ["slug"])
+    .index("by_enabled", ["enabled"]),
+
+  ingestionRuns: defineTable({
+    demoUserId: v.string(),
+    status: v.union(
+      v.literal("fetching"),
+      v.literal("fetched"),
+      v.literal("ranking"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    startedAt: isoString,
+    completedAt: v.optional(isoString),
+    sourceCount: v.number(),
+    fetchedCount: v.number(),
+    rawJobCount: v.number(),
+    filteredCount: v.number(),
+    survivorCount: v.number(),
+    llmScoredCount: v.number(),
+    recommendedCount: v.number(),
+    errorCount: v.number(),
+    errors: v.array(
+      v.object({
+        source: v.string(),
+        message: v.string(),
+      })
+    ),
+    model: v.optional(v.string()),
+    scoringMode: v.optional(v.string()),
+  })
+    .index("by_demo_user_started", ["demoUserId", "startedAt"])
+    .index("by_status", ["status"]),
+
+  ingestedJobs: defineTable({
+    runId: v.id("ingestionRuns"),
+    sourceId: v.optional(v.id("ashbySources")),
+    demoUserId: v.string(),
+    company: v.string(),
+    sourceSlug: v.string(),
+    title: v.string(),
+    normalizedTitle: v.string(),
+    location: v.optional(v.string()),
+    isRemote: v.optional(v.boolean()),
+    workplaceType: v.optional(v.string()),
+    employmentType: v.optional(v.string()),
+    department: v.optional(v.string()),
+    team: v.optional(v.string()),
+    descriptionPlain: v.optional(v.string()),
+    compensationSummary: v.optional(v.string()),
+    salaryMin: v.optional(v.number()),
+    salaryMax: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    jobUrl: v.string(),
+    applyUrl: v.optional(v.string()),
+    publishedAt: v.optional(isoString),
+    dedupeKey: v.string(),
+    raw: v.any(),
+    createdAt: isoString,
+  })
+    .index("by_run", ["runId"])
+    .index("by_job_url", ["jobUrl"])
+    .index("by_dedupe", ["dedupeKey"]),
+
+  jobFilterDecisions: defineTable({
+    runId: v.id("ingestionRuns"),
+    jobId: v.id("ingestedJobs"),
+    status: v.union(v.literal("kept"), v.literal("rejected")),
+    reasons: v.array(v.string()),
+    ruleScore: v.number(),
+    createdAt: isoString,
+  })
+    .index("by_run", ["runId"])
+    .index("by_job", ["jobId"]),
+
+  jobScores: defineTable({
+    runId: v.id("ingestionRuns"),
+    jobId: v.id("ingestedJobs"),
+    bm25Score: v.number(),
+    bm25Normalized: v.number(),
+    ruleScore: v.number(),
+    llmScore: v.optional(v.number()),
+    totalScore: v.number(),
+    scoringMode: v.string(),
+    rationale: v.optional(v.string()),
+    strengths: v.array(v.string()),
+    risks: v.array(v.string()),
+    createdAt: isoString,
+  })
+    .index("by_run", ["runId"])
+    .index("by_job", ["jobId"]),
+
+  jobRecommendations: defineTable({
+    demoUserId: v.string(),
+    runId: v.id("ingestionRuns"),
+    jobId: v.id("ingestedJobs"),
+    rank: v.number(),
+    score: v.number(),
+    llmScore: v.optional(v.number()),
+    company: v.string(),
+    title: v.string(),
+    location: v.optional(v.string()),
+    jobUrl: v.string(),
+    compensationSummary: v.optional(v.string()),
+    rationale: v.optional(v.string()),
+    strengths: v.array(v.string()),
+    risks: v.array(v.string()),
+    createdAt: isoString,
+  })
+    .index("by_demo_user", ["demoUserId"])
+    .index("by_run", ["runId"]),
+
+  tailoredApplications: defineTable({
+    demoUserId: v.string(),
+    jobId: v.id("ingestedJobs"),
+    runId: v.optional(v.id("ingestionRuns")),
+    status: v.union(
+      v.literal("tailoring"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    job: v.any(),
+    research: v.optional(v.any()),
+    tailoredResume: v.optional(v.any()),
+    tailoringScore: v.optional(v.number()),
+    keywordCoverage: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    pdfReady: v.boolean(),
+    pdfFilename: v.optional(v.string()),
+    pdfByteLength: v.optional(v.number()),
+    error: v.optional(v.string()),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_demo_user", ["demoUserId"])
+    .index("by_job", ["jobId"])
+    .index("by_run", ["runId"]),
+
+  jobPipelineArtifacts: defineTable({
+    demoUserId: v.string(),
+    runId: v.optional(v.id("ingestionRuns")),
+    jobId: v.id("ingestedJobs"),
+    kind: v.union(
+      v.literal("ingested_description"),
+      v.literal("ranking_score"),
+      v.literal("research_snapshot"),
+      v.literal("tailored_resume"),
+      v.literal("pdf_ready")
+    ),
+    title: v.string(),
+    content: v.optional(v.string()),
+    payload: v.optional(v.any()),
+    createdAt: isoString,
+  })
+    .index("by_job", ["jobId"])
+    .index("by_run", ["runId"])
+    .index("by_demo_user", ["demoUserId"]),
+});

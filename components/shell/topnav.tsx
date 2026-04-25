@@ -20,14 +20,14 @@ export function Topnav() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
-      <div className="flex h-14 items-center gap-6 px-6">
-        <Link href="/dashboard">
+      <div className="flex h-14 min-w-0 items-center gap-3 px-4 md:gap-6 md:px-6">
+        <Link href="/dashboard" className="shrink-0">
           <Wordmark />
         </Link>
 
-        <div className="h-5 w-px bg-[var(--color-border)]" />
+        <div className="hidden h-5 w-px shrink-0 bg-[var(--color-border)] sm:block" />
 
-        <nav className="flex items-center gap-1">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const active =
               pathname === item.href ||
@@ -37,7 +37,7 @@ export function Topnav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-[13px] font-medium tracking-tight transition-colors",
+                  "shrink-0 rounded-md px-3 py-1.5 text-[13px] font-medium tracking-tight transition-colors",
                   active
                     ? "text-[var(--color-fg)] bg-[var(--color-surface-1)]"
                     : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
@@ -49,7 +49,7 @@ export function Topnav() {
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto hidden items-center gap-2 lg:flex">
           <RoomToggle />
           <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-80">
             <Search className="h-3.5 w-3.5" />
