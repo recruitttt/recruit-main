@@ -148,11 +148,11 @@ export async function getApplicationDetail(id: string): Promise<ApplicationDetai
   if (seeded) return seededDetail(seeded);
 
   const client = getConvexClient();
-  if (!client) return fallbackDetail(id, "Convex is not configured, so this live application detail is shown as a fallback shell.");
+  if (!client) return fallbackDetail(id, "Application details are unavailable in this deployment.");
 
   try {
     const detail = await client.query(api.ashby.jobDetail, { jobId: id as never }) as LiveJobDetail | null;
-    if (!detail?.job) return fallbackDetail(id, "No live Convex application record was found for this id.");
+    if (!detail?.job) return fallbackDetail(id, "No application record was found for this id.");
 
     const logs = await client.query(
       api.ashby.latestPipelineLogs,
@@ -319,9 +319,9 @@ function fallbackDetail(id: string, notice: string): ApplicationDetailModel {
     id,
     source: "fallback",
     notice,
-    company: "Live application",
-    role: "Application detail pending",
-    location: "Convex read model unavailable",
+    company: "Application record",
+    role: "Application record unavailable",
+    location: "Unavailable",
     provider: "Unknown",
     stage: "queued",
     matchScore: null,
@@ -334,7 +334,7 @@ function fallbackDetail(id: string, notice: string): ApplicationDetailModel {
     questionSummary: "0 live provider questions captured",
     cacheReuseCount: null,
     personaReviews: [],
-    artifacts: [{ title: "Live artifact pending", meta: "No Convex artifact loaded", kind: "preview" }],
+    artifacts: [{ title: "Artifact unavailable", meta: "No application artifact loaded", kind: "preview" }],
     summary: [
       { label: "Read model", value: "Fallback" },
       { label: "Live id", value: id.slice(-10) },
@@ -344,7 +344,7 @@ function fallbackDetail(id: string, notice: string): ApplicationDetailModel {
     events: [
       {
         id: "fallback",
-        time: new Date().toISOString(),
+        time: DEMO_STARTED_AT,
         stage: "read-model",
         level: "warning",
         message: notice,

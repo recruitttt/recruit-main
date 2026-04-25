@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  AlertTriangle,
   Check,
   Download,
   ExternalLink,
@@ -55,8 +56,10 @@ export default async function ApplicationDetailPage({
 }) {
   const { id } = await params;
   const app = await getApplicationDetail(id);
+  if (app.source === "fallback") return <FallbackApplicationPage app={app} />;
+
   const currentStageIndex = Math.max(stageOrder.indexOf(app.stage), 0);
-  const sourceTone = app.source === "live" ? "success" : app.source === "fallback" ? "warn" : "accent";
+  const sourceTone = app.source === "live" ? "success" : "accent";
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
@@ -362,6 +365,62 @@ export default async function ApplicationDetailPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function FallbackApplicationPage({ app }: { app: Awaited<ReturnType<typeof getApplicationDetail>> }) {
+  return (
+    <main className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <Link
+        href="/dashboard"
+        className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/55 bg-white/45 px-3 py-2 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition hover:bg-white/60 hover:text-slate-950"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to dashboard
+      </Link>
+
+      <section className="mt-6 overflow-hidden rounded-[24px] border border-white/55 bg-white/48 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+        <div className="border-b border-white/45 bg-white/35 px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill tone="warn">record unavailable</Pill>
+            <Pill tone="accent">safe fallback</Pill>
+          </div>
+        </div>
+
+        <div className="grid gap-6 px-5 py-7 sm:px-6 lg:grid-cols-[1fr_280px] lg:items-start">
+          <div className="min-w-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300/45 bg-amber-50/70 text-amber-700">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <h1 className="mt-5 max-w-2xl text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl">
+              Application record unavailable
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              This application detail could not be loaded. The dashboard is still available, and no application artifact or replay is being claimed for this record.
+            </p>
+            {app.notice && (
+              <div className="mt-5 rounded-[18px] border border-amber-300/55 bg-amber-50/60 px-4 py-3 text-sm leading-6 text-amber-800">
+                {app.notice}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[20px] border border-white/55 bg-white/42 p-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Requested id
+            </div>
+            <div className="mt-2 break-all font-mono text-xs text-slate-700">{app.id}</div>
+            <div className="mt-5 grid gap-2">
+              <Button variant="secondary" size="sm" disabled title="No tailored resume PDF is available for this record.">
+                <Download className="h-3.5 w-3.5" /> Resume PDF unavailable
+              </Button>
+              <Button variant="secondary" size="sm" disabled title="Replay artifacts are not available for this record.">
+                <Play className="h-3.5 w-3.5" /> Replay unavailable
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
