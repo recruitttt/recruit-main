@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:ranking": "tsx tests/job-ranking.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -14,7 +15,9 @@
     "@sparticuz/chromium-min": "^131.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.36.1",
     "lucide-react": "^1.9.0",
+    "minisearch": "^7.2.0",
     "motion": "^12.38.0",
     "next": "16.2.4",
     "openai": "^6.34.0",
@@ -36,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

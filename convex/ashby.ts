@@ -1,0 +1,603 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import {
+  internalMutationGeneric,
+  internalQueryGeneric,
+  mutationGeneric,
+  queryGeneric,
+} from "convex/server";
+import { v } from "convex/values";
+
+const query = queryGeneric;
+const mutation = mutationGeneric;
+const internalQuery = internalQueryGeneric;
+const internalMutation = internalMutationGeneric;
+
+const DEMO_USER_ID = "demo";
+
+export const upsertDemoProfileSnapshot = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    profile: v.any(),
+  },
+  returns: v.object({ demoUserId: v.string(), updatedAt: v.string() }),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const updatedAt = new Date().toISOString();
+    const existing = await ctx.db
+      .query("demoProfiles")
+      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { profile: args.profile, updatedAt });
+    } else {
+      await ctx.db.insert("demoProfiles", {
+        demoUserId,
+        profile: args.profile,
+        updatedAt,
+      });
+    }
+
+    return { demoUserId, updatedAt };
+  },
+});
+
+export const enabledAshbySources = query({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const sources = await ctx.db
+      .query("ashbySources")
+      .withIndex("by_enabled", (q) => q.eq("enabled", true))
+      .collect();
+    return sources.sort((a, b) => a.company.localeCompare(b.company));
+  },
+});
+
+export const latestIngestionRunSummary = query({
+  args: { demoUserId: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const run = await latestRun(ctx, demoUserId);
+    if (!run) return null;
+
+    const recommendations = await ctx.db
+      .query("jobRecommendations")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+
+    return {
+      ...run,
+      recommendations: recommendations.sort((a, b) => a.rank - b.rank),
+    };
+  },
+});
+
+export const currentRecommendations = query({
+  args: { demoUserId: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const run = await latestRun(ctx, demoUserId);
+    if (!run) return [];
+    const recommendations = await ctx.db
+      .query("jobRecommendations")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+    const sorted = recommendations.sort((a, b) => a.rank - b.rank);
+    return await Promise.all(
+      sorted.map(async (recommendation) => ({
+        ...recommendation,
+        job: await ctx.db.get(recommendation.jobId),
+      }))
+    );
+  },
+});
+
+export const jobDetail = query({
+  args: { jobId: v.id("ingestedJobs"), demoUserId: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const job = await ctx.db.get(args.jobId);
+    if (!job) return null;
+
+    const [decision, score, recommendation, tailoredApplication, artifacts] =
+      await Promise.all([
+        ctx.db
+          .query("jobFilterDecisions")
+          .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+          .first(),
+        ctx.db
+          .query("jobScores")
+          .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+          .first(),
+        ctx.db
+          .query("jobRecommendations")
+          .withIndex("by_run", (q) => q.eq("runId", job.runId))
+          .filter((q) => q.eq(q.field("jobId"), args.jobId))
+          .first(),
+        ctx.db
+          .query("tailoredApplications")
+          .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+          .filter((q) => q.eq(q.field("demoUserId"), demoUserId))
+          .first(),
+        ctx.db
+          .query("jobPipelineArtifacts")
+          .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+          .collect(),
+      ]);
+
+    return {
+      job,
+      decision,
+      score,
+      recommendation,
+      tailoredApplication,
+      artifacts: artifacts.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    };
+  },
+});
+
+export const upsertAshbySources = internalMutation({
+  args: { sources: v.array(v.any()) },
+  returns: v.object({ upserted: v.number() }),
+  handler: async (ctx, args) => {
+    let upserted = 0;
+    const now = new Date().toISOString();
+
+    for (const source of args.sources) {
+      const slug = String(source.slug ?? "").trim();
+      const company = String(source.company ?? "").trim();
+      if (!slug || !company) continue;
+
+      const existing = await ctx.db
+        .query("ashbySources")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+
+      const doc = {
+        company,
+        slug,
+        careersUrl: `https://jobs.ashbyhq.com/${slug}`,
+        enabled: source.enabled !== false,
+        notes:
+          typeof source.notes === "string" && source.notes.trim()
+            ? source.notes.trim()
+            : undefined,
+        seededFrom: String(source.seededFrom ?? "career-ops"),
+        updatedAt: now,
+      };
+
+      if (existing) {
+        await ctx.db.patch(existing._id, omitUndefined(doc));
+      } else {
+        await ctx.db.insert("ashbySources", omitUndefined(doc));
+      }
+      upserted++;
+    }
+
+    return { upserted };
+  },
+});
+
+export const listEnabledSourcesForAction = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const sources = await ctx.db
+      .query("ashbySources")
+      .withIndex("by_enabled", (q) => q.eq("enabled", true))
+      .collect();
+    const sorted = sources.sort((a, b) => a.company.localeCompare(b.company));
+    return typeof args.limit === "number" ? sorted.slice(0, args.limit) : sorted;
+  },
+});
+
+export const createIngestionRun = internalMutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    sourceCount: v.number(),
+  },
+  returns: v.id("ingestionRuns"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("ingestionRuns", {
+      demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      status: "fetching",
+      startedAt: new Date().toISOString(),
+      sourceCount: args.sourceCount,
+      fetchedCount: 0,
+      rawJobCount: 0,
+      filteredCount: 0,
+      survivorCount: 0,
+      llmScoredCount: 0,
+      recommendedCount: 0,
+      errorCount: 0,
+      errors: [],
+    });
+  },
+});
+
+export const storeFetchedJobs = internalMutation({
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+    sourceCount: v.number(),
+    fetchedCount: v.number(),
+    jobs: v.array(v.any()),
+    errors: v.array(v.object({ source: v.string(), message: v.string() })),
+  },
+  returns: v.object({ rawJobCount: v.number(), errorCount: v.number() }),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const now = new Date().toISOString();
+
+    for (const job of args.jobs) {
+      const jobId = await ctx.db.insert("ingestedJobs", omitUndefined({
+        runId: args.runId,
+        sourceId: job.sourceId,
+        demoUserId,
+        company: job.company,
+        sourceSlug: job.sourceSlug,
+        title: job.title,
+        normalizedTitle: job.normalizedTitle,
+        location: job.location,
+        isRemote: job.isRemote,
+        workplaceType: job.workplaceType,
+        employmentType: job.employmentType,
+        department: job.department,
+        team: job.team,
+        descriptionPlain: job.descriptionPlain,
+        compensationSummary: job.compensationSummary,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        currency: job.currency,
+        jobUrl: job.jobUrl,
+        applyUrl: job.applyUrl,
+        publishedAt: job.publishedAt,
+        dedupeKey: job.dedupeKey,
+        raw: job.raw,
+        createdAt: now,
+      }));
+      if (job.descriptionPlain) {
+        await ctx.db.insert("jobPipelineArtifacts", {
+          demoUserId,
+          runId: args.runId,
+          jobId,
+          kind: "ingested_description",
+          title: "Scraped job description",
+          content: job.descriptionPlain,
+          payload: {
+            sourceSlug: job.sourceSlug,
+            jobUrl: job.jobUrl,
+            company: job.company,
+            title: job.title,
+          },
+          createdAt: now,
+        });
+      }
+    }
+
+    await ctx.db.patch(args.runId, {
+      status: "fetched",
+      sourceCount: args.sourceCount,
+      fetchedCount: args.fetchedCount,
+      rawJobCount: args.jobs.length,
+      errorCount: args.errors.length,
+      errors: args.errors,
+    });
+
+    return { rawJobCount: args.jobs.length, errorCount: args.errors.length };
+  },
+});
+
+export const getRunForRanking = internalQuery({
+  args: { runId: v.id("ingestionRuns"), demoUserId: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const run = await ctx.db.get(args.runId);
+    const profile = await ctx.db
+      .query("demoProfiles")
+      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+      .unique();
+    const jobs = await ctx.db
+      .query("ingestedJobs")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+    return { run, profile: profile?.profile ?? {}, jobs };
+  },
+});
+
+export const markRunRanking = internalMutation({
+  args: { runId: v.id("ingestionRuns") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.runId, { status: "ranking" });
+    return null;
+  },
+});
+
+export const writeRankingResults = internalMutation({
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+    decisions: v.array(v.any()),
+    scores: v.array(v.any()),
+    recommendations: v.array(v.any()),
+    model: v.optional(v.string()),
+    scoringMode: v.string(),
+  },
+  returns: v.object({
+    filteredCount: v.number(),
+    survivorCount: v.number(),
+    llmScoredCount: v.number(),
+    recommendedCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    await deleteByRun(ctx, "jobFilterDecisions", args.runId);
+    await deleteByRun(ctx, "jobScores", args.runId);
+    await deleteByRun(ctx, "jobRecommendations", args.runId);
+
+    const now = new Date().toISOString();
+    for (const decision of args.decisions) {
+      await ctx.db.insert("jobFilterDecisions", {
+        runId: args.runId,
+        jobId: decision.jobId,
+        status: decision.status,
+        reasons: decision.reasons,
+        ruleScore: decision.ruleScore,
+        createdAt: now,
+      });
+    }
+
+    for (const score of args.scores) {
+      await ctx.db.insert("jobScores", omitUndefined({
+        runId: args.runId,
+        jobId: score.jobId,
+        bm25Score: score.bm25Score,
+        bm25Normalized: score.bm25Normalized,
+        ruleScore: score.ruleScore,
+        llmScore: score.llmScore,
+        totalScore: score.totalScore,
+        scoringMode: score.scoringMode,
+        rationale: score.rationale,
+        strengths: score.strengths,
+        risks: score.risks,
+        createdAt: now,
+      }));
+      await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+        demoUserId,
+        runId: args.runId,
+        jobId: score.jobId,
+        kind: "ranking_score",
+        title: "Ranking score",
+        content: score.rationale,
+        payload: {
+          bm25Score: score.bm25Score,
+          bm25Normalized: score.bm25Normalized,
+          ruleScore: score.ruleScore,
+          llmScore: score.llmScore,
+          totalScore: score.totalScore,
+          scoringMode: score.scoringMode,
+          strengths: score.strengths,
+          risks: score.risks,
+        },
+        createdAt: now,
+      }));
+    }
+
+    for (const recommendation of args.recommendations) {
+      await ctx.db.insert("jobRecommendations", omitUndefined({
+        demoUserId,
+        runId: args.runId,
+        jobId: recommendation.jobId,
+        rank: recommendation.rank,
+        score: recommendation.score,
+        llmScore: recommendation.llmScore,
+        company: recommendation.company,
+        title: recommendation.title,
+        location: recommendation.location,
+        jobUrl: recommendation.jobUrl,
+        compensationSummary: recommendation.compensationSummary,
+        rationale: recommendation.rationale,
+        strengths: recommendation.strengths,
+        risks: recommendation.risks,
+        createdAt: now,
+      }));
+    }
+
+    const filteredCount = args.decisions.filter(
+      (decision) => decision.status === "rejected"
+    ).length;
+    const survivorCount = args.decisions.length - filteredCount;
+    const llmScoredCount = args.scores.filter(
+      (score) => score.scoringMode === "llm"
+    ).length;
+
+    await ctx.db.patch(args.runId, omitUndefined({
+      status: "completed",
+      completedAt: now,
+      filteredCount,
+      survivorCount,
+      llmScoredCount,
+      recommendedCount: args.recommendations.length,
+      model: args.model,
+      scoringMode: args.scoringMode,
+    }));
+
+    return {
+      filteredCount,
+      survivorCount,
+      llmScoredCount,
+      recommendedCount: args.recommendations.length,
+    };
+  },
+});
+
+export const upsertTailoredApplication = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    jobId: v.id("ingestedJobs"),
+    status: v.union(
+      v.literal("tailoring"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    job: v.any(),
+    research: v.optional(v.any()),
+    tailoredResume: v.optional(v.any()),
+    tailoringScore: v.optional(v.number()),
+    keywordCoverage: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    pdfReady: v.optional(v.boolean()),
+    pdfFilename: v.optional(v.string()),
+    pdfByteLength: v.optional(v.number()),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const sourceJob = await ctx.db.get(args.jobId);
+    const now = new Date().toISOString();
+    const existing = await ctx.db
+      .query("tailoredApplications")
+      .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+      .filter((q) => q.eq(q.field("demoUserId"), demoUserId))
+      .first();
+
+    const doc = omitUndefined({
+      demoUserId,
+      jobId: args.jobId,
+      runId: sourceJob?.runId,
+      status: args.status,
+      job: args.job,
+      research: args.research,
+      tailoredResume: args.tailoredResume,
+      tailoringScore: args.tailoringScore,
+      keywordCoverage: args.keywordCoverage,
+      durationMs: args.durationMs,
+      pdfReady: args.pdfReady ?? false,
+      pdfFilename: args.pdfFilename,
+      pdfByteLength: args.pdfByteLength,
+      error: args.error,
+      updatedAt: now,
+    });
+
+    if (existing) {
+      await ctx.db.patch(existing._id, doc);
+    } else {
+      await ctx.db.insert("tailoredApplications", {
+        ...doc,
+        createdAt: now,
+      });
+    }
+
+    await deleteArtifactsByJobKind(ctx, args.jobId, [
+      "research_snapshot",
+      "tailored_resume",
+      "pdf_ready",
+    ]);
+
+    if (args.research) {
+      await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+        demoUserId,
+        runId: sourceJob?.runId,
+        jobId: args.jobId,
+        kind: "research_snapshot",
+        title: "Research snapshot",
+        content: args.research.jdSummary,
+        payload: args.research,
+        createdAt: now,
+      }));
+    }
+    if (args.tailoredResume) {
+      await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+        demoUserId,
+        runId: sourceJob?.runId,
+        jobId: args.jobId,
+        kind: "tailored_resume",
+        title: "Tailored resume",
+        content: args.tailoredResume.summary,
+        payload: args.tailoredResume,
+        createdAt: now,
+      }));
+    }
+    if (args.pdfReady) {
+      await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+        demoUserId,
+        runId: sourceJob?.runId,
+        jobId: args.jobId,
+        kind: "pdf_ready",
+        title: "PDF ready",
+        content: args.pdfFilename,
+        payload: {
+          filename: args.pdfFilename,
+          byteLength: args.pdfByteLength,
+        },
+        createdAt: now,
+      }));
+    }
+
+    return null;
+  },
+});
+
+export const markRunFailed = internalMutation({
+  args: {
+    runId: v.id("ingestionRuns"),
+    source: v.optional(v.string()),
+    message: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.runId, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      errorCount: 1,
+      errors: [{ source: args.source ?? "run", message: args.message }],
+    });
+    return null;
+  },
+});
+
+async function latestRun(ctx: any, demoUserId: string) {
+  return await ctx.db
+    .query("ingestionRuns")
+    .withIndex("by_demo_user_started", (q: any) =>
+      q.eq("demoUserId", demoUserId)
+    )
+    .order("desc")
+    .first();
+}
+
+async function deleteByRun(ctx: any, table: string, runId: string) {
+  const docs = await ctx.db
+    .query(table)
+    .withIndex("by_run", (q: any) => q.eq("runId", runId))
+    .collect();
+  for (const doc of docs) {
+    await ctx.db.delete(doc._id);
+  }
+}
+
+async function deleteArtifactsByJobKind(ctx: any, jobId: string, kinds: string[]) {
+  const docs = await ctx.db
+    .query("jobPipelineArtifacts")
+    .withIndex("by_job", (q: any) => q.eq("jobId", jobId))
+    .collect();
+  for (const doc of docs) {
+    if (kinds.includes(doc.kind)) {
+      await ctx.db.delete(doc._id);
+    }
+  }
+}
+
+function omitUndefined<T extends Record<string, any>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== undefined && item !== null)
+  ) as T;
+}

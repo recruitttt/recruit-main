@@ -10,6 +10,7 @@ export type Job = {
   role: string;
   jobUrl: string;
   location?: string;
+  descriptionPlain?: string;
   logoBg?: string;
   logoText?: string;
 };
@@ -27,7 +28,7 @@ export type JobResearch = {
   companyProducts: string[];
   cultureSignals: string[];
   recentNews?: string[];
-  source: "deep-research" | "firecrawl-fallback" | "title-only";
+  source: "ingested-description" | "deep-research" | "firecrawl-fallback" | "title-only";
   modelDurationMs: number;
 };
 
