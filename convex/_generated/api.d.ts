@@ -11,6 +11,7 @@
 import type * as ashby from "../ashby.js";
 import type * as ashbyActions from "../ashbyActions.js";
 import type * as atsIngestion from "../atsIngestion.js";
+import type * as dlq from "../dlq.js";
 import type * as followups from "../followups.js";
 
 import type {
@@ -23,6 +24,7 @@ declare const fullApi: ApiFromModules<{
   ashby: typeof ashby;
   ashbyActions: typeof ashbyActions;
   atsIngestion: typeof atsIngestion;
+  dlq: typeof dlq;
   followups: typeof followups;
 }>;
 

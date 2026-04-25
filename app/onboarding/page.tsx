@@ -54,7 +54,7 @@ type ChatEntry =
   | { id: string; kind: "agent"; text: string }
   | { id: string; kind: "user"; text: string };
 
-type LaunchStage = "idle" | "saving" | "finding" | "ranking" | "tailoring" | "ready" | "error";
+type LaunchStage = "idle" | "starting" | "error";
 
 const EMPTY: Data = {
   name: "",
@@ -604,19 +604,12 @@ function ConnectedConfirmButton({
   const [stage, setStage] = useState<LaunchStage>("idle");
 
   async function handleConfirm() {
-    let progress: number[] = [];
     try {
       setError("");
       setSaving(true);
-      setStage("saving");
+      setStage("starting");
       onMergeFinalProfile();
       const profile = readProfile();
-
-      progress = [
-        window.setTimeout(() => setStage("finding"), 700),
-        window.setTimeout(() => setStage("ranking"), 2_000),
-        window.setTimeout(() => setStage("tailoring"), 4_000),
-      ];
 
       const response = await fetch("/api/onboarding/launch-pipeline", {
         method: "POST",
@@ -624,7 +617,7 @@ function ConnectedConfirmButton({
         body: JSON.stringify({ profile }),
       });
       const body = await response.json().catch(() => null) as
-        | { ok: true }
+        | { ok: true; runId?: string; status?: "started"; message?: string }
         | { ok: false; reason?: string }
         | null;
 
@@ -632,48 +625,21 @@ function ConnectedConfirmButton({
         throw new Error(body && !body.ok ? body.reason ?? `launch_${response.status}` : `launch_${response.status}`);
       }
 
-      setStage("ready");
       onLaunch();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStage("error");
       setSaving(false);
-    } finally {
-      progress.forEach((timer) => window.clearTimeout(timer));
     }
   }
 
-  const progress = [
-    { stage: "saving", label: "Saving profile" },
-    { stage: "finding", label: "Finding jobs" },
-    { stage: "ranking", label: "Ranking matches" },
-    { stage: "tailoring", label: "Tailoring top resume" },
-    { stage: "ready", label: "Ready" },
-  ] as const;
-  const activeIndex = progress.findIndex((item) => item.stage === stage);
-  const buttonLabel = stage === "error" ? "Retry launch" : saving ? "Starting pipeline" : "Confirm and start";
+  const buttonLabel = stage === "error" ? "Retry launch" : saving ? "Starting dashboard" : "Confirm and start";
 
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
-      {stage !== "idle" && (
-        <div className="grid w-full gap-2 sm:w-72">
-          {progress.map((item, index) => {
-            const complete = stage === "ready" || (activeIndex >= 0 && index < activeIndex);
-            const active = item.stage === stage;
-            return (
-              <div key={item.stage} className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                <span className={cx(
-                  "flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
-                  complete ? "border-emerald-300 bg-emerald-100 text-emerald-700" :
-                    active ? "border-sky-300 bg-sky-100 text-sky-700" :
-                      "border-white/70 bg-white/30 text-slate-400"
-                )}>
-                  {complete ? <Check className="h-3 w-3" /> : index + 1}
-                </span>
-                <span>{item.label}</span>
-              </div>
-            );
-          })}
+      {stage === "starting" && (
+        <div className="w-full rounded-[18px] border border-sky-200/70 bg-sky-50/45 px-3 py-2 text-xs leading-5 text-sky-800 sm:w-72">
+          Saving your profile and opening the dashboard. Jobs and tailored resumes will continue there.
         </div>
       )}
       <ActionButton variant="primary" size="lg" loading={saving} onClick={handleConfirm}>

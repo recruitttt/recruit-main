@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
+  anyApi,
   internalMutationGeneric,
   internalQueryGeneric,
   mutationGeneric,
@@ -43,6 +44,89 @@ export const upsertDemoProfileSnapshot = mutation({
   },
 });
 
+export const startOnboardingPipeline = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    profile: v.any(),
+    limitSources: v.optional(v.number()),
+    tailorLimit: v.optional(v.number()),
+  },
+  returns: v.object({
+    demoUserId: v.string(),
+    runId: v.id("ingestionRuns"),
+    status: v.literal("started"),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const now = new Date().toISOString();
+    const limitSources = args.limitSources ?? 3;
+    const tailorLimit = args.tailorLimit ?? 3;
+    const existing = await ctx.db
+      .query("demoProfiles")
+      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { profile: args.profile, updatedAt: now });
+    } else {
+      await ctx.db.insert("demoProfiles", {
+        demoUserId,
+        profile: args.profile,
+        updatedAt: now,
+      });
+    }
+
+    const runId = await ctx.db.insert("ingestionRuns", {
+      demoUserId,
+      status: "fetching",
+      startedAt: now,
+      sourceCount: limitSources,
+      fetchedCount: 0,
+      rawJobCount: 0,
+      filteredCount: 0,
+      survivorCount: 0,
+      llmScoredCount: 0,
+      recommendedCount: 0,
+      errorCount: 0,
+      errors: [],
+    });
+
+    await ctx.db.insert("pipelineLogs", {
+      demoUserId,
+      runId,
+      stage: "profile",
+      level: "success",
+      message: "Saved onboarding profile snapshot.",
+      payload: { targetRoles: args.profile?.targetRoles ?? args.profile?.prefs?.roles ?? [] },
+      createdAt: now,
+    });
+    await ctx.db.insert("pipelineLogs", {
+      demoUserId,
+      runId,
+      stage: "queue",
+      level: "info",
+      message: `Started async onboarding pipeline. Tailoring top ${tailorLimit} jobs in the background.`,
+      payload: { limitSources, tailorLimit },
+      createdAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, anyApi.ashbyActions.runOnboardingPipeline, {
+      demoUserId,
+      runId,
+      limitSources,
+      tailorLimit,
+    });
+
+    return {
+      demoUserId,
+      runId,
+      status: "started" as const,
+      message: "Dashboard is ready. Jobs and tailored resumes will appear as the pipeline runs.",
+    };
+  },
+});
+
 export const enabledAshbySources = query({
   args: {},
   returns: v.any(),
@@ -72,13 +156,48 @@ export const latestIngestionRunSummary = query({
       .withIndex("by_run", (q) => q.eq("runId", run._id))
       .collect();
     const tailoredCount = tailoredApplications.filter((application) => application.status === "completed").length;
+    const tailoringAttemptedCount = tailoredApplications.filter((application) =>
+      ["tailoring", "completed", "failed"].includes(application.status)
+    ).length;
+    const availableRecommendationCount = Math.max(recommendations.length, run.recommendedCount);
+    const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
+    const tailoringInProgress = run.status !== "failed" &&
+      (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
 
     return {
       ...run,
       recommendations: recommendations.sort((a, b) => a.rank - b.rank),
       tailoredCount,
+      tailoringAttemptedCount,
+      tailoringTargetCount,
+      tailoringInProgress,
       hasCompletedTailoring: tailoredCount > 0,
     };
+  },
+});
+
+export const listRecommendationsForRun = internalQuery({
+  args: { runId: v.id("ingestionRuns") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const recommendations = await ctx.db
+      .query("jobRecommendations")
+      .withIndex("by_run", (q) => q.eq("runId", args.runId))
+      .collect();
+    return recommendations.sort((a, b) => a.rank - b.rank);
+  },
+});
+
+export const getDemoProfileForAction = internalQuery({
+  args: { demoUserId: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const profile = await ctx.db
+      .query("demoProfiles")
+      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+      .unique();
+    return profile?.profile ?? {};
   },
 });
 

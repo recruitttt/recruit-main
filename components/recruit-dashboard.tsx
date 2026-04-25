@@ -69,6 +69,9 @@ type LiveRunSummary = {
   errorCount: number;
   scoringMode?: string;
   tailoredCount?: number;
+  tailoringAttemptedCount?: number;
+  tailoringTargetCount?: number;
+  tailoringInProgress?: boolean;
   hasCompletedTailoring?: boolean;
   recommendations?: LiveRecommendation[];
 };
@@ -223,6 +226,7 @@ type PipelineControls = {
   label: string;
   message?: string;
   error?: string;
+  run?: LiveRunSummary | null;
   logs?: PipelineLog[];
   onRunFirst3?: () => void;
 };
@@ -575,6 +579,78 @@ function LiveLogStream({ logs = [], busy }: { logs?: PipelineLog[]; busy?: boole
   );
 }
 
+function AsyncOnboardingBanner({
+  run,
+  logs = [],
+}: {
+  run?: LiveRunSummary | null;
+  logs?: PipelineLog[];
+}) {
+  if (!run) return null;
+
+  const targetCount = run.tailoringTargetCount ?? 3;
+  const tailoredCount = run.tailoredCount ?? 0;
+  const savingDone = logs.some((log) => log.stage === "profile" && log.level === "success");
+  const findingDone = run.rawJobCount > 0 || ["fetched", "ranking", "completed"].includes(run.status);
+  const rankingDone = run.recommendedCount > 0 || run.status === "completed";
+  const tailoringDone = targetCount > 0 && tailoredCount >= targetCount;
+  const ready = run.status === "completed" && (!run.tailoringInProgress || tailoringDone);
+  const visible = run.status !== "failed" && !ready;
+
+  if (!visible) return null;
+
+  const steps = [
+    { label: "Saving profile", complete: savingDone, active: !savingDone },
+    { label: "Finding jobs", complete: findingDone, active: savingDone && !findingDone },
+    { label: "Ranking matches", complete: rankingDone, active: findingDone && !rankingDone },
+    {
+      label: `Tailoring top ${targetCount} resumes`,
+      complete: tailoringDone,
+      active: rankingDone && !tailoringDone,
+      detail: `${tailoredCount}/${targetCount} ready`,
+    },
+    { label: "Ready", complete: ready, active: false },
+  ];
+
+  return (
+    <GlassCard variant="selected" className="border-sky-300/50 bg-sky-50/40">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className={cx(mistClasses.sectionLabel, "text-sky-700")}>Onboarding pipeline</div>
+          <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">Your dashboard is live while the agents work.</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            You can inspect jobs and logs now. Tailored resumes and PDFs will appear here as each top match completes.
+          </p>
+        </div>
+        <div className="grid min-w-0 gap-2 sm:grid-cols-5 lg:min-w-[620px]">
+          {steps.map((step, index) => {
+            const tone = step.complete ? "success" : step.active ? "active" : "neutral";
+            return (
+              <div key={step.label} className="rounded-[18px] border border-white/55 bg-white/36 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cx(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                      step.complete ? "border-emerald-300 bg-emerald-100 text-emerald-700" :
+                        step.active ? "border-sky-300 bg-sky-100 text-sky-700" :
+                          "border-white/70 bg-white/30 text-slate-400"
+                    )}
+                  >
+                    {step.complete ? <Check className="h-3.5 w-3.5" /> : step.active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : index + 1}
+                  </span>
+                  <Pill tone={tone as StatusTone}>{step.complete ? "done" : step.active ? "running" : "queued"}</Pill>
+                </div>
+                <div className="mt-2 text-xs font-semibold leading-4 text-slate-700">{step.label}</div>
+                {step.detail && <div className="mt-1 font-mono text-[10px] text-slate-500">{step.detail}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 function DashboardMain({
   seed,
   controls,
@@ -588,6 +664,8 @@ function DashboardMain({
 }) {
   return (
     <>
+      <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
+
       <div className="grid gap-3 md:grid-cols-5">
         {seed.metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}
       </div>
@@ -1393,21 +1471,23 @@ function followUpMetrics(
 }
 
 function mapRunToActiveRun(run: LiveRunSummary): ActiveRun {
+  const tailoringTargetCount = run.tailoringTargetCount ?? 3;
+  const tailoredCount = run.tailoredCount ?? 0;
   return {
     id: shortId(run._id),
     company: "Ashby ingestion",
     role: `${run.sourceCount} source${run.sourceCount === 1 ? "" : "s"}`,
     provider: "Ashby",
     mode: "live",
-    state: run.status === "failed" ? "blocked" : run.status === "completed" ? "completed" : "running",
-    currentStep: run.status,
-    summary: `${run.rawJobCount} jobs scraped, ${run.filteredCount} filtered, ${run.recommendedCount} recommendations ready.`,
+    state: run.status === "failed" ? "blocked" : run.status === "completed" && !run.tailoringInProgress ? "completed" : "running",
+    currentStep: run.tailoringInProgress ? "tailoring" : run.status,
+    summary: `${run.rawJobCount} jobs scraped, ${run.filteredCount} filtered, ${run.recommendedCount} recommendations ready, ${tailoredCount}/${tailoringTargetCount} tailored.`,
     steps: [
       { label: "Fetch sources", status: stepStatus(run, ["fetching"]) },
       { label: "Store jobs", status: stepStatus(run, ["fetched"]) },
       { label: "Rank matches", status: stepStatus(run, ["ranking"]) },
       { label: "Recommend", status: run.status === "completed" ? "complete" : run.status === "failed" ? "blocked" : "pending" },
-      { label: "Tailor", status: run.hasCompletedTailoring ? "complete" : "pending" },
+      { label: "Tailor", status: tailoredCount >= tailoringTargetCount ? "complete" : run.tailoringInProgress ? "active" : "pending" },
     ],
   };
 }
@@ -1531,11 +1611,13 @@ function compactPayload(payload: unknown) {
 
 function canStartRun(run: LiveRunSummary | null | undefined) {
   if (!run) return true;
+  if (run.tailoringInProgress) return false;
   return !["fetching", "fetched", "ranking", "failed"].includes(run.status);
 }
 
 function runButtonLabel(run: LiveRunSummary | null | undefined) {
   if (!run) return "Run first 3";
+  if (run.tailoringInProgress) return "Tailoring active";
   if (["fetching", "fetched", "ranking"].includes(run.status)) return "Run active";
   if (run.status === "failed") return "Reset required";
   return "Run first 3";
@@ -1543,6 +1625,9 @@ function runButtonLabel(run: LiveRunSummary | null | undefined) {
 
 function runGuardMessage(run: LiveRunSummary | null | undefined) {
   if (!run) return undefined;
+  if (run.tailoringInProgress) {
+    return "Onboarding is tailoring top matches in the background. You can use the dashboard while it finishes.";
+  }
   if (["fetching", "fetched", "ranking"].includes(run.status)) {
     return "A live ingestion run is already active. Wait for it to finish before starting another.";
   }
@@ -1570,7 +1655,11 @@ function ConnectedRecruitDashboard() {
   const [followUpMessage, setFollowUpMessage] = useState<string>();
   const [followUpError, setFollowUpError] = useState<string>();
 
-  const busy = runState === "syncing" || runState === "ingesting" || runState === "ranking";
+  const busy = runState === "syncing" ||
+    runState === "ingesting" ||
+    runState === "ranking" ||
+    Boolean(liveData?.run?.tailoringInProgress) ||
+    Boolean(liveData?.run && ["fetching", "fetched", "ranking"].includes(liveData.run.status));
 
   const refreshLiveData = useCallback(async () => {
     const response = await fetch("/api/dashboard/live", { cache: "no-store" });
@@ -1916,6 +2005,7 @@ function ConnectedRecruitDashboard() {
         label: busy ? runState : runButtonLabel(liveData?.run),
         message: runMessage ?? runGuardMessage(liveData?.run),
         error: runError,
+        run: liveData?.run,
         logs: liveData?.logs ?? [],
         onRunFirst3: () => void runFirstThreeSources(),
       }}
