@@ -10,19 +10,11 @@ export const authComponent = createClient<DataModel>(
     .betterAuth
 );
 
-function optionalPair(idName: string, secretName: string) {
-  const clientId = process.env[idName];
-  const clientSecret = process.env[secretName];
-  if (!clientId || !clientSecret) return null;
-  return { clientId, clientSecret };
-}
-
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   const siteUrl =
     process.env.SITE_URL ??
     process.env.NEXT_PUBLIC_SITE_URL ??
     "http://localhost:3020";
-  const github = optionalPair("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET");
 
   return betterAuth({
     baseURL: siteUrl,
@@ -34,9 +26,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: false,
     },
-    socialProviders: {
-      ...(github ? { github } : {}),
-    },
+    socialProviders: {},
     plugins: [convex({ authConfig })],
   });
 };
