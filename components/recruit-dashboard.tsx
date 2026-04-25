@@ -46,6 +46,7 @@ import type {
   ProviderCoverage,
 } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
+import { isProfileUsable } from "@/lib/demo-profile";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
@@ -1096,19 +1097,14 @@ function ConnectedRecruitDashboard() {
     if (!selected?.jobId || tailorState.running) return;
 
     const profile = readProfile();
-    if (!profile.name || !profile.email || profile.experience.length === 0) {
-      setTailorState({
-        running: false,
-        message: "Complete onboarding first so the tailor has a real profile.",
-        error: "profile_incomplete",
-      });
-      return;
-    }
+    const usingDemoProfile = !isProfileUsable(profile);
 
     try {
       setTailorState({
         running: true,
-        message: "Researching the selected job and tailoring the resume...",
+        message: usingDemoProfile
+          ? "Using the sample profile from Convex, then tailoring the selected job..."
+          : "Researching the selected job and tailoring the resume...",
       });
 
       const response = await fetch("/api/dashboard/tailor-job", {
@@ -1117,7 +1113,7 @@ function ConnectedRecruitDashboard() {
         body: JSON.stringify({ jobId: selected.jobId, profile }),
       });
       const body = await response.json().catch(() => null) as
-        | { ok: true; application: TailoredApplication }
+        | { ok: true; application: TailoredApplication; profileSource?: "browser" | "demo" }
         | { ok: false; reason?: string }
         | null;
 
@@ -1127,7 +1123,9 @@ function ConnectedRecruitDashboard() {
 
       setTailorState({
         running: false,
-        message: "Tailored resume ready. PDF is available for this session.",
+        message: body.profileSource === "demo"
+          ? "Tailored resume ready using the sample Convex profile. PDF is available for this session."
+          : "Tailored resume ready. PDF is available for this session.",
         downloadable: body.application,
       });
 

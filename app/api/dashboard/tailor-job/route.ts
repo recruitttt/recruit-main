@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 
 import { api } from "@/convex/_generated/api";
+import { DEMO_PROFILE, isProfileUsable } from "@/lib/demo-profile";
 import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, toBase64 } from "@/lib/pdf";
 import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
@@ -38,12 +39,17 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, reason: "bad_request" }, { status: 400 });
   }
 
-  const { jobId, profile } = body;
-  if (!jobId || !profile) {
-    return Response.json({ ok: false, reason: "missing_job_or_profile" }, { status: 400 });
+  const { jobId } = body;
+  if (!jobId) {
+    return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
   }
-  if (!profile.experience || profile.experience.length === 0) {
-    return Response.json({ ok: false, reason: "profile_incomplete" }, { status: 400 });
+  const profile = isProfileUsable(body.profile) ? body.profile : DEMO_PROFILE;
+  const profileSource = profile === DEMO_PROFILE ? "demo" : "browser";
+
+  if (profileSource === "demo") {
+    await client.mutation(api.ashby.upsertDemoProfileSnapshot, {
+      profile: DEMO_PROFILE,
+    });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -123,7 +129,7 @@ export async function POST(req: Request) {
       pdfByteLength: pdfBytes.byteLength,
     });
 
-    return Response.json({ ok: true, application });
+    return Response.json({ ok: true, application, profileSource });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     await markFailed(client, jobId, job, reason);
