@@ -128,7 +128,7 @@ function Mimi({ awake, hue, body, stroke, accent, dark }: Parts) {
 }
 
 // ─── Pip: the silent observer ────────────────────────────────
-function Pip({ awake, hue, body, stroke, accent, dark }: Parts) {
+function Pip({ awake, hue, body, stroke, dark }: Parts) {
   return (
     <>
       <ellipse cx="24" cy="28" rx="14" ry="14" fill={body} stroke={stroke} strokeWidth="1.4" />
@@ -209,7 +209,7 @@ function Juno({ awake, body, stroke, accent, dark }: Parts) {
 }
 
 // ─── Bodhi: the calm one ─────────────────────────────────────
-function Bodhi({ awake, hue, body, stroke, accent, dark }: Parts) {
+function Bodhi({ awake, body, stroke, accent, dark }: Parts) {
   return (
     <>
       <ellipse cx="24" cy="29" rx="15" ry="13" fill={body} stroke={stroke} strokeWidth="1.4" />

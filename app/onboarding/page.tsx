@@ -5,18 +5,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useAnimation } from "motion/react";
 import { Wordmark } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
+import {
+  ActionButton,
+  ChoiceChipGroup,
+  FileUploadControl,
+  GlassCard,
+  ProgressMeter,
+  TextField,
+  cx,
+  mistClasses,
+  mistRadii,
+} from "@/components/design-system";
 import { AgentRail } from "@/components/onboarding/agent-rail";
 import { AgentMessage, UserMessage, TypingIndicator } from "@/components/onboarding/chat";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { CompanyLogo } from "@/components/ui/logo";
 import { onboardingMatches } from "@/lib/mock-data";
-import { ArrowRight, Check, FileText, Upload, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Volume2, VolumeX, X } from "lucide-react";
 import { AgentCharacter } from "@/components/onboarding/characters";
 import { isMuted, setMuted, playSend, playReceive, playWake, playActivate } from "@/lib/sounds";
-import { cn } from "@/lib/utils";
 import { ProfileCard } from "@/components/onboarding/profile-card";
-import { mergeProfile, type UserProfile } from "@/lib/profile";
+import { logProfileEvent, mergeProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
 import {
   parseResume,
   scrapeAndExtract,
@@ -49,6 +58,7 @@ const EMPTY: Data = {
 };
 
 const STORAGE = "recruit:onboarding";
+const SOURCE_NAME = { github: "GitHub", linkedin: "LinkedIn", devpost: "DevPost", website: "website" } as const;
 
 const beats: Beat[] = [
   { k: "pause", ms: 300 },
@@ -149,6 +159,14 @@ export default function OnboardingChatPage() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE, JSON.stringify(data));
+      if (data.name || data.email || data.resumeFilename) {
+        logProfileEvent("chat", "Persisted onboarding state", "info", {
+          hasName: Boolean(data.name),
+          hasEmail: Boolean(data.email),
+          resumeFilename: data.resumeFilename || undefined,
+          roles: data.prefs.roles,
+        });
+      }
     } catch {}
   }, [data]);
 
@@ -325,8 +343,12 @@ export default function OnboardingChatPage() {
   };
 
   const enrichFromResume = async (file: File) => {
+    logProfileEvent("resume", "Started resume parse", "info", { filename: file.name });
     const result = await parseResume(file);
-    if (!result.ok) return;
+    if (!result.ok) {
+      logProfileEvent("resume", "Resume parse failed", "error", { filename: file.name, reason: result.reason });
+      return;
+    }
     const updates: Partial<UserProfile> = {
       resume: {
         filename: result.filename ?? file.name,
@@ -352,45 +374,46 @@ export default function OnboardingChatPage() {
       "resume",
       result.structured ? `Read your resume` : `Saved your resume`,
     );
+    logProfileEvent("resume", "Resume parse completed", "success", {
+      filename: result.filename ?? file.name,
+      structured: Boolean(result.structured),
+    });
   };
 
   const enrichFromLinks = async (links: Data["links"]) => {
     const tasks: Promise<void>[] = [];
+    const runLink = async (
+      source: Extract<ProvenanceSource, "github" | "linkedin" | "devpost" | "website">,
+      url: string,
+      action: () => Promise<{ ok: boolean; reason?: string; structured?: Partial<UserProfile> }>
+    ) => {
+      logProfileEvent(source, "Started link enrichment", "info", { url });
+      const r = await action();
+      if (!r.ok || !r.structured) {
+        logProfileEvent(source, "Link enrichment failed", "error", { url, reason: r.reason ?? "no_structured_profile" });
+        return;
+      }
+      mergeProfile(r.structured, source, `Read your ${SOURCE_NAME[source]}`);
+    };
 
     if (links.github?.trim()) {
       tasks.push(
-        (async () => {
-          const r = await scrapeAndExtract(links.github, "github");
-          if (!r.ok) return;
-          mergeProfile(r.structured, "github", `Read your GitHub`);
-        })(),
+        runLink("github", links.github, () => scrapeAndExtract(links.github, "github")),
       );
     }
     if (links.linkedin?.trim()) {
       tasks.push(
-        (async () => {
-          const r = await scrapeLinkedIn(links.linkedin);
-          if (!r.ok) return;
-          mergeProfile(r.structured, "linkedin", `Read your LinkedIn`);
-        })(),
+        runLink("linkedin", links.linkedin, () => scrapeLinkedIn(links.linkedin)),
       );
     }
     if (links.devpost?.trim()) {
       tasks.push(
-        (async () => {
-          const r = await scrapeAndExtract(links.devpost, "devpost");
-          if (!r.ok) return;
-          mergeProfile(r.structured, "devpost", `Read your DevPost`);
-        })(),
+        runLink("devpost", links.devpost, () => scrapeAndExtract(links.devpost, "devpost")),
       );
     }
     if (links.website?.trim()) {
       tasks.push(
-        (async () => {
-          const r = await scrapeAndExtract(links.website, "website");
-          if (!r.ok) return;
-          mergeProfile(r.structured, "website", `Read your website`);
-        })(),
+        runLink("website", links.website, () => scrapeAndExtract(links.website, "website")),
       );
     }
 
@@ -406,27 +429,15 @@ export default function OnboardingChatPage() {
   const progress = awake.size / AGENT_ORDER.length;
 
   return (
-    <motion.div animate={shakeCtrl} className="flex min-h-screen flex-col">
+    <motion.div animate={shakeCtrl} className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       {/* header */}
       <header className="flex items-center justify-between px-5 py-4 md:px-8">
         <Link href="/">
           <Wordmark size="sm" />
         </Link>
         <div className="flex items-center gap-4">
-          <div className="hidden items-center gap-2 sm:flex">
-            <div className="h-1 w-24 overflow-hidden rounded-full bg-[var(--color-border)]">
-              <motion.div
-                className="h-full bg-[var(--color-accent)]"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress * 100}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              />
-            </div>
-            <span className="text-[11px] font-mono text-[var(--color-fg-subtle)] tabular-nums">
-              {awake.size} / 5
-            </span>
-          </div>
-          <Button
+          <ProgressMeter value={progress} label={`${awake.size} / 5`} className="hidden sm:flex" />
+          <ActionButton
             variant="ghost"
             size="icon"
             onClick={toggleMute}
@@ -434,11 +445,11 @@ export default function OnboardingChatPage() {
             title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
           >
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </Button>
+          </ActionButton>
           <Link href="/" aria-label="Close">
-            <Button variant="ghost" size="icon">
+            <ActionButton variant="ghost" size="icon">
               <X className="h-4 w-4" />
-            </Button>
+            </ActionButton>
           </Link>
         </div>
       </header>
@@ -452,7 +463,7 @@ export default function OnboardingChatPage() {
           </div>
 
           {/* chat */}
-          <div ref={scrollRef} className="relative max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+          <div ref={scrollRef} className="relative min-w-0 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
             <div className="space-y-5 pb-24">
               {rendered.map((m) => {
                 if (m.kind === "agent") {
@@ -488,16 +499,12 @@ export default function OnboardingChatPage() {
                 {typing && <TypingIndicator key={`t-${typing}-${beatTick}`} from={typing} />}
               </AnimatePresence>
 
-              {activating && (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/85 px-5 py-4 text-[13px] text-[var(--color-fg-muted)] shadow-sm">
-                  Activating your dashboard...
-                </div>
-              )}
+              {activating && <ActivationReveal />}
             </div>
           </div>
 
           {/* profile card */}
-          <div className="lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-110px)] lg:overflow-y-auto">
+          <div className="min-w-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-110px)] lg:overflow-y-auto">
             <ProfileCard />
           </div>
         </div>
@@ -549,14 +556,15 @@ function InputWell({
 
 function Well({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-      className="mt-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-4"
-    >
-      {children}
-    </motion.div>
+    <GlassCard density="normal" className="mt-2">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        {children}
+      </motion.div>
+    </GlassCard>
   );
 }
 
@@ -580,16 +588,18 @@ function NameInput({
         }}
         className="flex gap-2"
       >
-        <input
-          ref={ref}
+        <TextField
+          inputRef={ref}
           value={v}
           onChange={(e) => setV(e.target.value)}
           placeholder="Your full name"
-          className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-[14px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none focus:border-[var(--color-accent)]"
+          autoFocus
+          readOnly={false}
+          rootClassName="flex-1"
         />
-        <Button type="submit" variant="accent" size="md" disabled={!v.trim()}>
+        <ActionButton type="submit" variant="primary" size="md" disabled={!v.trim()}>
           Send <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        </ActionButton>
       </form>
     </Well>
   );
@@ -617,34 +627,38 @@ function EmailInput({
         className="space-y-2"
       >
         <div className="flex gap-2">
-          <input
-            ref={ref}
+          <TextField
+            inputRef={ref}
             type="email"
             value={v}
             onChange={(e) => setV(e.target.value)}
             placeholder="you@gmail.com"
-            className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-[14px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none focus:border-[var(--color-accent)]"
+            autoFocus
+            readOnly={false}
+            rootClassName="flex-1"
           />
-          <Button type="submit" variant="accent" size="md" disabled={!valid}>
+          <ActionButton type="submit" variant="primary" size="md" disabled={!valid}>
             Send <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
+          </ActionButton>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-[var(--color-fg-subtle)] font-mono">
-          <span className="text-[var(--color-fg-muted)]">or</span>
-          <button
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-500">
+          <span>or</span>
+          <ActionButton
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => onSubmit("email", "Continued with Google", { email: "you@gmail.com" })}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
           >
             Continue with Google
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => onSubmit("email", "Continued with GitHub", { email: "you@users.noreply.github.com" })}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
           >
             Continue with GitHub
-          </button>
+          </ActionButton>
         </div>
       </form>
     </Well>
@@ -687,46 +701,9 @@ function ResumeInput({
   return (
     <Well>
       {!filename ? (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="flex w-full items-center gap-3 rounded-md border border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg)] px-4 py-5 text-left hover:border-[var(--color-accent)] transition-colors"
-        >
-          <Upload className="h-4 w-4 text-[var(--color-fg-muted)]" />
-          <div className="flex-1">
-            <div className="text-[13px] text-[var(--color-fg)]">
-              Drop your resume or click to upload
-            </div>
-            <div className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
-              PDF, DOCX · up to 10 MB
-            </div>
-          </div>
-        </button>
+        <FileUploadControl onBrowse={() => inputRef.current?.click()} />
       ) : (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
-          <FileText className="h-4 w-4 text-[var(--color-accent)]" />
-          <div className="flex-1 min-w-0">
-            <div className="truncate text-[13px] text-[var(--color-fg)]">{filename}</div>
-            <div className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
-              {parsing ? "Parsing resume…" : "Ready"}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {parsing ? (
-              <div className="h-3 w-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
-            ) : (
-              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-            )}
-            <button
-              type="button"
-              onClick={clearFile}
-              className="rounded p-0.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)] transition-colors"
-              aria-label="Remove resume"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
+        <FileUploadControl fileName={filename} parsing={parsing} onBrowse={() => inputRef.current?.click()} onClear={clearFile} />
       )}
 
       <input
@@ -761,27 +738,24 @@ function LinksInput({
   const count = Object.values(links).filter((v) => v.trim()).length;
   return (
     <Well>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {fields.map((f) => (
-          <div key={f.k} className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-            <span className="shrink-0 text-[11px] font-mono text-[var(--color-fg-subtle)] w-[58px]">
-              {f.label}
-            </span>
-            <input
-              value={links[f.k]}
-              onChange={(e) => setLinks({ ...links, [f.k]: e.target.value })}
-              placeholder={f.placeholder}
-              className="flex-1 bg-transparent text-[13px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none"
-            />
-          </div>
+          <TextField
+            key={f.k}
+            label={f.label}
+            value={links[f.k]}
+            onChange={(e) => setLinks({ ...links, [f.k]: e.target.value })}
+            placeholder={f.placeholder}
+            readOnly={false}
+          />
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] font-mono text-[var(--color-fg-subtle)]">
+        <span className="font-mono text-[11px] text-slate-500">
           {count === 0 ? "Leave blank if you prefer, you can add these later." : `${count} link${count === 1 ? "" : "s"}`}
         </span>
-        <Button
-          variant="accent"
+        <ActionButton
+          variant="primary"
           size="md"
           onClick={() => {
             const provided = Object.entries(links)
@@ -796,7 +770,7 @@ function LinksInput({
           }}
         >
           {count === 0 ? "Skip for now" : "Send"} <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        </ActionButton>
       </div>
     </Well>
   );
@@ -839,35 +813,13 @@ function PrefsInput({
   return (
     <Well>
       <div className="space-y-4">
-        <div>
-          <Label>What roles?</Label>
-          <Chips
-            options={ROLE_OPTIONS}
-            selected={roles}
-            multi
-            onToggle={toggleRole}
-          />
-        </div>
-        <div>
-          <Label>Where?</Label>
-          <Chips
-            options={LOCATION_OPTIONS}
-            selected={location ? [location] : []}
-            onToggle={(v) => setLocation(v === location ? "" : v)}
-          />
-        </div>
-        <div>
-          <Label>Work authorization?</Label>
-          <Chips
-            options={AUTH_OPTIONS}
-            selected={workAuth ? [workAuth] : []}
-            onToggle={(v) => setWorkAuth(v === workAuth ? "" : v)}
-          />
-        </div>
+        <ChoiceChipGroup label="What roles?" options={ROLE_OPTIONS} selected={roles} multi onToggle={toggleRole} />
+        <ChoiceChipGroup label="Where?" options={LOCATION_OPTIONS} selected={location ? [location] : []} onToggle={(v) => setLocation(v === location ? "" : v)} />
+        <ChoiceChipGroup label="Work authorization?" options={AUTH_OPTIONS} selected={workAuth ? [workAuth] : []} onToggle={(v) => setWorkAuth(v === workAuth ? "" : v)} />
       </div>
       <div className="mt-5 flex justify-end">
-        <Button
-          variant="accent"
+        <ActionButton
+          variant="primary"
           size="md"
           disabled={!ready}
           onClick={() => {
@@ -876,52 +828,9 @@ function PrefsInput({
           }}
         >
           Send <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        </ActionButton>
       </div>
     </Well>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-2 text-[11px] uppercase tracking-[0.15em] text-[var(--color-fg-subtle)] font-mono">
-      {children}
-    </div>
-  );
-}
-
-function Chips({
-  options,
-  selected,
-  multi = false,
-  onToggle,
-}: {
-  options: string[];
-  selected: string[];
-  multi?: boolean;
-  onToggle: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const on = selected.includes(o);
-        return (
-          <button
-            key={o}
-            type="button"
-            onClick={() => onToggle(o)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-[12px] transition-colors",
-              on
-                ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-                : "border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border-strong)]"
-            )}
-          >
-            {o}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -937,21 +846,21 @@ function ActivationReveal() {
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="mt-6 rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] p-5"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent)] font-mono">
-          Splitting up · 5 applications in flight
+    <GlassCard variant="selected" density="spacious" className="mt-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>
+            Splitting up · 5 applications in flight
+          </div>
+          <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{ animation: "pulse-soft 1.4s ease-in-out infinite" }} />
+            LIVE
+          </span>
         </div>
-        <span className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-fg-muted)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{ animation: "pulse-soft 1.4s ease-in-out infinite" }} />
-          LIVE
-        </span>
-      </div>
 
       <div className="space-y-2.5">
         {assignments.map((a, i) => {
@@ -962,22 +871,22 @@ function ActivationReveal() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.2 + i * 0.3 }}
-              className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)]/60 px-3 py-2"
+              className={cx("flex items-center gap-3 border border-white/55 bg-white/30 px-3 py-2", mistRadii.nested)}
             >
               <AgentCharacter id={a.agent} awake size={30} />
-              <span className="text-[13px] font-medium text-[var(--color-fg)] w-[54px]">
+              <span className="w-[54px] text-[13px] font-medium text-slate-900">
                 {agent.name}
               </span>
-              <span className="text-[var(--color-fg-subtle)]">→</span>
-              <div className="flex items-center gap-2 min-w-0">
+              <span className="text-slate-400">→</span>
+              <div className="flex min-w-0 items-center gap-2">
                 <CompanyLogo
                   bg={a.company.logoBg}
                   text={a.company.logoText}
                   size={22}
                   className="rounded-[5px]"
                 />
-                <span className="text-[13px] text-[var(--color-fg)]">{a.company.company}</span>
-                <span className="text-[12px] text-[var(--color-fg-subtle)] truncate">
+                <span className="text-[13px] text-slate-900">{a.company.company}</span>
+                <span className="truncate text-[12px] text-slate-500">
                   {a.company.role}
                 </span>
               </div>
@@ -985,9 +894,9 @@ function ActivationReveal() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 + i * 0.3, duration: 0.3 }}
-                className="ml-auto flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] font-mono text-[var(--color-accent)]"
+                className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-600"
               >
-                <span className="h-1 w-1 rounded-full bg-[var(--color-accent)]" style={{ animation: "pulse-soft 1.2s ease-in-out infinite" }} />
+                <span className="h-1 w-1 rounded-full bg-sky-500" style={{ animation: "pulse-soft 1.2s ease-in-out infinite" }} />
                 applying
               </motion.span>
             </motion.div>
@@ -999,10 +908,11 @@ function ActivationReveal() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 2.6, duration: 0.5 }}
-        className="mt-4 text-[11px] font-mono text-[var(--color-fg-subtle)]"
+        className="mt-4 font-mono text-[11px] text-slate-500"
       >
-        Redirecting to mission control…
+        Redirecting to mission control...
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </GlassCard>
   );
 }
