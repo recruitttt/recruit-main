@@ -5,6 +5,7 @@ import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
 import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
+import { POST as postRunIngestion } from "../app/api/dashboard/run-ingestion/route";
 import { GET as getJobDetail } from "../app/api/dashboard/job-detail/route";
 import { POST as postCustomJd } from "../app/api/dashboard/custom-jd/route";
 import { GET as getFollowups, POST as postFollowups } from "../app/api/dashboard/followups/route";
@@ -170,6 +171,11 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
     error: "NEXT_PUBLIC_CONVEX_URL is not configured.",
   });
   await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ providers: ["ashby"], limitSources: 1 })),
+    503,
+    { ok: false, reason: "missing_convex_url" }
+  );
+  await assertJsonResponse(
     await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=job_1")),
     503,
     { error: "missing_convex_url" }
@@ -203,6 +209,20 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
 });
 
 await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test" }, async () => {
+  await assertJsonResponse(await postRunIngestion(badJsonRequest()), 400, {
+    ok: false,
+    reason: "bad_request",
+  });
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ providers: ["ashby", "unknown"] })),
+    400,
+    { ok: false, reason: "invalid_provider" }
+  );
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ providers: ["ashby"], limitSources: 0 })),
+    400,
+    { ok: false, reason: "invalid_limit_sources" }
+  );
   await assertJsonResponse(
     await getJobDetail(new Request("http://test.local/api/dashboard/job-detail")),
     400,
