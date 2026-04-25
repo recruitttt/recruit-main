@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   Ban,
   BriefcaseBusiness,
+  CheckCircle2,
+  Download,
+  ExternalLink,
   Check,
   CircleStop,
   FileText,
@@ -23,7 +27,6 @@ import {
   ActionButton as Button,
   ArtifactCard,
   EventLog,
-  FilterChip,
   GlassCard,
   Panel,
   RunStatusIndicator,
@@ -42,6 +45,9 @@ import type {
   DashboardSeed,
   ProviderCoverage,
 } from "@/lib/dashboard-seed";
+import { readProfile } from "@/lib/profile";
+import { downloadPdf } from "@/lib/tailor/client";
+import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
 type LiveRunSummary = {
   _id: string;
@@ -61,13 +67,82 @@ type LiveRunSummary = {
 };
 
 type LiveRecommendation = {
+  _id?: string;
+  jobId?: string;
   company: string;
   title: string;
   location?: string;
   score: number;
   rank: number;
   jobUrl: string;
+  compensationSummary?: string;
   rationale?: string;
+  strengths?: string[];
+  risks?: string[];
+  job?: {
+    _id?: string;
+    company?: string;
+    title?: string;
+    location?: string;
+    jobUrl?: string;
+    descriptionPlain?: string;
+    compensationSummary?: string;
+  } | null;
+};
+
+type JobDetail = {
+  job?: {
+    _id: string;
+    runId?: string;
+    company: string;
+    title: string;
+    location?: string;
+    jobUrl: string;
+    descriptionPlain?: string;
+    compensationSummary?: string;
+    department?: string;
+    team?: string;
+  };
+  decision?: {
+    status: "kept" | "rejected";
+    reasons?: string[];
+    ruleScore?: number;
+  };
+  score?: {
+    totalScore: number;
+    llmScore?: number;
+    rationale?: string;
+    strengths?: string[];
+    risks?: string[];
+    scoringMode?: string;
+  };
+  recommendation?: LiveRecommendation;
+  tailoredApplication?: {
+    status: "tailoring" | "completed" | "failed";
+    tailoredResume?: TailoredApplication["tailoredResume"];
+    research?: JobResearch;
+    tailoringScore?: number;
+    keywordCoverage?: number;
+    pdfReady: boolean;
+    pdfFilename?: string;
+    pdfByteLength?: number;
+    error?: string;
+  };
+  artifacts?: Array<{
+    _id: string;
+    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "pdf_ready";
+    title: string;
+    content?: string;
+    payload?: unknown;
+    createdAt: string;
+  }>;
+};
+
+type TailorState = {
+  running: boolean;
+  message: string;
+  error?: string;
+  downloadable?: TailoredApplication;
 };
 
 type PipelineControls = {
@@ -78,6 +153,16 @@ type PipelineControls = {
   error?: string;
   logs?: PipelineLog[];
   onRunFirst3?: () => void;
+};
+
+type TailoringControls = {
+  recommendations: LiveRecommendation[];
+  selected: LiveRecommendation | null;
+  detail: JobDetail | null | undefined;
+  state: TailorState;
+  onSelect: (recommendation: LiveRecommendation) => void;
+  onTailor: () => void;
+  onDownload: () => void;
 };
 
 type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | "error";
@@ -160,7 +245,15 @@ function MetricCard({ metric }: { metric: DashboardMetric }) {
   );
 }
 
-function DashboardShell({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
+function DashboardShell({
+  seed,
+  controls,
+  tailoring,
+}: {
+  seed: DashboardSeed;
+  controls?: PipelineControls;
+  tailoring?: TailoringControls;
+}) {
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -217,7 +310,7 @@ function DashboardShell({ seed, controls }: { seed: DashboardSeed; controls?: Pi
             </div>
           </header>
 
-          <DashboardMain seed={seed} controls={controls} />
+          <DashboardMain seed={seed} controls={controls} tailoring={tailoring} />
         </section>
       </div>
     </main>
@@ -367,7 +460,15 @@ function LiveLogStream({ logs = [], busy }: { logs?: PipelineLog[]; busy?: boole
   );
 }
 
-function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
+function DashboardMain({
+  seed,
+  controls,
+  tailoring,
+}: {
+  seed: DashboardSeed;
+  controls?: PipelineControls;
+  tailoring?: TailoringControls;
+}) {
   return (
     <>
       <div className="grid gap-3 md:grid-cols-5">
@@ -393,72 +494,9 @@ function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: Pip
         </Panel>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <Panel title="Application Pipeline">
-          <div className="overflow-x-auto rounded-[24px] border border-white/45 bg-white/20">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead>
-                <tr className="border-b border-white/45 text-left text-xs text-slate-500">
-                  <th className="px-4 py-3 font-medium">Company</th>
-                  <th className="px-4 py-3 font-medium">Role</th>
-                  <th className="px-4 py-3 font-medium">Provider</th>
-                  <th className="px-4 py-3 font-medium">Match</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Artifact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {seed.applications.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
-                      No live recommendations yet. Start ingestion to fill this table.
-                    </td>
-                  </tr>
-                ) : seed.applications.map((application) => (
-                  <tr key={`${application.company}-${application.role}-${application.status}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
-                    <td className="px-4 py-3 font-semibold text-slate-950">{application.company}</td>
-                    <td className="px-4 py-3 text-slate-600">{application.role}</td>
-                    <td className="px-4 py-3 text-slate-500">{application.provider}</td>
-                    <td className="px-4 py-3 font-mono text-slate-950">{application.match}</td>
-                    <td className="px-4 py-3"><Pill tone={application.tone}>{application.status}</Pill></td>
-                    <td className="px-4 py-3 text-slate-600">{application.artifact}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-
-        <Panel title="DLQ & Cache">
-          <div className="space-y-3">
-            {seed.dlq.length === 0 ? (
-              <GlassCard>
-                <div className="text-sm font-semibold text-slate-950">No blockers</div>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Live DLQ items will appear here when a run needs human input.</p>
-              </GlassCard>
-            ) : seed.dlq.map((item) => (
-              <GlassCard key={item.title} variant={item.tone === "warning" ? "selected" : "default"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <Pill tone={item.tone}>{item.answerability}</Pill>
-                    <div className="mt-3 font-semibold text-slate-950">{item.title}</div>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{item.question}</p>
-                    <div className="mt-3 text-xs text-slate-500">{item.impact}</div>
-                  </div>
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
-                </div>
-              </GlassCard>
-            ))}
-            <GlassCard>
-              <div className="text-sm font-semibold text-slate-950">Answer cache impact</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <FilterChip label="portfolio URL" tone="success" />
-                <FilterChip label="demo link" tone="neutral" />
-                <FilterChip label="source question" tone="accent" />
-              </div>
-            </GlassCard>
-          </div>
-        </Panel>
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <ApplicationPipelinePanel seed={seed} tailoring={tailoring} />
+        <SelectedJobPanel tailoring={tailoring} />
       </div>
 
       <LiveLogStream logs={controls?.logs} busy={controls?.busy} />
@@ -495,6 +533,264 @@ function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: Pip
       </div>
     </>
   );
+}
+
+function ApplicationPipelinePanel({
+  seed,
+  tailoring,
+}: {
+  seed: DashboardSeed;
+  tailoring?: TailoringControls;
+}) {
+  const liveRows = tailoring?.recommendations ?? [];
+
+  return (
+    <Panel title="Application Pipeline">
+      <div className="overflow-x-auto rounded-[24px] border border-white/45 bg-white/20">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="border-b border-white/45 text-left text-xs text-slate-500">
+              <th className="px-4 py-3 font-medium">Company</th>
+              <th className="px-4 py-3 font-medium">Role</th>
+              <th className="px-4 py-3 font-medium">Provider</th>
+              <th className="px-4 py-3 font-medium">Match</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Artifact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {liveRows.length > 0 ? (
+              liveRows.map((recommendation) => {
+                const selected = tailoring?.selected?.jobId === recommendation.jobId;
+                return (
+                  <tr
+                    key={recommendation._id ?? recommendation.jobId ?? `${recommendation.company}-${recommendation.title}-${recommendation.rank}`}
+                    className={cx(
+                      "cursor-pointer border-b border-white/35 transition last:border-0",
+                      selected ? "bg-white/45" : "hover:bg-white/22"
+                    )}
+                    onClick={() => tailoring?.onSelect(recommendation)}
+                  >
+                    <td className="px-4 py-3 font-semibold text-slate-950">{recommendation.company}</td>
+                    <td className="px-4 py-3 text-slate-600">{recommendation.title}</td>
+                    <td className="px-4 py-3 text-slate-500">Ashby</td>
+                    <td className="px-4 py-3 font-mono text-slate-950">{Math.round(recommendation.score)}%</td>
+                    <td className="px-4 py-3">
+                      <Pill tone={recommendation.rank <= 3 ? "success" : "neutral"}>rank #{recommendation.rank}</Pill>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {recommendation.rationale ? "ranking rationale" : "job description"}
+                    </td>
+                  </tr>
+                );
+              })
+            ) : seed.applications.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
+                  No live recommendations yet. Start ingestion to fill this table.
+                </td>
+              </tr>
+            ) : (
+              seed.applications.map((application) => (
+                <tr key={`${application.company}-${application.role}-${application.status}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
+                  <td className="px-4 py-3 font-semibold text-slate-950">{application.company}</td>
+                  <td className="px-4 py-3 text-slate-600">{application.role}</td>
+                  <td className="px-4 py-3 text-slate-500">{application.provider}</td>
+                  <td className="px-4 py-3 font-mono text-slate-950">{application.match}</td>
+                  <td className="px-4 py-3"><Pill tone={application.tone}>{application.status}</Pill></td>
+                  <td className="px-4 py-3 text-slate-600">{application.artifact}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
+  const selected = tailoring?.selected;
+  const detail = tailoring?.detail;
+  const job = detail?.job ?? selected?.job ?? null;
+  const tailored = detail?.tailoredApplication;
+  const artifacts = detail?.artifacts ?? [];
+  const loading = selected && detail === undefined;
+
+  if (!tailoring) {
+    return (
+      <Panel title="Selected Job">
+        <GlassCard className="min-h-[420px]">
+          <div className="text-sm font-semibold text-slate-950">Live tailoring unavailable</div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Connect the dashboard to Convex to inspect jobs and run tailoring.</p>
+        </GlassCard>
+      </Panel>
+    );
+  }
+
+  if (!selected) {
+    return (
+      <Panel title="Selected Job">
+        <GlassCard className="flex min-h-[420px] items-center justify-center text-center">
+          <div>
+            <FileText className="mx-auto h-8 w-8 text-slate-400" />
+            <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
+              Click a ranked Ashby recommendation to inspect the scraped description, ranking artifacts, tailoring output, and PDF state.
+            </p>
+          </div>
+        </GlassCard>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title="Selected Job" actions={<Pill tone={tailored?.status === "completed" ? "success" : tailoring.state.running ? "active" : "neutral"}>{tailored?.status ?? "ready"}</Pill>}>
+      <GlassCard className="min-h-[420px] p-0">
+        <div className="flex items-start justify-between gap-4 border-b border-white/45 px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill tone="active">selected</Pill>
+              <Pill tone="success">score {Math.round(detail?.score?.totalScore ?? selected.score)}</Pill>
+            </div>
+            <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">
+              {job?.title ?? selected.title}
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">{job?.company ?? selected.company}</p>
+            <a
+              href={job?.jobUrl ?? selected.jobUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-sky-600"
+            >
+              original job <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={tailoring.onTailor} disabled={Boolean(loading) || tailoring.state.running}>
+              {tailoring.state.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Tailor selected job
+            </Button>
+            {(tailoring.state.downloadable || tailored?.pdfReady) && (
+              <Button size="sm" variant="secondary" onClick={tailoring.onDownload} disabled={!tailoring.state.downloadable}>
+                <Download className="h-3.5 w-3.5" />
+                Download PDF
+              </Button>
+            )}
+          </div>
+
+          <div className={cx(
+            "rounded-[18px] border px-4 py-3 text-sm leading-6",
+            tailoring.state.error
+              ? "border-red-300/55 bg-red-50/45 text-red-700"
+              : "border-white/45 bg-white/28 text-slate-600"
+          )}>
+            {tailoring.state.error ?? tailoring.state.message}
+          </div>
+
+          {loading ? (
+            <div className="rounded-[18px] border border-white/45 bg-white/24 p-4 text-sm text-slate-500">
+              Loading job artifacts...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <TimelineItem title="Ingested job description" complete={Boolean(job?.descriptionPlain)}>
+                <ArtifactText text={job?.descriptionPlain ?? "No captured description for this job yet."} />
+              </TimelineItem>
+              <TimelineItem title="Ranking and recommendation" complete={Boolean(detail?.score || selected.rationale)}>
+                <ArtifactText text={rankingText(detail, selected)} />
+              </TimelineItem>
+              <TimelineItem title="Research snapshot" complete={Boolean(tailored?.research || artifactOf(artifacts, "research_snapshot"))}>
+                <ArtifactText text={researchText(tailored?.research ?? artifactOf(artifacts, "research_snapshot")?.payload)} />
+              </TimelineItem>
+              <TimelineItem title="Tailored resume" complete={Boolean(tailored?.tailoredResume || artifactOf(artifacts, "tailored_resume"))}>
+                <ArtifactText text={resumeText(tailored?.tailoredResume ?? artifactOf(artifacts, "tailored_resume")?.payload)} />
+              </TimelineItem>
+              <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)}>
+                <p className="text-sm leading-6 text-slate-600">
+                  {tailored?.pdfReady
+                    ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
+                    : "Run tailoring to generate a downloadable PDF for this session."}
+                </p>
+              </TimelineItem>
+            </div>
+          )}
+        </div>
+      </GlassCard>
+    </Panel>
+  );
+}
+
+function TimelineItem({
+  title,
+  complete,
+  children,
+}: {
+  title: string;
+  complete: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <CheckCircle2 className={complete ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-slate-400"} />
+        <div className="text-sm font-semibold text-slate-950">{title}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ArtifactText({ text }: { text: string }) {
+  return (
+    <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-[14px] border border-white/45 bg-white/35 p-3 text-xs leading-5 text-slate-700">
+      {text}
+    </pre>
+  );
+}
+
+function artifactOf(artifacts: JobDetail["artifacts"], kind: NonNullable<JobDetail["artifacts"]>[number]["kind"]) {
+  return artifacts?.find((artifact) => artifact.kind === kind);
+}
+
+function rankingText(detail: JobDetail | null | undefined, selected: LiveRecommendation): string {
+  const score = detail?.score;
+  return [
+    score?.rationale ?? selected.rationale ?? "No ranking rationale recorded.",
+    score ? `Total: ${Math.round(score.totalScore)}${score.llmScore ? `\nLLM: ${score.llmScore}` : ""}${score.scoringMode ? `\nMode: ${score.scoringMode}` : ""}` : "",
+    score?.strengths?.length ? `Strengths:\n- ${score.strengths.join("\n- ")}` : "",
+    score?.risks?.length ? `Risks:\n- ${score.risks.join("\n- ")}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function researchText(value: unknown): string {
+  if (!value || typeof value !== "object") return "No research snapshot yet.";
+  const research = value as Partial<JobResearch>;
+  return [
+    research.jdSummary,
+    research.requirements?.length ? `Requirements:\n- ${research.requirements.join("\n- ")}` : "",
+    research.techStack?.length ? `Tech stack:\n- ${research.techStack.join("\n- ")}` : "",
+    research.cultureSignals?.length ? `Signals:\n- ${research.cultureSignals.join("\n- ")}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function resumeText(value: unknown): string {
+  if (!value || typeof value !== "object") return "No tailored resume yet.";
+  const resume = value as TailoredApplication["tailoredResume"];
+  return [
+    resume.headline,
+    resume.summary,
+    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : "",
+    resume.experience?.length
+      ? resume.experience
+          .map((item) => `${item.title} · ${item.company}\n- ${item.bullets.join("\n- ")}`)
+          .join("\n\n")
+      : "",
+    resume.coverLetterBlurb ? `Why this role:\n${resume.coverLetterBlurb}` : "",
+  ].filter(Boolean).join("\n\n");
 }
 
 function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendations: LiveRecommendation[] | undefined): DashboardSeed {
@@ -671,6 +967,12 @@ function ConnectedRecruitDashboard() {
   const [runMessage, setRunMessage] = useState<string>();
   const [runError, setRunError] = useState<string>();
   const [liveData, setLiveData] = useState<LiveDashboardPayload>();
+  const [selected, setSelected] = useState<LiveRecommendation | null>(null);
+  const [jobDetail, setJobDetail] = useState<JobDetail | null | undefined>(null);
+  const [tailorState, setTailorState] = useState<TailorState>({
+    running: false,
+    message: "Select a ranked job to inspect and tailor.",
+  });
 
   const busy = runState === "syncing" || runState === "ingesting" || runState === "ranking";
 
@@ -707,6 +1009,43 @@ function ConnectedRecruitDashboard() {
     };
   }, [busy]);
 
+  useEffect(() => {
+    if (!selected?.jobId) {
+      return;
+    }
+    const selectedJobId = selected.jobId;
+
+    let cancelled = false;
+
+    async function refreshJobDetail() {
+      try {
+        const response = await fetch(`/api/dashboard/job-detail?jobId=${encodeURIComponent(selectedJobId)}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(body?.error ?? `job_detail_${response.status}`);
+        }
+        const payload = await response.json() as { detail: JobDetail };
+        if (!cancelled) setJobDetail(payload.detail);
+      } catch (err) {
+        if (!cancelled) {
+          setJobDetail(null);
+          setTailorState({
+            running: false,
+            message: "Could not load job detail.",
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    void refreshJobDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.jobId]);
+
   async function runFirstThreeSources() {
     if (busy) return;
 
@@ -736,9 +1075,98 @@ function ConnectedRecruitDashboard() {
     }
   }
 
+  function selectRecommendation(recommendation: LiveRecommendation) {
+    if (!recommendation.jobId) {
+      setTailorState({
+        running: false,
+        message: "This recommendation is missing a persisted job id.",
+        error: "missing_job_id",
+      });
+      return;
+    }
+    setSelected(recommendation);
+    setJobDetail(undefined);
+    setTailorState({
+      running: false,
+      message: "Inspect the job description, then tailor this job.",
+    });
+  }
+
+  async function tailorSelectedJob() {
+    if (!selected?.jobId || tailorState.running) return;
+
+    const profile = readProfile();
+    if (!profile.name || !profile.email || profile.experience.length === 0) {
+      setTailorState({
+        running: false,
+        message: "Complete onboarding first so the tailor has a real profile.",
+        error: "profile_incomplete",
+      });
+      return;
+    }
+
+    try {
+      setTailorState({
+        running: true,
+        message: "Researching the selected job and tailoring the resume...",
+      });
+
+      const response = await fetch("/api/dashboard/tailor-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: selected.jobId, profile }),
+      });
+      const body = await response.json().catch(() => null) as
+        | { ok: true; application: TailoredApplication }
+        | { ok: false; reason?: string }
+        | null;
+
+      if (!response.ok || !body || !body.ok) {
+        throw new Error(body && !body.ok ? body.reason ?? `tailor_${response.status}` : `tailor_${response.status}`);
+      }
+
+      setTailorState({
+        running: false,
+        message: "Tailored resume ready. PDF is available for this session.",
+        downloadable: body.application,
+      });
+
+      const detailResponse = await fetch(`/api/dashboard/job-detail?jobId=${encodeURIComponent(selected.jobId)}`, {
+        cache: "no-store",
+      });
+      if (detailResponse.ok) {
+        const payload = await detailResponse.json() as { detail: JobDetail };
+        setJobDetail(payload.detail);
+      }
+      await refreshLiveData();
+    } catch (err) {
+      setTailorState({
+        running: false,
+        message: "Tailoring failed.",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await refreshLiveData().catch(() => undefined);
+    }
+  }
+
+  function downloadTailoredPdf() {
+    if (tailorState.downloadable) {
+      downloadPdf(tailorState.downloadable);
+    }
+  }
+
   return (
     <DashboardShell
       seed={buildDashboardSeed(liveData?.run, liveData?.recommendations)}
+      tailoring={{
+        recommendations: liveData?.recommendations ?? [],
+        selected,
+        detail: jobDetail,
+        state: tailorState,
+        onSelect: selectRecommendation,
+        onTailor: () => void tailorSelectedJob(),
+        onDownload: downloadTailoredPdf,
+      }}
       controls={{
         canRun: true,
         busy,
