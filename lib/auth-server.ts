@@ -1,4 +1,5 @@
 import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
+import { headers } from "next/headers";
 
 type AuthServer = ReturnType<typeof convexBetterAuthNextJs>;
 
@@ -38,8 +39,38 @@ export function getToken() {
   return getAuthServer().getToken();
 }
 
-export function isAuthenticated() {
-  return getAuthServer().isAuthenticated();
+async function getSessionFromAuth() {
+  const convexSiteUrl = getConvexSiteUrl();
+  if (!convexSiteUrl) return null;
+
+  const incomingHeaders = await headers();
+  const requestHeaders = new Headers();
+  const cookie = incomingHeaders.get("cookie");
+  const host = incomingHeaders.get("host");
+  const proto = incomingHeaders.get("x-forwarded-proto") ?? "https";
+
+  if (cookie) requestHeaders.set("cookie", cookie);
+  if (host) {
+    requestHeaders.set("x-forwarded-host", host);
+    requestHeaders.set("x-better-auth-forwarded-host", host);
+  }
+  requestHeaders.set("x-forwarded-proto", proto);
+  requestHeaders.set("x-better-auth-forwarded-proto", proto);
+  requestHeaders.set("accept", "application/json");
+  requestHeaders.set("accept-encoding", "identity");
+
+  const response = await fetch(`${convexSiteUrl}/api/auth/get-session`, {
+    headers: requestHeaders,
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+  return (await response.json().catch(() => null)) as { session?: unknown } | null;
+}
+
+export async function isAuthenticated() {
+  const session = await getSessionFromAuth();
+  return Boolean(session?.session);
 }
 
 export const handler = {
