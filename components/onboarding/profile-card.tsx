@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Globe, Briefcase, GraduationCap, FileText, Sparkles } from "lucide-react";
 import {
@@ -16,16 +16,14 @@ import {
   SOURCE_HUE,
   SOURCE_LABEL,
   type ProvenanceSource,
-  type UserProfile,
 } from "@/lib/profile";
 
 export function ProfileCard() {
-  const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
-
-  useEffect(() => {
-    setProfile(readProfile());
-    return subscribeProfile((p) => setProfile(p ?? readProfile()));
-  }, []);
+  const profile = useSyncExternalStore(
+    subscribeProfile,
+    readProfile,
+    () => EMPTY_PROFILE
+  );
 
   const hasIdentity = Boolean(profile.name || profile.email || profile.headline);
   const hasLinks = Object.values(profile.links).some(Boolean);
