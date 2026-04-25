@@ -48,11 +48,23 @@ export type TailoredEducation = {
   endDate?: string;
 };
 
+export type TailoredProject = {
+  name: string;
+  url?: string;
+  technologies?: string[];
+  bullets: string[];
+};
+
 export type TailoringNotes = {
   matchedKeywords: string[];
   emphasizedExperience: string[];
   gaps: string[];
   confidence: number;
+  qualityIssues?: string[];
+  qualityChecks?: {
+    passed: string[];
+    failed: string[];
+  };
 };
 
 export type TailoredResume = {
@@ -65,6 +77,7 @@ export type TailoredResume = {
   skills: string[];
   experience: TailoredExperience[];
   education: TailoredEducation[];
+  projects: TailoredProject[];
   coverLetterBlurb?: string;
   tailoringNotes: TailoringNotes;
 };

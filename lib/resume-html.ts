@@ -47,7 +47,6 @@ function css(pageSize: PageSize): string {
   .resume { max-width: 100%; }
   header { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #222; }
   .name { font-size: 22pt; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 2px 0; line-height: 1.05; }
-  .headline { font-size: 11pt; color: #333; margin: 4px 0 6px 0; font-weight: 500; }
   .contact { font-size: 9pt; color: #555; }
   .contact-sep { color: #aaa; padding: 0 4px; }
   section { margin-top: 14px; break-inside: avoid; }
@@ -61,7 +60,6 @@ function css(pageSize: PageSize): string {
     padding-bottom: 3px;
     border-bottom: 1px solid #ddd;
   }
-  .summary p { margin: 0; }
   .role { margin-bottom: 12px; break-inside: avoid; }
   .role-head {
     display: flex;
@@ -81,22 +79,12 @@ function css(pageSize: PageSize): string {
   .education-item .degree { color: #444; }
   .skills-line { font-size: 10pt; }
   .skills-line .sep { color: #aaa; padding: 0 4px; }
-  .cover-letter {
-    margin-top: 14px;
-    padding: 10px 12px;
-    background: #fafafa;
-    border-left: 2px solid #d97757;
-    font-size: 9.5pt;
-    color: #333;
-    break-inside: avoid;
-  }
-  .cover-letter h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 4px; }
   .dot { color: #aaa; padding: 0 4px; }
   `;
 }
 
 function contactLine(r: TailoredResume): string {
-  const bits = [r.email, r.location, r.links?.linkedin, r.links?.github, r.links?.website]
+  const bits = [r.email, r.links?.linkedin, r.links?.github]
     .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
     .map(escapeHtml);
   if (bits.length === 0) return "";
@@ -147,20 +135,30 @@ function skillsSection(r: TailoredResume): string {
   return `<section class="skills"><h2>Skills</h2><div class="skills-line">${inner}</div></section>`;
 }
 
-function summarySection(r: TailoredResume): string {
-  if (!r.summary || !r.summary.trim()) return "";
-  return `<section class="summary"><h2>Summary</h2><p>${escapeHtml(r.summary)}</p></section>`;
-}
-
-function coverLetterSection(r: TailoredResume): string {
-  if (!r.coverLetterBlurb || !r.coverLetterBlurb.trim()) return "";
-  return `<section class="cover-letter"><h2>Why this role</h2><p>${escapeHtml(r.coverLetterBlurb)}</p></section>`;
+function projectsSection(r: TailoredResume): string {
+  if (r.projects.length === 0) return "";
+  const items = r.projects
+    .map((project) => {
+      const name = project.url
+        ? `<a class="role-title" href="${escapeHtml(project.url)}">${escapeHtml(project.name)}</a>`
+        : `<span class="role-title">${escapeHtml(project.name)}</span>`;
+      const tech = project.technologies?.length
+        ? `<span class="dot">·</span><span class="role-company">${escapeHtml(project.technologies.join(", "))}</span>`
+        : "";
+      const bullets = (project.bullets ?? [])
+        .filter((b) => b && b.trim())
+        .map((b) => `<li>${escapeHtml(b)}</li>`)
+        .join("");
+      const ul = bullets ? `<ul>${bullets}</ul>` : "";
+      return `<div class="role"><div class="role-head"><div>${name}${tech}</div></div>${ul}</div>`;
+    })
+    .join("");
+  return `<section class="projects"><h2>Projects</h2>${items}</section>`;
 }
 
 function headerSection(r: TailoredResume): string {
   const name = escapeHtml(r.name || "");
-  const headline = r.headline ? `<div class="headline">${escapeHtml(r.headline)}</div>` : "";
-  return `<header><h1 class="name">${name}</h1>${headline}${contactLine(r)}</header>`;
+  return `<header><h1 class="name">${name}</h1>${contactLine(r)}</header>`;
 }
 
 export function renderResumeHtml(resume: TailoredResume, pageSize: PageSize = "letter"): string {
@@ -174,11 +172,10 @@ export function renderResumeHtml(resume: TailoredResume, pageSize: PageSize = "l
     `</head><body>`,
     `<div class="resume">`,
     headerSection(resume),
-    summarySection(resume),
     experienceSection(resume),
     educationSection(resume),
     skillsSection(resume),
-    coverLetterSection(resume),
+    projectsSection(resume),
     `</div>`,
     `</body></html>`,
   ].join("");
