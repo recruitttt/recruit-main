@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Wordmark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, X as XClose } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Check, ArrowRight, Loader2, X as XClose } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tiers = [
   {
     name: "Free",
+    key: "free",
     price: "$0",
     cadence: "forever",
     description: "Try the agent on a handful of roles. No credit card.",
@@ -27,6 +28,7 @@ const tiers = [
   },
   {
     name: "Standard",
+    key: "standard",
     price: "$24",
     cadence: "/ month",
     description: "For active job seekers who want real momentum.",
@@ -44,6 +46,7 @@ const tiers = [
   },
   {
     name: "Pro",
+    key: "pro",
     price: "$79",
     cadence: "/ month",
     description: "Full autonomy. Recruiter outreach. White-glove support.",
@@ -59,10 +62,38 @@ const tiers = [
     notIncluded: [],
     highlight: false,
   },
-];
+] as const;
 
 export default function PricingPage() {
-  const [confirmed, setConfirmed] = useState<string | null>(null);
+  const router = useRouter();
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCheckout(tier: (typeof tiers)[number]) {
+    setError(null);
+
+    if (tier.key === "free") {
+      router.push("/onboarding");
+      return;
+    }
+
+    setLoadingTier(tier.key);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: tier.key }),
+      });
+      const json = (await res.json()) as { url?: string; message?: string };
+      if (!res.ok || !json.url) {
+        throw new Error(json.message ?? "Stripe sandbox checkout is unavailable.");
+      }
+      window.location.assign(json.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setLoadingTier(null);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
@@ -84,7 +115,7 @@ export default function PricingPage() {
 
         <div className="relative text-center mb-14 max-w-2xl mx-auto">
           <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-[var(--color-accent)] font-mono">
-            Pricing
+            Pricing · Stripe sandbox
           </div>
           <h1 className="font-serif text-[56px] leading-[1.05] tracking-tight text-[var(--color-fg)]">
             Pay for the agent,
@@ -92,8 +123,17 @@ export default function PricingPage() {
             <span className="text-[var(--color-fg-subtle)] italic">not the time.</span>
           </h1>
           <p className="mt-5 text-[16px] text-[var(--color-fg-muted)] max-w-md mx-auto">
-            Start free. Upgrade when you want more applications, recruiter outreach, or full autonomy.
+            Start free. Upgrade in Stripe test mode when you want more applications,
+            priority runs, or full autonomy.
           </p>
+          {error && (
+            <div className="mt-5 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-[12px] leading-relaxed text-amber-800">
+              <div className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                Sandbox checkout unavailable
+              </div>
+              <div className="mt-1">{error}</div>
+            </div>
+          )}
         </div>
 
         <div className="relative grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -135,8 +175,12 @@ export default function PricingPage() {
                 variant={tier.highlight ? "accent" : "secondary"}
                 size="lg"
                 className="mt-6 w-full"
-                onClick={() => setConfirmed(tier.name)}
+                disabled={loadingTier !== null}
+                onClick={() => void handleCheckout(tier)}
               >
+                {loadingTier === tier.key && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 {tier.cta}
               </Button>
 
@@ -159,56 +203,9 @@ export default function PricingPage() {
         </div>
 
         <div className="relative mt-14 text-center text-[12px] text-[var(--color-fg-subtle)] font-mono">
-          All plans · cancel anytime · no contract
+          Stripe sandbox only · no live payment · cancel anytime
         </div>
       </main>
-
-      {/* fake stripe modal */}
-      <AnimatePresence>
-        {confirmed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setConfirmed(null)}
-          >
-            <motion.div
-              initial={{ y: 16, scale: 0.97 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 16, scale: 0.97 }}
-              transition={{ duration: 0.25 }}
-              className="w-full max-w-md rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-7"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <span className="rounded bg-[var(--color-fg)] px-1.5 py-0.5 text-[11px] font-mono text-[var(--color-bg)]">
-                  Stripe
-                </span>
-                <span className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
-                  test mode
-                </span>
-              </div>
-              <h3 className="font-serif text-[28px] tracking-tight text-[var(--color-fg)]">
-                {confirmed} plan
-              </h3>
-              <p className="mt-2 text-[13px] text-[var(--color-fg-muted)]">
-                This is a mockup. In the real product, Stripe Checkout would open here.
-              </p>
-              <div className="mt-6 flex gap-2 justify-end">
-                <Button variant="ghost" onClick={() => setConfirmed(null)}>
-                  Close
-                </Button>
-                <Link href="/dashboard" onClick={() => setConfirmed(null)}>
-                  <Button variant="primary">
-                    Go to dashboard <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
