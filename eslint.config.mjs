@@ -16,6 +16,28 @@ const eslintConfig = defineConfig([
     "backups/**",
     "manual-runs/**",
   ]),
+  // react-three-fiber writes directly to Three.js refs inside useFrame and uses
+  // Math.random for procedural geometry. The new React 19 hook-purity rules flag
+  // these as errors even though they are the correct r3f patterns. Disable the
+  // affected rules only inside components/room (the 3D scene).
+  {
+    files: ["components/room/**/*.{ts,tsx}"],
+    rules: {
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  // Honour the leading-underscore convention for intentionally unused vars/args.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
