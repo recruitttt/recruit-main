@@ -1,7 +1,7 @@
 "use client";
 
 import { animate, motion, useMotionValue } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cx, Panel } from "@/components/design-system";
 import { AGENTS } from "@/lib/agents";
@@ -25,9 +25,8 @@ function useTypewriter(text: string, startDelay: number, charDelay = 16) {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    let t: ReturnType<typeof setTimeout>;
     let iv: ReturnType<typeof setInterval>;
-    t = setTimeout(() => {
+    const t = setTimeout(() => {
       let i = 0;
       iv = setInterval(() => {
         i++;
