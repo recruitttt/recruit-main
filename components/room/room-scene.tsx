@@ -1,9 +1,8 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
-  Environment,
   ContactShadows,
   AdaptiveDpr,
   PerformanceMonitor,
@@ -21,6 +20,7 @@ import {
   RoomIntroScout,
   type RoomIntroPhase,
 } from "./room-intro";
+import { ScoutSpeechBubble } from "./scout-speech-bubble";
 
 export type RoomSceneProps = {
   introPhase?: RoomIntroPhase;
@@ -37,6 +37,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
   return (
     <Canvas
       shadows={false}
+      frameloop="always"
       dpr={[1, 2]}
       gl={{
         antialias: true,
@@ -54,10 +55,9 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
       <PerformanceMonitor flipflops={3} />
       <AdaptiveDpr pixelated={false} />
 
-      <Suspense fallback={null}>
-        <Environment preset="apartment" environmentIntensity={0.35} />
-      </Suspense>
-
+      {/* Image-based lighting via drei's <Environment preset="apartment"> was
+          here, but it fetches an HDR from a CDN at runtime and crashes the
+          canvas if the network blocks it. RoomLighting alone is sufficient. */}
       <RoomLighting />
       <IntroRevealGroup phase={introPhase}>
         <RoomFloor />
@@ -80,7 +80,10 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
           <RoomIntroCamera phase={activeIntroPhase} />
         </>
       ) : (
-        <RoomCamera />
+        <>
+          <RoomCamera />
+          <ScoutSpeechBubble />
+        </>
       )}
     </Canvas>
   );

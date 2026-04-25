@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { RoomDetailPanel } from "./room-detail-panel";
+import { ScoutIntakeInput } from "./scout-intake-input";
+import { useRoomStore } from "./room-store";
+import { hasIntake } from "@/lib/onboarding-storage";
 import type { RoomSceneProps } from "./room-scene";
 import type { RoomIntroPhase } from "./room-intro";
 
@@ -34,11 +38,24 @@ export function RoomCanvasClient({
   showDetailPanel = true,
   onSceneReady,
 }: Props) {
+  const startIntake = useRoomStore((s) => s.startIntake);
+  const intakeActive = useRoomStore((s) => s.intakePhase !== "inactive");
+
+  // Kick off Scout's intake interlude on first dashboard mount when the user
+  // hasn't completed it yet. Skipped while the onboarding intro cinematic is
+  // playing (that flow has its own choreography).
+  useEffect(() => {
+    if (introPhase) return;
+    if (hasIntake()) return;
+    startIntake();
+  }, [introPhase, startIntake]);
+
   return (
     <div className="relative h-[78vh] w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-1)] shadow-[0_30px_80px_-40px_rgba(15,15,18,0.25),0_10px_30px_-20px_rgba(15,15,18,0.15)]">
       <RoomScene introPhase={introPhase} onReady={onSceneReady} />
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-[rgba(15,15,18,0.04)]" />
-      {showDetailPanel ? <RoomDetailPanel /> : null}
+      {showDetailPanel && !intakeActive ? <RoomDetailPanel /> : null}
+      {!introPhase ? <ScoutIntakeInput /> : null}
     </div>
   );
 }

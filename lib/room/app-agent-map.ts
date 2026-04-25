@@ -4,11 +4,11 @@ import { mockApplications, type Application } from "@/lib/mock-data";
 import { stationForStage, type Station } from "./stations";
 
 /**
- * Where Scout stands when delivering the intake interlude. Picked so it's
- * visible in the overview camera (centered, forward of the stations) without
- * colliding with desks or the camera frustum's near plane.
+ * Where Scout stands when delivering the intake interlude. Picked to be
+ * centered and forward of the agent stations but behind the living-room
+ * sofa, so she has clear floor space in front of the camera.
  */
-export const FRONT_STAGE: readonly [number, number, number] = [0, 0, 2.6];
+export const FRONT_STAGE: readonly [number, number, number] = [0, 0, 0.9];
 export const FRONT_STAGE_FACING = Math.PI;
 
 export function frontStagePosition(): THREE.Vector3 {
