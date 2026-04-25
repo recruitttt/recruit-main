@@ -317,11 +317,11 @@ const emptyDashboardSeed: DashboardSeed = {
 };
 
 const navItems = [
-  ["Dashboard", LayoutDashboard, true],
-  ["Applications", BriefcaseBusiness, false],
-  ["DLQ", AlertTriangle, false],
-  ["Artifacts", FileText, false],
-  ["Settings", Settings, false],
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
+  { href: "#applications", label: "Applications", icon: BriefcaseBusiness, active: false },
+  { href: "/dlq", label: "DLQ", icon: AlertTriangle, active: false },
+  { href: "#artifacts", label: "Artifacts", icon: FileText, active: false },
+  { href: "/settings", label: "Settings", icon: Settings, active: false },
 ] as const;
 
 function ProgressBar({ value, tone }: { value: number; tone: StatusTone }) {
@@ -376,18 +376,23 @@ function DashboardShell({
             </span>
           </Link>
           <nav className="mt-6 space-y-1">
-            {navItems.map(([label, Icon, active]) => (
-              <button
-                key={label}
-                className={cx(
-                  "flex h-10 w-full items-center gap-3 rounded-full px-3 text-sm font-semibold transition",
-                  active ? "bg-white/58 text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.07)]" : "text-slate-600 hover:bg-white/28",
-                )}
-              >
-                <Icon className={cx("h-4 w-4", active ? "text-sky-500" : "text-slate-500")} />
-                {label}
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  href={item.href}
+                  key={item.label}
+                  className={cx(
+                    "flex h-10 w-full items-center gap-3 rounded-full px-3 text-sm font-semibold transition",
+                    item.active ? "bg-white/58 text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.07)]" : "text-slate-600 hover:bg-white/28",
+                  )}
+                  aria-current={item.active ? "page" : undefined}
+                >
+                  <Icon className={cx("h-4 w-4", item.active ? "text-sky-500" : "text-slate-500")} />
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
           <GlassCard density="compact" className="mt-6">
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">mode</div>
@@ -607,7 +612,9 @@ function DashboardMain({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <ApplicationPipelinePanel seed={seed} tailoring={tailoring} customJd={customJd} />
+        <div id="applications" className="scroll-mt-24">
+          <ApplicationPipelinePanel seed={seed} tailoring={tailoring} customJd={customJd} />
+        </div>
         <SelectedJobPanel tailoring={tailoring} />
       </div>
 
@@ -619,31 +626,33 @@ function DashboardMain({
         <Panel title="Activity & Proof Feed">
           <EventLog events={seed.activity} />
         </Panel>
-        <Panel title="Artifacts">
-          <div className="grid gap-3 md:grid-cols-3">
-            {seed.artifacts.length === 0 ? (
-              <GlassCard>
-                <div className="text-sm font-semibold text-slate-950">No artifacts yet</div>
-                <p className="mt-1 text-sm leading-6 text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
-              </GlassCard>
-            ) : seed.artifacts.map((artifact) => (
-              <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
-            ))}
-          </div>
-          <GlassCard className="mt-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-950">Claim safety</div>
-                <div className="mt-1 text-sm text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
-                <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
-                <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
-              </div>
+        <div id="artifacts" className="scroll-mt-24">
+          <Panel title="Artifacts">
+            <div className="grid gap-3 md:grid-cols-3">
+              {seed.artifacts.length === 0 ? (
+                <GlassCard>
+                  <div className="text-sm font-semibold text-slate-950">No artifacts yet</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
+                </GlassCard>
+              ) : seed.artifacts.map((artifact) => (
+                <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
+              ))}
             </div>
-          </GlassCard>
-        </Panel>
+            <GlassCard className="mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-950">Claim safety</div>
+                  <div className="mt-1 text-sm text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
+                  <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
+                  <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
+                </div>
+              </div>
+            </GlassCard>
+          </Panel>
+        </div>
       </div>
     </>
   );
