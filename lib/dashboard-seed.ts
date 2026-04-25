@@ -62,7 +62,7 @@ export type DashboardSeed = {
   generatedAt: string;
   mode: "live" | "seeded fallback";
   metrics: DashboardMetric[];
-  activeRun: ActiveRun;
+  activeRun: ActiveRun | null;
   providers: ProviderCoverage[];
   applications: ApplicationRow[];
   dlq: DlqSummary[];
