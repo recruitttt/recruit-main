@@ -1,45 +1,39 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useAnimation } from "motion/react";
-import { Wordmark } from "@/components/ui/logo";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
+import {
+  ArrowRight,
+  Briefcase,
+  Check,
+  FileText,
+  Link2,
+  Mail,
+  MapPin,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { Wordmark, CompanyLogo } from "@/components/ui/logo";
 import {
   ActionButton,
   ChoiceChipGroup,
   FileUploadControl,
   GlassCard,
-  ProgressMeter,
   TextField,
   cx,
   mistClasses,
   mistRadii,
 } from "@/components/design-system";
-import { AgentRail } from "@/components/onboarding/agent-rail";
-import { AgentMessage, UserMessage, TypingIndicator } from "@/components/onboarding/chat";
-import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
-import { CompanyLogo } from "@/components/ui/logo";
-import { onboardingMatches } from "@/lib/mock-data";
-import { ArrowRight, Volume2, VolumeX, X } from "lucide-react";
+import { UserMessage, TypingIndicator } from "@/components/onboarding/chat";
 import { AgentCharacter } from "@/components/onboarding/characters";
-import { isMuted, setMuted, playSend, playReceive, playWake, playActivate } from "@/lib/sounds";
-import { ProfileCard } from "@/components/onboarding/profile-card";
-import { logProfileEvent, mergeProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
-import {
-  parseResume,
-  scrapeAndExtract,
-  scrapeLinkedIn,
-} from "@/lib/scrapers";
-
-type InputKind = "name" | "email" | "resume" | "links" | "prefs";
-
-type Beat =
-  | { k: "agent"; from: AgentId; text: string | ((d: Data) => string) }
-  | { k: "wake"; who: AgentId }
-  | { k: "input"; kind: InputKind; from: AgentId }
-  | { k: "pause"; ms: number }
-  | { k: "activate" };
+import { onboardingMatches } from "@/lib/mock-data";
+import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
+import { logProfileEvent, mergeProfile, readProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
+import { parseResume, scrapeAndExtract, scrapeLinkedIn } from "@/lib/scrapers";
 
 type Data = {
   name: string;
@@ -48,6 +42,19 @@ type Data = {
   links: { github: string; linkedin: string; twitter: string; devpost: string; website: string };
   prefs: { roles: string[]; workAuth: string; location: string };
 };
+
+type DataUpdate = Partial<Omit<Data, "links" | "prefs">> & {
+  links?: Partial<Data["links"]>;
+  prefs?: Partial<Data["prefs"]>;
+};
+
+type Step = "role" | "resume" | "links" | "email" | "prefs" | "review";
+
+type ChatEntry =
+  | { id: string; kind: "agent"; text: string }
+  | { id: string; kind: "user"; text: string };
+
+type LaunchStage = "idle" | "saving" | "finding" | "ranking" | "tailoring" | "ready" | "error";
 
 const EMPTY: Data = {
   name: "",
@@ -60,69 +67,58 @@ const EMPTY: Data = {
 const STORAGE = "recruit:onboarding";
 const SOURCE_NAME = { github: "GitHub", linkedin: "LinkedIn", devpost: "DevPost", website: "website" } as const;
 
-const beats: Beat[] = [
-  { k: "pause", ms: 300 },
-  { k: "agent", from: "scout", text: "Hey. I'm Scout, one of your 5 agents." },
-  { k: "agent", from: "scout", text: "We each apply to a different job in parallel. I'll handle the questions. The others are just warming up." },
-  { k: "agent", from: "scout", text: "What should I call you?" },
-  { k: "input", kind: "name", from: "scout" },
-  { k: "agent", from: "scout", text: (d) => `Nice to meet you, ${d.name.split(" ")[0]}.` },
-  { k: "agent", from: "scout", text: "What's the best email for updates?" },
-  { k: "input", kind: "email", from: "scout" },
-  { k: "wake", who: "scout" },
-  { k: "pause", ms: 600 },
-
-  { k: "wake", who: "mimi" },
-  { k: "agent", from: "scout", text: "Mimi's online. Agent two." },
-  { k: "agent", from: "scout", text: "Got a resume? Drop it here." },
-  { k: "input", kind: "resume", from: "scout" },
-  { k: "pause", ms: 500 },
-
-  { k: "wake", who: "pip" },
-  { k: "agent", from: "scout", text: "Pip just came online. Three of us ready." },
-  { k: "agent", from: "scout", text: "Any public links? GitHub, LinkedIn, your site. The squad will read each one and fill out your profile." },
-  { k: "input", kind: "links", from: "scout" },
-  { k: "pause", ms: 400 },
-
-  { k: "wake", who: "juno" },
-  { k: "agent", from: "scout", text: "Juno's up. Four agents live." },
-  { k: "agent", from: "scout", text: "Last question. What are we actually hunting?" },
-  { k: "input", kind: "prefs", from: "scout" },
-  { k: "pause", ms: 400 },
-
-  { k: "wake", who: "bodhi" },
-  { k: "agent", from: "scout", text: "Bodhi's in. Full squad." },
-  { k: "pause", ms: 500 },
-  { k: "agent", from: "scout", text: "Alright. We split up now. Each of us grabs a different role and applies in parallel." },
-  { k: "activate" },
+const ROLE_OPTIONS = [
+  "Software Engineer",
+  "Product Engineer",
+  "Founding Engineer",
+  "Frontend",
+  "ML / AI",
+  "Design Engineer",
 ];
 
-type Rendered =
-  | { id: string; kind: "agent"; from: AgentId; text: string; revealed: number }
-  | { id: string; kind: "user"; text: string }
-  | { id: string; kind: "input"; inputKind: InputKind; from: AgentId };
+const AUTH_OPTIONS = ["US citizen", "US permanent resident", "Need sponsorship"];
 
-const TYPING_INDICATOR_MS = 380;
-const REVEAL_MS_PER_CHAR = 30;
-const POST_MESSAGE_PAUSE = 520;
+const LINK_FIELDS = [
+  { k: "github" as const, label: "GitHub", placeholder: "github.com/yourhandle" },
+  { k: "linkedin" as const, label: "LinkedIn", placeholder: "linkedin.com/in/you" },
+  { k: "website" as const, label: "Website", placeholder: "yoursite.com" },
+  { k: "devpost" as const, label: "DevPost", placeholder: "devpost.com/you" },
+  { k: "twitter" as const, label: "X / Twitter", placeholder: "x.com/yourhandle" },
+];
+
+const STEP_PROMPTS: Record<Step, string> = {
+  role: "What kind of role should I start with?",
+  resume: "Upload your resume so I can tailor applications accurately.",
+  links: "Any public links I should read before applying?",
+  email: "Where should I send application updates?",
+  prefs: "Last bit. Any location or work authorization constraints?",
+  review: "Review this before I save it to Convex.",
+};
 
 export default function OnboardingChatPage() {
+  return (
+    <Suspense fallback={<OnboardingFallback />}>
+      <OnboardingChatContent />
+    </Suspense>
+  );
+}
+
+function OnboardingChatContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role");
   const [data, setData] = useState<Data>(EMPTY);
-  const [rendered, setRendered] = useState<Rendered[]>([]);
-  const [typing, setTyping] = useState<AgentId | null>(null);
-  const [awake, setAwake] = useState<Set<AgentId>>(new Set());
-  const [activating, setActivating] = useState(false);
-  const [phase, setPhase] = useState<"playing" | "awaiting-input" | "done">("playing");
-  const [pendingInput, setPendingInput] = useState<{ kind: InputKind; from: AgentId } | null>(null);
-  const [beatTick, setBeatTick] = useState(0);
+  const [step, setStep] = useState<Step>("role");
+  const [messages, setMessages] = useState<ChatEntry[]>([
+    { id: "a-role", kind: "agent", text: STEP_PROMPTS.role },
+  ]);
   const [muted, setMutedState] = useState(false);
-  const [wakingAgent, setWakingAgent] = useState<AgentId | null>(null);
-  const shakeCtrl = useAnimation();
-  const pointer = useRef(0);
+  const [parsingResume, setParsingResume] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // hydrate mute state
   useEffect(() => {
     const id = window.setTimeout(() => setMutedState(isMuted()), 0);
     return () => window.clearTimeout(id);
@@ -132,36 +128,43 @@ export default function OnboardingChatPage() {
     router.prefetch("/dashboard");
   }, [router]);
 
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
-  };
-
-  // hydrate from localStorage + URL ?role=
   useEffect(() => {
     let next = EMPTY;
     try {
       const raw = localStorage.getItem(STORAGE);
-      if (raw) next = { ...EMPTY, ...JSON.parse(raw) };
-    } catch {}
-    try {
-      const role = new URLSearchParams(window.location.search).get("role");
-      if (role && !next.prefs.roles.includes(role)) {
-        next = { ...next, prefs: { ...next.prefs, roles: [role, ...next.prefs.roles] } };
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<Data>;
+        next = {
+          ...EMPTY,
+          ...parsed,
+          links: { ...EMPTY.links, ...(parsed.links ?? {}) },
+          prefs: { ...EMPTY.prefs, ...(parsed.prefs ?? {}) },
+        };
       }
     } catch {}
     const id = window.setTimeout(() => setData(next), 0);
     return () => window.clearTimeout(id);
   }, []);
 
-  // persist
+  useEffect(() => {
+    if (!roleParam) return;
+    const id = window.setTimeout(() => {
+      setData((current) => {
+        if (current.prefs.roles.includes(roleParam)) return current;
+        return {
+          ...current,
+          prefs: { ...current.prefs, roles: [roleParam, ...current.prefs.roles] },
+        };
+      });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [roleParam]);
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE, JSON.stringify(data));
-      if (data.name || data.email || data.resumeFilename) {
+      if (data.email || data.resumeFilename || data.prefs.roles.length > 0) {
         logProfileEvent("chat", "Persisted onboarding state", "info", {
-          hasName: Boolean(data.name),
           hasEmail: Boolean(data.email),
           resumeFilename: data.resumeFilename || undefined,
           roles: data.prefs.roles,
@@ -170,273 +173,125 @@ export default function OnboardingChatPage() {
     } catch {}
   }, [data]);
 
-  // play beats
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const beat = beats[pointer.current];
-    if (!beat) {
-      setPhase("done");
-      return;
-    }
-
-    let cancelled = false;
-    const timers: number[] = [];
-    const intervals: number[] = [];
-
-    const after = (ms: number, fn: () => void) => {
-      const t = window.setTimeout(() => {
-        if (cancelled) return;
-        fn();
-      }, ms);
-      timers.push(t);
-    };
-
-    const advance = () => {
-      if (cancelled) return;
-      pointer.current += 1;
-      setBeatTick((t) => t + 1);
-    };
-
-    if (beat.k === "agent") {
-      const text = typeof beat.text === "function" ? beat.text(data) : beat.text;
-      setTyping(beat.from);
-      after(TYPING_INDICATOR_MS, () => {
-        setTyping(null);
-        const msgId = `b-${pointer.current}`;
-        setRendered((r) => [
-          ...r,
-          { id: msgId, kind: "agent", from: beat.from, text, revealed: 0 },
-        ]);
-        // character-by-character typewriter
-        let i = 0;
-        const iv = window.setInterval(() => {
-          if (cancelled) {
-            window.clearInterval(iv);
-            return;
-          }
-          i += 1;
-          setRendered((r) =>
-            r.map((m) =>
-              m.id === msgId && m.kind === "agent" ? { ...m, revealed: i } : m
-            )
-          );
-          if (i >= text.length) {
-            window.clearInterval(iv);
-            playReceive();
-            after(POST_MESSAGE_PAUSE, advance);
-          }
-        }, REVEAL_MS_PER_CHAR);
-        intervals.push(iv);
-      });
-    } else if (beat.k === "pause") {
-      after(beat.ms, advance);
-    } else if (beat.k === "wake") {
-      setAwake((s) => {
-        const next = new Set(s);
-        next.add(beat.who);
-        return next;
-      });
-      setWakingAgent(beat.who);
-      playWake();
-      // subtle camera shake
-      shakeCtrl.start({
-        x: [0, -1.5, 2, -1.5, 1, 0],
-        transition: { duration: 0.35, ease: "easeOut" },
-      });
-      // clear the waking marker once the effect has played out
-      after(900, () => setWakingAgent(null));
-      after(600, advance);
-    } else if (beat.k === "input") {
-      setPendingInput({ kind: beat.kind, from: beat.from });
-      setRendered((r) => [
-        ...r,
-        { id: `i-${pointer.current}`, kind: "input", inputKind: beat.kind, from: beat.from },
-      ]);
-      setPhase("awaiting-input");
-    } else if (beat.k === "activate") {
-      setActivating(true);
-      playActivate();
-      after(900, () => router.push("/dashboard"));
-    }
-
-    return () => {
-      cancelled = true;
-      timers.forEach((t) => window.clearTimeout(t));
-      intervals.forEach((i) => window.clearInterval(i));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, beatTick, data, router]);
-
-  // auto-scroll on new content
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [rendered, typing, activating]);
+  }, [messages, typing, step, activating]);
 
-  const handleInputSubmit = (
-    kind: InputKind,
-    echo: string,
-    updates: Partial<Data>,
-    extras?: { resumeFile?: File | null },
-  ) => {
-    setData((d) => ({
-      ...d,
+  const selectedRoles = useMemo(() => {
+    if (!roleParam || data.prefs.roles.includes(roleParam)) return data.prefs.roles;
+    return [roleParam, ...data.prefs.roles];
+  }, [data.prefs.roles, roleParam]);
+
+  const linkCount = Object.values(data.links).filter((v) => v.trim()).length;
+  const completeCount = [
+    selectedRoles.length > 0,
+    Boolean(data.resumeFilename),
+    linkCount > 0,
+    /.+@.+\..+/.test(data.email),
+    Boolean(data.prefs.location || data.prefs.workAuth),
+  ].filter(Boolean).length;
+
+  const updateData = (updates: DataUpdate) => {
+    setData((current) => ({
+      ...current,
       ...updates,
-      links: { ...d.links, ...(updates.links ?? {}) },
-      prefs: { ...d.prefs, ...(updates.prefs ?? {}) },
+      links: { ...current.links, ...(updates.links ?? {}) },
+      prefs: { ...current.prefs, ...(updates.prefs ?? {}) },
     }));
-
-    // Mirror the chat answer into the canonical profile (outside setData
-    // so React's strict-mode double-invoke doesn't double-log).
-    if (kind === "name" && updates.name) {
-      mergeProfile({ name: updates.name }, "chat", `Got your name`);
-    } else if (kind === "email" && updates.email) {
-      mergeProfile({ email: updates.email }, "chat", `Got your email`);
-    } else if (kind === "resume" && extras?.resumeFile) {
-      mergeProfile(
-        {
-          resume: {
-            filename: extras.resumeFile.name,
-            uploadedAt: new Date().toISOString(),
-          },
-        },
-        "resume",
-        `Got your resume`,
-      );
-    } else if (kind === "links" && updates.links) {
-      mergeProfile({ links: updates.links }, "chat", `Got your links`);
-    } else if (kind === "prefs" && updates.prefs) {
-      mergeProfile(
-        {
-          prefs: {
-            roles: updates.prefs.roles,
-            workAuth: updates.prefs.workAuth,
-            locations: updates.prefs.location ? [updates.prefs.location] : [],
-          },
-        },
-        "chat",
-        `Got your preferences`,
-      );
-    }
-
-    // Kick off enrichment async - don't block the chat.
-    if (kind === "resume" && extras?.resumeFile) {
-      enrichFromResume(extras.resumeFile);
-    } else if (kind === "links" && updates.links) {
-      enrichFromLinks(updates.links);
-    }
-
-    playSend();
-    // replace the input placeholder with a user-message echo
-    setRendered((r) => {
-      const idx = r.findIndex((x) => x.kind === "input" && x.inputKind === kind);
-      if (idx === -1) return [...r, { id: `u-${pointer.current}`, kind: "user", text: echo }];
-      const copy = [...r];
-      copy[idx] = { id: `u-${pointer.current}`, kind: "user", text: echo };
-      return copy;
-    });
-    setPendingInput(null);
-    pointer.current += 1;
-    setBeatTick((t) => t + 1);
-    setPhase("playing");
   };
 
-  const enrichFromResume = async (file: File) => {
-    logProfileEvent("resume", "Started resume parse", "info", { filename: file.name });
-    const result = await parseResume(file);
-    if (!result.ok) {
-      logProfileEvent("resume", "Resume parse failed", "error", { filename: file.name, reason: result.reason });
-      return;
-    }
-    const updates: Partial<UserProfile> = {
-      resume: {
-        filename: result.filename ?? file.name,
-        rawText: result.rawText,
-        uploadedAt: new Date().toISOString(),
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  };
+
+  const toggleRole = (role: string) => {
+    updateData({
+      prefs: {
+        ...data.prefs,
+        roles: selectedRoles.includes(role)
+          ? selectedRoles.filter((r) => r !== role)
+          : [...selectedRoles, role],
       },
-    };
-    if (result.structured) {
-      const s = result.structured;
-      Object.assign(updates, {
-        name: s.name,
-        email: s.email,
-        location: s.location,
-        headline: s.headline,
-        summary: s.summary,
-        skills: s.skills,
-        experience: s.experience,
-        education: s.education,
-      });
-    }
-    mergeProfile(
-      updates,
-      "resume",
-      result.structured ? `Read your resume` : `Saved your resume`,
-    );
-    logProfileEvent("resume", "Resume parse completed", "success", {
-      filename: result.filename ?? file.name,
-      structured: Boolean(result.structured),
     });
   };
 
-  const enrichFromLinks = async (links: Data["links"]) => {
-    const tasks: Promise<void>[] = [];
-    const runLink = async (
-      source: Extract<ProvenanceSource, "github" | "linkedin" | "devpost" | "website">,
-      url: string,
-      action: () => Promise<{ ok: boolean; reason?: string; structured?: Partial<UserProfile> }>
-    ) => {
-      logProfileEvent(source, "Started link enrichment", "info", { url });
-      const r = await action();
-      if (!r.ok || !r.structured) {
-        logProfileEvent(source, "Link enrichment failed", "error", { url, reason: r.reason ?? "no_structured_profile" });
-        return;
-      }
-      mergeProfile(r.structured, source, `Read your ${SOURCE_NAME[source]}`);
-    };
-
-    if (links.github?.trim()) {
-      tasks.push(
-        runLink("github", links.github, () => scrapeAndExtract(links.github, "github")),
-      );
-    }
-    if (links.linkedin?.trim()) {
-      tasks.push(
-        runLink("linkedin", links.linkedin, () => scrapeLinkedIn(links.linkedin)),
-      );
-    }
-    if (links.devpost?.trim()) {
-      tasks.push(
-        runLink("devpost", links.devpost, () => scrapeAndExtract(links.devpost, "devpost")),
-      );
-    }
-    if (links.website?.trim()) {
-      tasks.push(
-        runLink("website", links.website, () => scrapeAndExtract(links.website, "website")),
-      );
-    }
-
-    await Promise.allSettled(tasks);
+  const advance = (userText: string, nextStep: Step) => {
+    setMessages((current) => [
+      ...current,
+      { id: `u-${current.length}-${step}`, kind: "user", text: userText },
+    ]);
+    playSend();
+    setTyping(true);
+    window.setTimeout(() => {
+      setTyping(false);
+      setStep(nextStep);
+      setMessages((current) => [
+        ...current,
+        { id: `a-${current.length}-${nextStep}`, kind: "agent", text: STEP_PROMPTS[nextStep] },
+      ]);
+      playReceive();
+    }, 360);
   };
 
-  const activeAgent = useMemo(() => {
-    if (typing) return typing;
-    if (pendingInput) return pendingInput.from;
-    return null;
-  }, [typing, pendingInput]);
+  const handleResumeFile = (file: File | null) => {
+    if (!file) return;
+    setParsingResume(true);
+    updateData({ resumeFilename: file.name });
+    mergeProfile(
+      {
+        resume: {
+          filename: file.name,
+          uploadedAt: new Date().toISOString(),
+        },
+      },
+      "resume",
+      "Got your resume",
+    );
+    void enrichFromResume(file).finally(() => setParsingResume(false));
+    advance(`Uploaded ${file.name}`, "links");
+  };
 
-  const progress = awake.size / AGENT_ORDER.length;
+  const mergeFinalProfile = () => {
+    if (selectedRoles.length === 0) return;
+    const links = trimLinks(data.links);
+    mergeProfile(
+      {
+        email: data.email.trim() || undefined,
+        links,
+        prefs: {
+          roles: selectedRoles,
+          workAuth: data.prefs.workAuth || undefined,
+          locations: data.prefs.location ? [data.prefs.location] : [],
+        },
+      },
+      "chat",
+      "Confirmed onboarding intake",
+    );
+    if (Object.values(links).some(Boolean)) {
+      void enrichFromLinks(links);
+    }
+  };
+
+  const handleLaunch = () => {
+    setActivating(true);
+    playActivate();
+    window.setTimeout(() => router.push("/dashboard"), 900);
+  };
 
   return (
-    <motion.div animate={shakeCtrl} className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
-      {/* header */}
+    <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       <header className="flex items-center justify-between px-5 py-4 md:px-8">
         <Link href="/">
           <Wordmark size="sm" />
         </Link>
-        <div className="flex items-center gap-4">
-          <ProgressMeter value={progress} label={`${awake.size} / 5`} className="hidden sm:flex" />
+        <div className="flex items-center gap-3">
+          <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
+            {completeCount} saved
+          </span>
           <ActionButton
             variant="ghost"
             size="icon"
@@ -454,476 +309,599 @@ export default function OnboardingChatPage() {
         </div>
       </header>
 
-      {/* body: rail + chat + profile card */}
-      <div className="flex-1">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-5 pb-10 md:px-8 lg:grid-cols-[140px_minmax(0,1fr)_320px] lg:gap-10">
-          {/* rail (top strip on mobile, side on desktop) */}
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <AgentRail awake={awake} speaking={activeAgent} waking={wakingAgent} />
-          </div>
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <section className="min-w-0">
+          <GlassCard density="spacious" className="flex h-[calc(100vh-120px)] min-h-[640px] flex-col">
+            <div className="mb-5 flex items-start gap-4 border-b border-white/45 pb-5">
+              <AgentCharacter id="scout" awake size={52} />
+              <div className="min-w-0">
+                <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                  Quick setup, one question at a time.
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  Start with a role and resume. Links, updates, and preferences can come later.
+                </p>
+              </div>
+            </div>
 
-          {/* chat */}
-          <div ref={scrollRef} className="relative min-w-0 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
-            <div className="space-y-5 pb-24">
-              {rendered.map((m) => {
-                if (m.kind === "agent") {
-                  const shown = m.text.slice(0, m.revealed);
-                  const typing = m.revealed < m.text.length;
-                  return (
-                    <AgentMessage key={m.id} from={m.from}>
-                      {shown}
-                      {typing && <Caret />}
-                    </AgentMessage>
-                  );
-                }
-                if (m.kind === "user") {
-                  return (
-                    <UserMessage key={m.id}>
-                      {m.text}
-                    </UserMessage>
-                  );
-                }
-                // input
-                return (
-                  <div key={m.id} className="pl-11">
-                    <InputWell
-                      kind={m.inputKind}
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="space-y-5 pb-5">
+                {messages.map((message) =>
+                  message.kind === "agent" ? (
+                    <ScoutMessage key={message.id}>
+                      {message.text}
+                    </ScoutMessage>
+                  ) : (
+                    <UserMessage key={message.id}>{message.text}</UserMessage>
+                  ),
+                )}
+                {typing && <TypingIndicator from="scout" />}
+                {!typing && !activating && (
+                  <div className="pl-11">
+                    <StepCard
+                      step={step}
                       data={data}
-                      onSubmit={handleInputSubmit}
+                      selectedRoles={selectedRoles}
+                      linkCount={linkCount}
+                      parsingResume={parsingResume}
+                      fileInputRef={fileInputRef}
+                      toggleRole={toggleRole}
+                      updateData={updateData}
+                      onResumeFile={handleResumeFile}
+                      onAdvance={advance}
+                      onMergeFinalProfile={mergeFinalProfile}
+                      onLaunch={handleLaunch}
                     />
                   </div>
-                );
-              })}
-
-              <AnimatePresence>
-                {typing && <TypingIndicator key={`t-${typing}-${beatTick}`} from={typing} />}
-              </AnimatePresence>
-
-              {activating && <ActivationReveal />}
+                )}
+                {activating && <ActivationReveal />}
+              </div>
             </div>
-          </div>
+          </GlassCard>
+        </section>
 
-          {/* profile card */}
-          <div className="min-w-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-110px)] lg:overflow-y-auto">
-            <ProfileCard />
-          </div>
+        <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
+          <IntakeSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} completeCount={completeCount} />
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function ScoutMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="flex items-start gap-3"
+    >
+      <div className="flex w-8 shrink-0 justify-center">
+        <AgentCharacter id="scout" awake size={38} />
+      </div>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="mb-1 text-[13px] font-medium tracking-tight text-sky-700">
+          Scout
+        </div>
+        <div className="text-[15px] leading-relaxed text-slate-950">
+          {children}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function Caret() {
+function StepCard({
+  step,
+  data,
+  selectedRoles,
+  linkCount,
+  parsingResume,
+  fileInputRef,
+  toggleRole,
+  updateData,
+  onResumeFile,
+  onAdvance,
+  onMergeFinalProfile,
+  onLaunch,
+}: {
+  step: Step;
+  data: Data;
+  selectedRoles: string[];
+  linkCount: number;
+  parsingResume: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  toggleRole: (role: string) => void;
+  updateData: (updates: DataUpdate) => void;
+  onResumeFile: (file: File | null) => void;
+  onAdvance: (userText: string, nextStep: Step) => void;
+  onMergeFinalProfile: () => void;
+  onLaunch: () => void;
+}) {
+  if (step === "role") {
+    return (
+      <ChatCard icon={<Briefcase className="h-4 w-4 text-sky-600" />}>
+        <ChoiceChipGroup options={ROLE_OPTIONS} selected={selectedRoles} multi onToggle={toggleRole} />
+        <div className="mt-4 flex justify-end">
+          <ActionButton
+            variant="primary"
+            disabled={selectedRoles.length === 0}
+            onClick={() => onAdvance(selectedRoles.join(", "), "resume")}
+          >
+            Use {selectedRoles.length === 1 ? selectedRoles[0] : "these roles"} <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </ChatCard>
+    );
+  }
+
+  if (step === "resume") {
+    return (
+      <ChatCard icon={<FileText className="h-4 w-4 text-sky-600" />}>
+        <FileUploadControl
+          fileName={data.resumeFilename || undefined}
+          parsing={parsingResume}
+          onBrowse={() => fileInputRef.current?.click()}
+          onClear={data.resumeFilename ? () => updateData({ resumeFilename: "" }) : undefined}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+          onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
+        />
+      </ChatCard>
+    );
+  }
+
+  if (step === "links") {
+    return (
+      <ChatCard icon={<Link2 className="h-4 w-4 text-sky-600" />}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {LINK_FIELDS.map((field) => (
+            <TextField
+              key={field.k}
+              label={field.label}
+              value={data.links[field.k]}
+              placeholder={field.placeholder}
+              readOnly={false}
+              onChange={(e) => updateData({ links: { [field.k]: e.target.value } })}
+            />
+          ))}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <ActionButton
+            variant={linkCount > 0 ? "primary" : "secondary"}
+            onClick={() => onAdvance(linkCount > 0 ? `${linkCount} public link${linkCount === 1 ? "" : "s"}` : "Skipped links for now", "email")}
+          >
+            {linkCount > 0 ? "Use links" : "Skip for now"} <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </ChatCard>
+    );
+  }
+
+  if (step === "email") {
+    const valid = /.+@.+\..+/.test(data.email);
+    return (
+      <ChatCard icon={<Mail className="h-4 w-4 text-sky-600" />}>
+        <TextField
+          type="email"
+          value={data.email}
+          placeholder="you@gmail.com"
+          readOnly={false}
+          onChange={(e) => updateData({ email: e.target.value })}
+        />
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <ActionButton variant="secondary" onClick={() => onAdvance("Skipped email updates", "prefs")}>
+            Skip for now
+          </ActionButton>
+          <ActionButton
+            variant="primary"
+            disabled={!valid}
+            onClick={() => onAdvance(data.email.trim(), "prefs")}
+          >
+            Use email <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </ChatCard>
+    );
+  }
+
+  if (step === "prefs") {
+    return (
+      <ChatCard icon={<MapPin className="h-4 w-4 text-sky-600" />}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <TextField
+            label="Location"
+            value={data.prefs.location}
+            placeholder="Remote, San Francisco, New York"
+            readOnly={false}
+            onChange={(e) => updateData({ prefs: { location: e.target.value } })}
+          />
+          <div>
+            <div className="mb-2 block text-xs font-semibold text-slate-500">Work authorization</div>
+            <ChoiceChipGroup
+              options={AUTH_OPTIONS}
+              selected={data.prefs.workAuth ? [data.prefs.workAuth] : []}
+              onToggle={(value) => updateData({ prefs: { workAuth: value === data.prefs.workAuth ? "" : value } })}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <ActionButton
+            variant="primary"
+            onClick={() => {
+              const parts = [data.prefs.location, data.prefs.workAuth].filter(Boolean);
+              onAdvance(parts.length > 0 ? parts.join(" · ") : "No extra constraints", "review");
+            }}
+          >
+            Continue <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </ChatCard>
+    );
+  }
+
   return (
-    <span
-      className="inline-block align-[-2px] ml-[2px]"
-      style={{
-        width: "2px",
-        height: "1em",
-        background: "currentColor",
-        animation: "caret-blink 0.8s steps(1) infinite",
-        opacity: 0.75,
-      }}
+    <ReviewCard
+      data={data}
+      selectedRoles={selectedRoles}
+      linkCount={linkCount}
+      onMergeFinalProfile={onMergeFinalProfile}
+      onLaunch={onLaunch}
     />
   );
 }
 
-// ---------------- inputs ----------------
-
-type SubmitFn = (
-  kind: InputKind,
-  echo: string,
-  updates: Partial<Data>,
-  extras?: { resumeFile?: File | null },
-) => void;
-
-function InputWell({
-  kind,
+function ReviewCard({
   data,
-  onSubmit,
+  selectedRoles,
+  linkCount,
+  onMergeFinalProfile,
+  onLaunch,
 }: {
-  kind: InputKind;
   data: Data;
-  onSubmit: SubmitFn;
+  selectedRoles: string[];
+  linkCount: number;
+  onMergeFinalProfile: () => void;
+  onLaunch: () => void;
 }) {
-  if (kind === "name") return <NameInput initial={data.name} onSubmit={onSubmit} />;
-  if (kind === "email") return <EmailInput initial={data.email} onSubmit={onSubmit} />;
-  if (kind === "resume") return <ResumeInput initial={data.resumeFilename} onSubmit={onSubmit} />;
-  if (kind === "links") return <LinksInput initial={data.links} onSubmit={onSubmit} />;
-  if (kind === "prefs") return <PrefsInput initial={data.prefs} onSubmit={onSubmit} />;
-  return null;
+  const hasConvex = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL);
+
+  return (
+    <ChatCard icon={<Check className="h-4 w-4 text-emerald-700" />}>
+      <div className="space-y-4">
+        <ReviewSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} />
+        <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-6 text-slate-600">
+            Confirm this is accurate. I’ll save the snapshot to Convex before starting.
+          </p>
+          {hasConvex ? (
+            <ConnectedConfirmButton onMergeFinalProfile={onMergeFinalProfile} onLaunch={onLaunch} />
+          ) : (
+            <ActionButton variant="secondary" size="lg" disabled>
+              Convex not configured
+            </ActionButton>
+          )}
+        </div>
+      </div>
+    </ChatCard>
+  );
 }
 
-function Well({ children }: { children: React.ReactNode }) {
+function ConnectedConfirmButton({
+  onMergeFinalProfile,
+  onLaunch,
+}: {
+  onMergeFinalProfile: () => void;
+  onLaunch: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [stage, setStage] = useState<LaunchStage>("idle");
+
+  async function handleConfirm() {
+    let progress: number[] = [];
+    try {
+      setError("");
+      setSaving(true);
+      setStage("saving");
+      onMergeFinalProfile();
+      const profile = readProfile();
+
+      progress = [
+        window.setTimeout(() => setStage("finding"), 700),
+        window.setTimeout(() => setStage("ranking"), 2_000),
+        window.setTimeout(() => setStage("tailoring"), 4_000),
+      ];
+
+      const response = await fetch("/api/onboarding/launch-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile }),
+      });
+      const body = await response.json().catch(() => null) as
+        | { ok: true }
+        | { ok: false; reason?: string }
+        | null;
+
+      if (!response.ok || !body?.ok) {
+        throw new Error(body && !body.ok ? body.reason ?? `launch_${response.status}` : `launch_${response.status}`);
+      }
+
+      setStage("ready");
+      onLaunch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStage("error");
+      setSaving(false);
+    } finally {
+      progress.forEach((timer) => window.clearTimeout(timer));
+    }
+  }
+
+  const progress = [
+    { stage: "saving", label: "Saving profile" },
+    { stage: "finding", label: "Finding jobs" },
+    { stage: "ranking", label: "Ranking matches" },
+    { stage: "tailoring", label: "Tailoring top resume" },
+    { stage: "ready", label: "Ready" },
+  ] as const;
+  const activeIndex = progress.findIndex((item) => item.stage === stage);
+  const buttonLabel = stage === "error" ? "Retry launch" : saving ? "Starting pipeline" : "Confirm and start";
+
+  return (
+    <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+      {stage !== "idle" && (
+        <div className="grid w-full gap-2 sm:w-72">
+          {progress.map((item, index) => {
+            const complete = stage === "ready" || (activeIndex >= 0 && index < activeIndex);
+            const active = item.stage === stage;
+            return (
+              <div key={item.stage} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <span className={cx(
+                  "flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
+                  complete ? "border-emerald-300 bg-emerald-100 text-emerald-700" :
+                    active ? "border-sky-300 bg-sky-100 text-sky-700" :
+                      "border-white/70 bg-white/30 text-slate-400"
+                )}>
+                  {complete ? <Check className="h-3 w-3" /> : index + 1}
+                </span>
+                <span>{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <ActionButton variant="primary" size="lg" loading={saving} onClick={handleConfirm}>
+        {buttonLabel} <ArrowRight className="h-4 w-4" />
+      </ActionButton>
+      {error && <span className="max-w-64 text-right text-xs leading-5 text-red-600">{error}</span>}
+    </div>
+  );
+}
+
+function ReviewSummary({
+  data,
+  selectedRoles,
+  linkCount,
+}: {
+  data: Data;
+  selectedRoles: string[];
+  linkCount: number;
+}) {
+  const rows = [
+    { label: "Role target", value: selectedRoles.join(", ") || "Missing" },
+    { label: "Resume", value: data.resumeFilename || "Missing" },
+    { label: "Links", value: linkCount > 0 ? compactLinks(data.links).join(", ") : "None added" },
+    { label: "Email", value: data.email || "None added" },
+    { label: "Preferences", value: [data.prefs.location, data.prefs.workAuth].filter(Boolean).join(" · ") || "None added" },
+  ];
+
+  return (
+    <div className="grid gap-2">
+      {rows.map((row) => (
+        <div key={row.label} className={cx("border border-white/55 bg-white/30 px-3 py-2", mistRadii.nested)}>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{row.label}</div>
+          <div className="mt-1 break-words text-sm leading-5 text-slate-800">{row.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChatCard({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <GlassCard density="normal" className="mt-2">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-      >
-        {children}
-      </motion.div>
+      <div className="flex items-start gap-3">
+        <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/38">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </GlassCard>
   );
 }
 
-function NameInput({
-  initial,
-  onSubmit,
+function IntakeSummary({
+  data,
+  selectedRoles,
+  linkCount,
+  completeCount,
 }: {
-  initial: string;
-  onSubmit: SubmitFn;
+  data: Data;
+  selectedRoles: string[];
+  linkCount: number;
+  completeCount: number;
 }) {
-  const [v, setV] = useState(initial);
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.focus(), []);
-  return (
-    <Well>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!v.trim()) return;
-          onSubmit("name", v.trim(), { name: v.trim() });
-        }}
-        className="flex gap-2"
-      >
-        <TextField
-          inputRef={ref}
-          value={v}
-          onChange={(e) => setV(e.target.value)}
-          placeholder="Your full name"
-          autoFocus
-          readOnly={false}
-          rootClassName="flex-1"
-        />
-        <ActionButton type="submit" variant="primary" size="md" disabled={!v.trim()}>
-          Send <ArrowRight className="h-3.5 w-3.5" />
-        </ActionButton>
-      </form>
-    </Well>
-  );
-}
-
-function EmailInput({
-  initial,
-  onSubmit,
-}: {
-  initial: string;
-  onSubmit: SubmitFn;
-}) {
-  const [v, setV] = useState(initial);
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.focus(), []);
-  const valid = /.+@.+\..+/.test(v);
-  return (
-    <Well>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!valid) return;
-          onSubmit("email", v.trim(), { email: v.trim() });
-        }}
-        className="space-y-2"
-      >
-        <div className="flex gap-2">
-          <TextField
-            inputRef={ref}
-            type="email"
-            value={v}
-            onChange={(e) => setV(e.target.value)}
-            placeholder="you@gmail.com"
-            autoFocus
-            readOnly={false}
-            rootClassName="flex-1"
-          />
-          <ActionButton type="submit" variant="primary" size="md" disabled={!valid}>
-            Send <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-500">
-          <span>or</span>
-          <ActionButton
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => onSubmit("email", "Continued with Google", { email: "you@gmail.com" })}
-          >
-            Continue with Google
-          </ActionButton>
-          <ActionButton
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => onSubmit("email", "Continued with GitHub", { email: "you@users.noreply.github.com" })}
-          >
-            Continue with GitHub
-          </ActionButton>
-        </div>
-      </form>
-    </Well>
-  );
-}
-
-function ResumeInput({
-  initial,
-  onSubmit,
-}: {
-  initial: string;
-  onSubmit: SubmitFn;
-}) {
-  const [filename, setFilename] = useState(initial);
-  const [parsing, setParsing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const parseTimerRef = useRef<number | null>(null);
-
-  const clearFile = () => {
-    if (parseTimerRef.current !== null) {
-      window.clearTimeout(parseTimerRef.current);
-      parseTimerRef.current = null;
-    }
-    setFilename("");
-    setParsing(false);
-    if (inputRef.current) inputRef.current.value = "";
-  };
-
-  const handleFile = (file: File | null, nameOverride?: string) => {
-    const name = file?.name ?? nameOverride ?? "";
-    setFilename(name);
-    setParsing(true);
-    parseTimerRef.current = window.setTimeout(() => {
-      parseTimerRef.current = null;
-      setParsing(false);
-      onSubmit("resume", `Uploaded ${name}`, { resumeFilename: name }, { resumeFile: file });
-    }, 700);
-  };
-
-  return (
-    <Well>
-      {!filename ? (
-        <FileUploadControl onBrowse={() => inputRef.current?.click()} />
-      ) : (
-        <FileUploadControl fileName={filename} parsing={parsing} onBrowse={() => inputRef.current?.click()} onClear={clearFile} />
-      )}
-      <div className="mt-3 flex justify-end">
-        <ActionButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={parsing}
-          onClick={() => onSubmit("resume", "Skipped for now", { resumeFilename: "" })}
-        >
-          Skip for now <ArrowRight className="h-3.5 w-3.5" />
-        </ActionButton>
-      </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.doc,.docx"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-        }}
-      />
-    </Well>
-  );
-}
-
-function LinksInput({
-  initial,
-  onSubmit,
-}: {
-  initial: Data["links"];
-  onSubmit: SubmitFn;
-}) {
-  const [links, setLinks] = useState(initial);
-  const fields = [
-    { k: "github" as const, label: "GitHub", placeholder: "github.com/yourhandle" },
-    { k: "linkedin" as const, label: "LinkedIn", placeholder: "linkedin.com/in/you" },
-    { k: "website" as const, label: "Website", placeholder: "yoursite.com" },
-    { k: "devpost" as const, label: "DevPost", placeholder: "devpost.com/you" },
-    { k: "twitter" as const, label: "X / Twitter", placeholder: "x.com/yourhandle" },
+  const rows = [
+    { label: "Role", value: selectedRoles.join(", ") || "Needed" },
+    { label: "Resume", value: data.resumeFilename || "Needed" },
+    { label: "Links", value: linkCount > 0 ? `${linkCount} saved` : "Optional" },
+    { label: "Email", value: data.email || "Optional" },
+    { label: "Prefs", value: [data.prefs.location, data.prefs.workAuth].filter(Boolean).join(" · ") || "Optional" },
   ];
-  const count = Object.values(links).filter((v) => v.trim()).length;
-  return (
-    <Well>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {fields.map((f) => (
-          <TextField
-            key={f.k}
-            label={f.label}
-            value={links[f.k]}
-            onChange={(e) => setLinks({ ...links, [f.k]: e.target.value })}
-            placeholder={f.placeholder}
-            readOnly={false}
-          />
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-slate-500">
-          {count === 0 ? "Leave blank if you prefer, you can add these later." : `${count} link${count === 1 ? "" : "s"}`}
-        </span>
-        <ActionButton
-          variant="primary"
-          size="md"
-          onClick={() => {
-            const provided = Object.entries(links)
-              .filter(([, v]) => v.trim())
-              .map(([k]) => k[0].toUpperCase() + k.slice(1))
-              .join(", ");
-            onSubmit(
-              "links",
-              provided || "Skipped for now",
-              { links }
-            );
-          }}
-        >
-          {count === 0 ? "Skip for now" : "Send"} <ArrowRight className="h-3.5 w-3.5" />
-        </ActionButton>
-      </div>
-    </Well>
-  );
-}
-
-const ROLE_OPTIONS = [
-  "Software Engineer",
-  "Product Engineer",
-  "Founding Engineer",
-  "Frontend",
-  "ML / AI",
-  "Design Engineer",
-];
-
-const LOCATION_OPTIONS = [
-  "Remote",
-  "San Francisco",
-  "New York",
-  "Seattle",
-  "Anywhere US",
-];
-
-const AUTH_OPTIONS = ["US citizen", "US permanent resident", "Need sponsorship"];
-
-function PrefsInput({
-  initial,
-  onSubmit,
-}: {
-  initial: Data["prefs"];
-  onSubmit: SubmitFn;
-}) {
-  const [roles, setRoles] = useState<string[]>(initial.roles);
-  const [location, setLocation] = useState(initial.location);
-  const [workAuth, setWorkAuth] = useState(initial.workAuth);
-
-  const ready = roles.length > 0 && location && workAuth;
-  const toggleRole = (r: string) =>
-    setRoles((s) => (s.includes(r) ? s.filter((x) => x !== r) : [...s, r]));
 
   return (
-    <Well>
-      <div className="space-y-4">
-        <ChoiceChipGroup label="What roles?" options={ROLE_OPTIONS} selected={roles} multi onToggle={toggleRole} />
-        <ChoiceChipGroup label="Where?" options={LOCATION_OPTIONS} selected={location ? [location] : []} onToggle={(v) => setLocation(v === location ? "" : v)} />
-        <ChoiceChipGroup label="Work authorization?" options={AUTH_OPTIONS} selected={workAuth ? [workAuth] : []} onToggle={(v) => setWorkAuth(v === workAuth ? "" : v)} />
+    <GlassCard density="spacious">
+      <div className="mb-4 flex items-center justify-between">
+        <span className={mistClasses.sectionLabel}>Intake</span>
+        <span className="font-mono text-[11px] text-slate-500">{completeCount} saved</span>
       </div>
-      <div className="mt-5 flex justify-end">
-        <ActionButton
-          variant="primary"
-          size="md"
-          disabled={!ready}
-          onClick={() => {
-            const echo = `${roles.join(", ")} · ${location} · ${workAuth}`;
-            onSubmit("prefs", echo, { prefs: { roles, location, workAuth } });
-          }}
-        >
-          Send <ArrowRight className="h-3.5 w-3.5" />
-        </ActionButton>
+      <div className="space-y-2">
+        {rows.map((row) => {
+          const complete = row.value !== "Optional" && row.value !== "Needed";
+          return (
+            <div key={row.label} className={cx("border border-white/55 bg-white/28 px-3 py-2", mistRadii.nested)}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{row.label}</span>
+                {complete && <Check className="h-3.5 w-3.5 text-emerald-700" />}
+              </div>
+              <div className={cx("mt-1 truncate text-sm", row.value === "Needed" ? "text-sky-700" : "text-slate-700")}>
+                {row.value}
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </Well>
+    </GlassCard>
   );
 }
-
-// ---------------- activation reveal ----------------
 
 function ActivationReveal() {
-  const assignments = [
-    { agent: "scout" as const, company: onboardingMatches[0] },
-    { agent: "mimi" as const, company: onboardingMatches[1] },
-    { agent: "pip" as const, company: onboardingMatches[2] },
-    { agent: "juno" as const, company: onboardingMatches[3] },
-    { agent: "bodhi" as const, company: onboardingMatches[4] },
-  ];
+  const match = onboardingMatches[0];
 
   return (
-    <GlassCard variant="selected" density="spacious" className="mt-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>
-            Splitting up · 5 applications in flight
-          </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="pl-11"
+    >
+      <GlassCard variant="selected" density="normal">
+        <div className="mb-3 flex items-center justify-between">
+          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Starting application</div>
           <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{ animation: "pulse-soft 1.4s ease-in-out infinite" }} />
             LIVE
           </span>
         </div>
-
-      <div className="space-y-2.5">
-        {assignments.map((a, i) => {
-          const agent = AGENTS[a.agent];
-          return (
-            <motion.div
-              key={a.agent}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 + i * 0.3 }}
-              className={cx("flex items-center gap-3 border border-white/55 bg-white/30 px-3 py-2", mistRadii.nested)}
-            >
-              <AgentCharacter id={a.agent} awake size={30} />
-              <span className="w-[54px] text-[13px] font-medium text-slate-900">
-                {agent.name}
-              </span>
-              <span className="text-slate-400">→</span>
-              <div className="flex min-w-0 items-center gap-2">
-                <CompanyLogo
-                  bg={a.company.logoBg}
-                  text={a.company.logoText}
-                  size={22}
-                  className="rounded-[5px]"
-                />
-                <span className="text-[13px] text-slate-900">{a.company.company}</span>
-                <span className="truncate text-[12px] text-slate-500">
-                  {a.company.role}
-                </span>
-              </div>
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 + i * 0.3, duration: 0.3 }}
-                className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-600"
-              >
-                <span className="h-1 w-1 rounded-full bg-sky-500" style={{ animation: "pulse-soft 1.2s ease-in-out infinite" }} />
-                applying
-              </motion.span>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2.6, duration: 0.5 }}
-        className="mt-4 font-mono text-[11px] text-slate-500"
-      >
-        Redirecting to mission control...
-      </motion.div>
-      </motion.div>
-    </GlassCard>
+        <div className={cx("flex items-center gap-3 border border-white/55 bg-white/30 px-3 py-2", mistRadii.nested)}>
+          <AgentCharacter id="scout" awake size={30} />
+          <span className="w-[54px] text-[13px] font-medium text-slate-900">Scout</span>
+          <span className="text-slate-400">→</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <CompanyLogo bg={match.logoBg} text={match.logoText} size={22} className="rounded-[5px]" />
+            <span className="text-[13px] text-slate-900">{match.company}</span>
+            <span className="truncate text-[12px] text-slate-500">{match.role}</span>
+          </div>
+          <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-600">
+            applying
+          </span>
+        </div>
+      </GlassCard>
+    </motion.div>
   );
+}
+
+function OnboardingFallback() {
+  return (
+    <main className={cx("min-h-screen", mistClasses.page)}>
+      <header className="flex items-center justify-between px-5 py-4 md:px-8">
+        <Wordmark size="sm" />
+      </header>
+      <div className="mx-auto max-w-6xl px-5 pb-10 md:px-8">
+        <GlassCard density="spacious">
+          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
+          <div className="mt-3 h-8 w-72 max-w-full rounded-full bg-white/45" />
+          <div className="mt-4 h-4 w-96 max-w-full rounded-full bg-white/35" />
+        </GlassCard>
+      </div>
+    </main>
+  );
+}
+
+function trimLinks(links: Data["links"]): Data["links"] {
+  return {
+    github: links.github.trim(),
+    linkedin: links.linkedin.trim(),
+    twitter: links.twitter.trim(),
+    devpost: links.devpost.trim(),
+    website: links.website.trim(),
+  };
+}
+
+function compactLinks(links: Data["links"]) {
+  return Object.entries(trimLinks(links))
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}: ${value}`);
+}
+
+async function enrichFromResume(file: File) {
+  logProfileEvent("resume", "Started resume parse", "info", { filename: file.name });
+  const result = await parseResume(file);
+  if (!result.ok) {
+    logProfileEvent("resume", "Resume parse failed", "error", { filename: file.name, reason: result.reason });
+    return;
+  }
+  const updates: Partial<UserProfile> = {
+    resume: {
+      filename: result.filename ?? file.name,
+      rawText: result.rawText,
+      uploadedAt: new Date().toISOString(),
+    },
+  };
+  if (result.structured) {
+    const s = result.structured;
+    Object.assign(updates, {
+      name: s.name,
+      email: s.email,
+      location: s.location,
+      headline: s.headline,
+      summary: s.summary,
+      skills: s.skills,
+      experience: s.experience,
+      education: s.education,
+    });
+  }
+  mergeProfile(updates, "resume", result.structured ? "Read your resume" : "Saved your resume");
+  logProfileEvent("resume", "Resume parse completed", "success", {
+    filename: result.filename ?? file.name,
+    structured: Boolean(result.structured),
+  });
+}
+
+async function enrichFromLinks(links: Data["links"]) {
+  const tasks: Promise<void>[] = [];
+  const runLink = async (
+    source: Extract<ProvenanceSource, "github" | "linkedin" | "devpost" | "website">,
+    url: string,
+    action: () => Promise<{ ok: boolean; reason?: string; structured?: Partial<UserProfile> }>
+  ) => {
+    logProfileEvent(source, "Started link enrichment", "info", { url });
+    const result = await action();
+    if (!result.ok || !result.structured) {
+      logProfileEvent(source, "Link enrichment failed", "error", { url, reason: result.reason ?? "no_structured_profile" });
+      return;
+    }
+    mergeProfile(result.structured, source, `Read your ${SOURCE_NAME[source]}`);
+  };
+
+  if (links.github) {
+    tasks.push(runLink("github", links.github, () => scrapeAndExtract(links.github, "github")));
+  }
+  if (links.linkedin) {
+    tasks.push(runLink("linkedin", links.linkedin, () => scrapeLinkedIn(links.linkedin)));
+  }
+  if (links.devpost) {
+    tasks.push(runLink("devpost", links.devpost, () => scrapeAndExtract(links.devpost, "devpost")));
+  }
+  if (links.website) {
+    tasks.push(runLink("website", links.website, () => scrapeAndExtract(links.website, "website")));
+  }
+
+  await Promise.allSettled(tasks);
 }

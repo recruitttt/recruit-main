@@ -1,0 +1,58 @@
+import { ConvexHttpClient } from "convex/browser";
+
+import { api } from "@/convex/_generated/api";
+
+export const dynamic = "force-dynamic";
+
+function getConvexClient() {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) return null;
+  return new ConvexHttpClient(url.replace(/\/+$/, ""));
+}
+
+type PdfPayload = {
+  filename?: string;
+  base64?: string;
+};
+
+export async function GET(req: Request) {
+  const client = getConvexClient();
+  if (!client) {
+    return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
+  }
+
+  const jobId = new URL(req.url).searchParams.get("jobId");
+  if (!jobId) {
+    return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
+  }
+
+  try {
+    const detail = await client.query(api.ashby.jobDetail, { jobId: jobId as never });
+    const application = detail?.tailoredApplication as
+      | { pdfBase64?: string; pdfFilename?: string }
+      | undefined;
+    const pdfArtifact = (detail?.artifacts as Array<{ kind: string; payload?: unknown }> | undefined)
+      ?.find((artifact) => artifact.kind === "pdf_file");
+    const artifactPayload = pdfArtifact?.payload as PdfPayload | undefined;
+    const base64 = application?.pdfBase64 ?? artifactPayload?.base64;
+    const filename = application?.pdfFilename ?? artifactPayload?.filename ?? "TailoredResume.pdf";
+
+    if (!base64) {
+      return Response.json({ ok: false, reason: "pdf_not_found" }, { status: 404 });
+    }
+
+    const bytes = Uint8Array.from(Buffer.from(base64, "base64"));
+    return new Response(bytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    return Response.json(
+      { ok: false, reason: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
+}

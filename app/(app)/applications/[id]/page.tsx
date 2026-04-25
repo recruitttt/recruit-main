@@ -14,7 +14,7 @@ import { stageLabels, stageOrder } from "@/lib/mock-data";
 import { formatRelative, cn } from "@/lib/utils";
 import { CompanyLogo } from "@/components/ui/logo";
 import { StageBadge, Pill } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -114,14 +114,23 @@ export default async function ApplicationDetailPage({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled
-            title={app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata is persisted, but downloadable bytes are not exposed from this detail view yet." : "No tailored resume PDF is available."}
-          >
-            <Download className="h-3.5 w-3.5" /> {app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata stored" : "Resume PDF unavailable"}
-          </Button>
+          {app.pdfDownloadUrl ? (
+            <a
+              href={app.pdfDownloadUrl}
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+            >
+              <Download className="h-3.5 w-3.5" /> Download PDF
+            </a>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled
+              title={app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata is persisted, but downloadable bytes are not available for this older run." : "No tailored resume PDF is available."}
+            >
+              <Download className="h-3.5 w-3.5" /> {app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata stored" : "Resume PDF unavailable"}
+            </Button>
+          )}
           <Button variant="secondary" size="sm" disabled title="Replay artifacts are not persisted for this application yet.">
             <Play className="h-3.5 w-3.5" /> Replay unavailable
           </Button>
