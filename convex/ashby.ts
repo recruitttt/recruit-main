@@ -16,6 +16,12 @@ const internalMutation = internalMutationGeneric;
 
 const DEMO_USER_ID = "demo";
 
+async function scopedDemoUserId(ctx: any, requestedDemoUserId?: string) {
+  if (requestedDemoUserId) return requestedDemoUserId;
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject ? `auth:${identity.subject}` : DEMO_USER_ID;
+}
+
 export const upsertDemoProfileSnapshot = mutation({
   args: {
     demoUserId: v.optional(v.string()),
@@ -23,7 +29,7 @@ export const upsertDemoProfileSnapshot = mutation({
   },
   returns: v.object({ demoUserId: v.string(), updatedAt: v.string() }),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const updatedAt = new Date().toISOString();
     const existing = await ctx.db
       .query("demoProfiles")
@@ -58,7 +64,7 @@ export const startOnboardingPipeline = mutation({
     message: v.string(),
   }),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = new Date().toISOString();
     const limitSources = args.limitSources ?? 3;
     const tailorLimit = args.tailorLimit ?? 3;
@@ -143,7 +149,7 @@ export const latestIngestionRunSummary = query({
   args: { demoUserId: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const run = await latestRun(ctx, demoUserId);
     if (!run) return null;
 
@@ -192,7 +198,7 @@ export const getDemoProfileForAction = internalQuery({
   args: { demoUserId: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const profile = await ctx.db
       .query("demoProfiles")
       .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
@@ -226,7 +232,7 @@ export const jobDetail = query({
   args: { jobId: v.id("ingestedJobs"), demoUserId: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const job = await ctx.db.get(args.jobId);
     if (!job) return null;
 
@@ -275,7 +281,7 @@ export const latestPipelineLogs = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const limit = Math.min(Math.max(args.limit ?? 200, 1), 500);
     const docs = args.runId
       ? await ctx.db
@@ -717,7 +723,7 @@ export const upsertTailoredApplication = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const sourceJob = await ctx.db.get(args.jobId);
     const now = new Date().toISOString();
     const existing = await ctx.db
@@ -861,7 +867,7 @@ export const createCustomJob = mutation({
   },
   returns: v.object({ runId: v.id("ingestionRuns"), jobId: v.id("ingestedJobs") }),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = new Date().toISOString();
     const company = args.company.trim();
     const role = args.role.trim();

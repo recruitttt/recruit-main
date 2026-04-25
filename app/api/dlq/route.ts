@@ -1,16 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ConvexHttpClient } from "convex/browser";
-
 import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-http";
 
 export const dynamic = "force-dynamic";
-
-function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url.replace(/\/+$/, ""));
-}
 
 function unavailable() {
   return Response.json(
@@ -23,7 +16,7 @@ function unavailable() {
 }
 
 export async function GET() {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) return unavailable();
 
   try {
@@ -38,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) return unavailable();
 
   const body = await req.json().catch(() => null) as

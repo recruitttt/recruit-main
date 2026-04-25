@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
-import { ConvexClientProvider } from "./convex-client-provider";
 import { Toaster } from "@/components/ui/toast";
+import { getToken } from "@/lib/auth-server";
+import { ConvexClientProvider } from "./convex-client-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,18 +37,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialToken = await getToken().catch(() => null);
+
   return (
     <html
       lang="en"
       className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ConvexClientProvider initialToken={initialToken}>
+          {children}
+        </ConvexClientProvider>
         <Toaster />
       </body>
     </html>

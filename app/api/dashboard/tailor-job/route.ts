@@ -1,5 +1,4 @@
-import { ConvexHttpClient } from "convex/browser";
-
+import { getConvexClient } from "@/lib/convex-http";
 import type { UserProfile } from "@/lib/profile";
 import { tailorPersistedJob } from "@/lib/tailor/persisted-job";
 
@@ -12,14 +11,8 @@ type Body = {
   pageSize?: "letter" | "a4";
 };
 
-function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url.replace(/\/+$/, ""));
-}
-
 export async function POST(req: Request) {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) {
     return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
   }

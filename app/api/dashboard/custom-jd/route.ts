@@ -1,6 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
-
 import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-http";
 
 export const runtime = "nodejs";
 
@@ -12,14 +11,8 @@ type Body = {
   descriptionPlain?: string;
 };
 
-function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url.replace(/\/+$/, ""));
-}
-
 export async function POST(req: Request) {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
 
   let body: Body;

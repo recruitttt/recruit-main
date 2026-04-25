@@ -1,18 +1,11 @@
-import { ConvexHttpClient } from "convex/browser";
-
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { getConvexClient } from "@/lib/convex-http";
 
 export const dynamic = "force-dynamic";
 
-function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url.replace(/\/+$/, ""));
-}
-
 export async function POST() {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) {
     return Response.json(
       { error: "NEXT_PUBLIC_CONVEX_URL is not configured." },
