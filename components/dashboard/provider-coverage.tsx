@@ -2,9 +2,9 @@ import { mockProviderCoverage } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const statusStyles = {
-  live: "border-emerald-500/30 bg-emerald-500/5",
-  preview: "border-amber-500/30 bg-amber-500/5",
-  "coming-soon": "border-[var(--color-border)] bg-[var(--color-bg)]/40 opacity-60",
+  live: "border-emerald-500/40 bg-emerald-500/10",
+  preview: "border-amber-500/40 bg-amber-500/10",
+  "coming-soon": "border-[var(--color-border)] bg-[var(--color-surface-1)] opacity-70",
 };
 
 const statusLabels = {
@@ -14,8 +14,8 @@ const statusLabels = {
 };
 
 const statusColor = {
-  live: "text-emerald-300",
-  preview: "text-amber-300",
+  live: "text-emerald-700",
+  preview: "text-amber-700",
   "coming-soon": "text-[var(--color-fg-subtle)]",
 };
 

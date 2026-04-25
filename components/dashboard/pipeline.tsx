@@ -2,10 +2,10 @@ import { mockApplications, stageOrder, stageLabels, type Stage } from "@/lib/moc
 import { cn } from "@/lib/utils";
 
 const stageColors: Record<Stage, string> = {
-  queued: "bg-zinc-700",
+  queued: "bg-zinc-400",
   tailoring: "bg-amber-500",
   reviewing: "bg-violet-500",
-  submitting: "bg-cyan-500",
+  submitting: "bg-cyan-600",
   submitted: "bg-emerald-500",
   blocked: "bg-red-500",
 };

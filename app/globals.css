@@ -1,21 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #050505;
-  --color-surface: #0a0a0a;
-  --color-surface-1: #111113;
-  --color-surface-2: #161618;
-  --color-border: #1f1f23;
-  --color-border-strong: #2a2a2f;
-  --color-fg: #f4f4f5;
-  --color-fg-muted: #a1a1aa;
-  --color-fg-subtle: #71717a;
-  --color-accent: #22d3ee;
-  --color-accent-soft: rgba(34, 211, 238, 0.12);
-  --color-accent-glow: rgba(34, 211, 238, 0.4);
-  --color-success: #4ade80;
-  --color-warn: #fbbf24;
-  --color-danger: #f87171;
+  /* ── warm paper: light theme ─────────────────────────────── */
+  --color-bg: #F9F7F3;            /* warm ivory */
+  --color-surface: #FFFFFF;        /* cards, prompt box */
+  --color-surface-1: #F3F1EC;      /* subtle surfaces */
+  --color-surface-2: #EDEBE4;      /* hover states */
+  --color-border: #E5E2DB;         /* hairline */
+  --color-border-strong: #CFCBBF;  /* elevated border */
+
+  --color-fg: #0F0F12;             /* warm near-black */
+  --color-fg-muted: #585861;
+  --color-fg-subtle: #8E8C93;
+
+  --color-accent: #0891B2;         /* cyan-600 */
+  --color-accent-soft: rgba(8, 145, 178, 0.1);
+  --color-accent-glow: rgba(8, 145, 178, 0.32);
+
+  --color-success: #059669;        /* emerald-600 */
+  --color-warn:    #D97706;        /* amber-600 */
+  --color-danger:  #DC2626;        /* red-600 */
 
   --font-sans: var(--font-inter);
   --font-serif: var(--font-instrument-serif);
@@ -33,6 +37,21 @@
 @keyframes shimmer {
   from { background-position: -200% 0; }
   to { background-position: 200% 0; }
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(40px, -30px, 0) scale(1.08); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-50px, 30px, 0) scale(1.1); }
+}
+
+@keyframes caret-blink {
+  0%, 49%   { opacity: 0.75; }
+  50%, 100% { opacity: 0; }
 }
 
 html, body {
@@ -59,10 +78,11 @@ html, body {
   font-feature-settings: "ss02", "cv01";
 }
 
+/* faint grid on warm paper — darker lines, low alpha */
 .grid-bg {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(to right, rgba(15, 15, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 15, 18, 0.045) 1px, transparent 1px);
   background-size: 56px 56px;
   background-position: -1px -1px;
 }
@@ -96,8 +116,11 @@ html, body {
   );
 }
 
+/* soft colored lift for accent CTAs on light bg */
 .glow-accent {
-  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 8px 40px -12px var(--color-accent-glow);
+  box-shadow:
+    0 1px 2px rgba(15, 15, 18, 0.06),
+    0 10px 30px -10px var(--color-accent-glow);
 }
 
 button, a {

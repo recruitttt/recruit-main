@@ -103,7 +103,7 @@ export default function PricingPage() {
               className={cn(
                 "relative rounded-xl border p-7 flex flex-col transition-colors",
                 tier.highlight
-                  ? "border-[var(--color-accent)] bg-[var(--color-surface)] shadow-[0_30px_80px_-20px_rgba(34,211,238,0.25)]"
+                  ? "border-[var(--color-accent)] bg-[var(--color-surface)] shadow-[0_20px_60px_-20px_rgba(8,145,178,0.28)]"
                   : "border-[var(--color-border)] bg-[var(--color-surface)]"
               )}
             >

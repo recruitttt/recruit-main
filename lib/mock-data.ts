@@ -187,7 +187,7 @@ export const mockDLQItems: DLQItem[] = [
     type: "unanswerable_question",
     question: "What's your expected start date if offered the role?",
     context:
-      "Required date field. We never guess sensitive timing facts — your answer will be cached for every future Ashby application.",
+      "Required date field. We never guess sensitive timing facts. Your answer will be cached for every future Ashby application.",
     suggestedAnswer: "Suggest: 4 weeks from offer.",
     raisedAt: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
   },
@@ -208,7 +208,7 @@ export const mockDLQItems: DLQItem[] = [
     role: "Product Engineer",
     type: "submission_error",
     context:
-      "Browserbase session timed out at the final submit step. Form state is preserved — retry will resume from PreSubmitDiscovery.",
+      "Browserbase session timed out at the final submit step. Form state is preserved, retry will resume from PreSubmitDiscovery.",
     raisedAt: new Date(Date.now() - 1000 * 60 * 64).toISOString(),
   },
 ];
@@ -296,7 +296,7 @@ export const mockPersonaReviews: PersonaReview[] = [
     verdict: "Strong",
     score: 92,
     notes:
-      "Resume opens with the metric they care about (DAU growth). Cover letter ties their public eng blog to your Orbit project — shows real homework.",
+      "Resume opens with the metric they care about (DAU growth). Cover letter ties their public eng blog to your Orbit project. Shows real homework.",
   },
   {
     persona: "Senior Engineer",
@@ -377,7 +377,7 @@ export const mockMappedQuestions: MappedQuestion[] = [
     label: "Why are you interested in working at Anthropic?",
     canonicalKey: "essay.why_company",
     answer:
-      "Anthropic's safety-first framing of capability research mirrors how I think about agent reliability — you build for what happens when the model is wrong, not just when it's right. I want to ship products in that posture.",
+      "Anthropic's safety-first framing of capability research mirrors how I think about agent reliability. You build for what happens when the model is wrong, not just when it's right. I want to ship products in that posture.",
     source: "model",
     verified: true,
   },
@@ -386,7 +386,7 @@ export const mockMappedQuestions: MappedQuestion[] = [
     label: "Describe your most impactful project.",
     canonicalKey: "essay.impactful_project",
     answer:
-      "Orbit — a TypeScript-first agent runtime I built and shipped to 1.2k weekly users. Cut average task latency 47% by replacing ad-hoc tool routing with a typed planner.",
+      "Orbit, a TypeScript-first agent runtime I built and shipped to 1.2k weekly users. Cut average task latency 47% by replacing ad-hoc tool routing with a typed planner.",
     source: "cache",
     verified: true,
   },

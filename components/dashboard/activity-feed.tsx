@@ -13,10 +13,10 @@ const iconByKind: Record<ActivityEvent["kind"], React.ComponentType<{ className?
 
 const colorByKind: Record<ActivityEvent["kind"], string> = {
   discover: "text-[var(--color-fg-muted)]",
-  tailor: "text-amber-300",
-  review: "text-violet-300",
-  fill: "text-cyan-300",
-  submit: "text-emerald-300",
+  tailor: "text-amber-700",
+  review: "text-violet-700",
+  fill: "text-cyan-700",
+  submit: "text-emerald-700",
   cache: "text-[var(--color-accent)]",
 };
 

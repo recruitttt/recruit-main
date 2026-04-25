@@ -1,0 +1,188 @@
+"use client";
+
+import React from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { AGENT_ORDER, AGENTS, type AgentId } from "@/lib/agents";
+import { AgentCharacter } from "@/components/onboarding/characters";
+import { rgba, cn } from "@/lib/utils";
+
+type Props = {
+  awake: Set<AgentId>;
+  speaking: AgentId | null;
+  waking: AgentId | null;
+  className?: string;
+};
+
+export function AgentRail({ awake, speaking, waking, className }: Props) {
+  return (
+    <aside className={cn("flex flex-col", className)}>
+      <div className="mb-5 hidden lg:block">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-fg-subtle)] font-mono">
+          Your squad
+        </div>
+        <div className="mt-1 text-[12px] text-[var(--color-fg-muted)] leading-relaxed">
+          5 agents, each applying to a different role in parallel
+        </div>
+      </div>
+
+      {/* mobile: horizontal strip — no connector */}
+      <div className="flex gap-3 lg:hidden">
+        {AGENT_ORDER.map((id) => {
+          const a = AGENTS[id];
+          return (
+            <div key={id} className="flex flex-1 items-center gap-3">
+              <AgentOrb
+                id={id}
+                awake={awake.has(id)}
+                speaking={speaking === id}
+                waking={waking === id}
+                hue={a.hue}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* desktop: vertical column with an animated connector line between orbs */}
+      <div className="hidden lg:flex lg:flex-col">
+        {AGENT_ORDER.map((id, i) => {
+          const a = AGENTS[id];
+          const isAwake = awake.has(id);
+          const isSpeaking = speaking === id;
+          const isWaking = waking === id;
+          const isLast = i === AGENT_ORDER.length - 1;
+          const nextId = !isLast ? AGENT_ORDER[i + 1] : null;
+          const nextAgent = nextId ? AGENTS[nextId] : null;
+          const nextIsAwake = nextId ? awake.has(nextId) : false;
+          return (
+            <React.Fragment key={id}>
+              <div className="flex items-center gap-3">
+                <AgentOrb
+                  id={id}
+                  awake={isAwake}
+                  speaking={isSpeaking}
+                  waking={isWaking}
+                  hue={a.hue}
+                />
+                <div className="min-w-0">
+                  <div
+                    className="text-[13px] font-medium tracking-tight transition-colors"
+                    style={{ color: isAwake ? a.hue : "var(--color-fg-subtle)" }}
+                  >
+                    {a.name}
+                  </div>
+                  <div
+                    className={cn(
+                      "text-[10px] font-mono uppercase tracking-[0.1em] transition-colors",
+                      isAwake ? "text-[var(--color-fg-subtle)]" : "text-[var(--color-fg-subtle)]/50"
+                    )}
+                  >
+                    {a.label}
+                  </div>
+                </div>
+              </div>
+
+              {!isLast && nextAgent && (
+                <Connector fromHue={a.hue} toHue={nextAgent.hue} filled={nextIsAwake} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+/** A short vertical line between two orbs; fills from top to bottom with a
+ *  color gradient when the next agent wakes up. */
+function Connector({
+  fromHue,
+  toHue,
+  filled,
+}: {
+  fromHue: string;
+  toHue: string;
+  filled: boolean;
+}) {
+  return (
+    <div className="relative h-6" aria-hidden>
+      <div className="absolute left-[27px] top-0 bottom-0 w-[2px] overflow-hidden rounded-full bg-[var(--color-border)]">
+        <motion.div
+          className="w-full rounded-full"
+          style={{
+            background: `linear-gradient(to bottom, ${fromHue}, ${toHue})`,
+          }}
+          initial={{ height: 0 }}
+          animate={{ height: filled ? "100%" : 0 }}
+          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AgentOrb({
+  id,
+  awake,
+  speaking,
+  waking,
+  hue,
+}: {
+  id: AgentId;
+  awake: boolean;
+  speaking: boolean;
+  waking: boolean;
+  hue: string;
+}) {
+  return (
+    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+      {/* shockwave rings on wake */}
+      <AnimatePresence>
+        {waking && (
+          <>
+            <motion.span
+              key="sw1"
+              className="absolute inset-0 rounded-full pointer-events-none"
+              initial={{ scale: 0.7, opacity: 0.75 }}
+              animate={{ scale: 2.5, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.85, ease: "easeOut" }}
+              style={{ border: `2px solid ${hue}` }}
+            />
+            <motion.span
+              key="sw2"
+              className="absolute inset-0 rounded-full pointer-events-none"
+              initial={{ scale: 0.7, opacity: 0.5 }}
+              animate={{ scale: 3.2, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.1, ease: "easeOut", delay: 0.18 }}
+              style={{ border: `1.5px solid ${hue}` }}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* soft hue halo when speaking */}
+      {speaking && (
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 0.7, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            background: `radial-gradient(circle, ${rgba(hue, 0.28)}, transparent 70%)`,
+          }}
+        />
+      )}
+
+      {/* character with a brief scale bounce on wake */}
+      <motion.div
+        animate={waking ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative"
+      >
+        <AgentCharacter id={id} awake={awake} size={52} />
+      </motion.div>
+    </div>
+  );
+}

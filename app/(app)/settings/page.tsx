@@ -12,7 +12,7 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="mt-1 text-[13px] text-[var(--color-fg-muted)]">
-          The intake the agent uses on every application. Edit anything — the agent picks up changes immediately.
+          The intake the agent uses on every application. Edit anything and the agent picks up changes immediately.
         </p>
       </div>
 
