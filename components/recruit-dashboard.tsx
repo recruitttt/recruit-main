@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
+  Activity,
   AlertTriangle,
   Ban,
   BriefcaseBusiness,
@@ -14,7 +16,9 @@ import {
   Check,
   CircleStop,
   FileText,
+  Inbox,
   LayoutDashboard,
+  ListChecks,
   Loader2,
   Mail,
   MessageSquare,
@@ -25,6 +29,8 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Terminal,
+  X,
 } from "lucide-react";
 
 import {
@@ -41,6 +47,7 @@ import {
   mistColors,
   type StatusTone,
 } from "@/components/design-system";
+import { cn } from "@/lib/utils";
 import type {
   ActiveRun,
   ApplicationRow,
@@ -535,46 +542,84 @@ function PipelineControlsBar({
   );
 }
 
-function LiveLogStream({ logs = [], busy }: { logs?: PipelineLog[]; busy?: boolean }) {
-  const orderedLogs = [...logs].reverse();
+const LIVE_LOG_DEFAULT_LIMIT = 50;
+
+function LiveLogStream({
+  logs = [],
+  busy,
+  reducedMotion = false,
+}: {
+  logs?: PipelineLog[];
+  busy?: boolean;
+  reducedMotion?: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const orderedLogs = useMemo(() => [...logs].reverse(), [logs]);
+  const hidden = Math.max(0, orderedLogs.length - LIVE_LOG_DEFAULT_LIMIT);
+  const visibleLogs = showAll ? orderedLogs : orderedLogs.slice(0, LIVE_LOG_DEFAULT_LIMIT);
 
   return (
     <Panel
       title="Live Logs"
       actions={<Pill tone={busy ? "active" : "neutral"}>{logs.length} entries</Pill>}
     >
-      <div className="max-h-[420px] overflow-y-auto rounded-[24px] border border-white/45 bg-slate-950/70 p-3 text-xs text-slate-100 shadow-inner">
-        {orderedLogs.length === 0 ? (
+      <div className="max-h-[420px] overflow-y-auto rounded-[24px] border border-white/45 bg-slate-950/70 p-3 text-xs leading-tight text-slate-100 shadow-inner">
+        {visibleLogs.length === 0 ? (
           <div className="rounded-[18px] border border-white/10 bg-white/5 px-3 py-4 text-slate-300">
             Logs will stream here while ingestion, filtering, ranking, scoring, and artifact writes run.
           </div>
         ) : (
           <div className="space-y-2">
-            {orderedLogs.map((log) => (
-              <div
-                key={log._id ?? `${log.createdAt}-${log.stage}-${log.message}`}
+            {visibleLogs.map((log, index) => (
+              <motion.div
+                key={log._id ?? `${log.createdAt}-${log.stage}-${log.message}-${index}`}
+                initial={reducedMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
                 className="grid gap-2 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 md:grid-cols-[86px_92px_1fr]"
               >
-                <span className="font-mono text-[11px] text-slate-400">{formatLogTime(log.createdAt)}</span>
+                <span className="font-mono text-[11px] leading-none text-slate-400">{formatLogTime(log.createdAt)}</span>
                 <span className="flex items-start gap-2">
                   <span className="mt-1 h-2 w-2 rounded-full" style={{ backgroundColor: getStatusColor(logTone(log.level)) }} />
-                  <span className="font-mono text-[11px] uppercase text-slate-300">{log.stage}</span>
+                  <span className="font-mono text-[11px] uppercase leading-none text-slate-300">{log.stage}</span>
                 </span>
                 <span className="min-w-0">
-                  <span className={cx("font-medium", log.level === "error" ? "text-red-200" : log.level === "warning" ? "text-amber-200" : log.level === "success" ? "text-emerald-200" : "text-slate-100")}>
+                  <span className={cx("font-medium leading-tight", log.level === "error" ? "text-red-200" : log.level === "warning" ? "text-amber-200" : log.level === "success" ? "text-emerald-200" : "text-slate-100")}>
                     {log.message}
                   </span>
                   {log.payload ? (
-                    <span className="mt-1 block truncate font-mono text-[11px] text-slate-500">
+                    <span className="mt-1 block truncate font-mono text-[11px] leading-none text-slate-500">
                       {compactPayload(log.payload)}
                     </span>
                   ) : null}
                 </span>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
       </div>
+      {hidden > 0 && !showAll ? (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="rounded-full border border-white/55 bg-white/35 px-4 py-1.5 text-[11px] font-semibold leading-none text-slate-700 transition hover:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+          >
+            Show all ({orderedLogs.length} total)
+          </button>
+        </div>
+      ) : null}
+      {showAll && orderedLogs.length > LIVE_LOG_DEFAULT_LIMIT ? (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAll(false)}
+            className="rounded-full border border-white/55 bg-white/35 px-4 py-1.5 text-[11px] font-semibold leading-none text-slate-700 transition hover:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+          >
+            Show last {LIVE_LOG_DEFAULT_LIMIT}
+          </button>
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -651,6 +696,196 @@ function AsyncOnboardingBanner({
   );
 }
 
+type DashboardTabId = "today" | "applications" | "activity";
+
+interface DashboardTabDef {
+  id: DashboardTabId;
+  label: string;
+  icon: typeof LayoutDashboard;
+  hint: string;
+}
+
+const DASHBOARD_TABS: ReadonlyArray<DashboardTabDef> = [
+  { id: "today", label: "Today", icon: LayoutDashboard, hint: "Run status & key metrics" },
+  { id: "applications", label: "Applications", icon: BriefcaseBusiness, hint: "Pipeline & follow-ups" },
+  { id: "activity", label: "Activity", icon: Activity, hint: "Logs, providers, artifacts" },
+] as const;
+
+const DASHBOARD_TAB_STORAGE_KEY = "recruit:dashboard:tab";
+
+function isDashboardTab(value: unknown): value is DashboardTabId {
+  return value === "today" || value === "applications" || value === "activity";
+}
+
+function subscribeReducedMotion(notify: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+}
+
+function getReducedMotionSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function getReducedMotionServerSnapshot(): boolean {
+  return false;
+}
+
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot,
+  );
+}
+
+function subscribeStoredTab(notify: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (event: StorageEvent) => {
+    if (event.key === DASHBOARD_TAB_STORAGE_KEY) notify();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+function getStoredTabSnapshot(): DashboardTabId {
+  if (typeof window === "undefined") return "today";
+  try {
+    const stored = window.localStorage.getItem(DASHBOARD_TAB_STORAGE_KEY);
+    if (isDashboardTab(stored)) return stored;
+  } catch {
+    // ignore storage errors (private mode, etc.)
+  }
+  return "today";
+}
+
+function getStoredTabServerSnapshot(): DashboardTabId {
+  return "today";
+}
+
+function useDashboardTab(): readonly [DashboardTabId, (tab: DashboardTabId) => void] {
+  // Hydrate-driven local state. The external store gives us the persisted value
+  // immediately after hydration; we keep a local mirror so user updates apply
+  // instantly without waiting for the storage event round-trip.
+  const stored = useSyncExternalStore(
+    subscribeStoredTab,
+    getStoredTabSnapshot,
+    getStoredTabServerSnapshot,
+  );
+  const [override, setOverride] = useState<DashboardTabId | null>(null);
+  const tab = override ?? stored;
+
+  const setAndPersist = useCallback((next: DashboardTabId) => {
+    setOverride(next);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, next);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  return [tab, setAndPersist] as const;
+}
+
+interface DashboardTabBarProps {
+  tab: DashboardTabId;
+  onChange: (tab: DashboardTabId) => void;
+}
+
+function DashboardTabBar({ tab, onChange }: DashboardTabBarProps) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Dashboard sections"
+      className={cn(
+        "flex flex-wrap items-center gap-1 border bg-white/30 px-1.5 py-1.5",
+        mistClasses.panel,
+      )}
+    >
+      {DASHBOARD_TABS.map((entry) => {
+        const Icon = entry.icon;
+        const active = tab === entry.id;
+        return (
+          <button
+            key={entry.id}
+            role="tab"
+            type="button"
+            id={`dashboard-tab-${entry.id}`}
+            aria-selected={active}
+            aria-controls={`dashboard-panel-${entry.id}`}
+            onClick={() => onChange(entry.id)}
+            className={cn(
+              "relative flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold leading-none transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40",
+              active
+                ? "bg-white/70 text-slate-950 shadow-[0_4px_18px_rgba(15,23,42,0.08)]"
+                : "text-slate-600 hover:bg-white/45 hover:text-slate-900",
+            )}
+            title={entry.hint}
+          >
+            <Icon className={cn("h-4 w-4", active ? "text-sky-500" : "text-slate-500")} />
+            <span>{entry.label}</span>
+            {active ? (
+              <span
+                aria-hidden
+                className="absolute -bottom-1 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-sky-400/70"
+              />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface DashboardEmptyProps {
+  icon: typeof Inbox;
+  title: string;
+  description: string;
+}
+
+function DashboardEmpty({ icon: Icon, title, description }: DashboardEmptyProps) {
+  return (
+    <GlassCard className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+      <Icon className="h-7 w-7 text-slate-400" aria-hidden />
+      <div className="text-sm font-semibold leading-tight text-slate-950">{title}</div>
+      <p className="max-w-sm text-[13px] leading-tight text-slate-600">{description}</p>
+    </GlassCard>
+  );
+}
+
+interface DashboardTabPanelProps {
+  id: DashboardTabId;
+  active: DashboardTabId;
+  reducedMotion: boolean;
+  children: ReactNode;
+}
+
+function DashboardTabPanel({ id, active, reducedMotion, children }: DashboardTabPanelProps) {
+  if (active !== id) return null;
+  const transition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.18, ease: "easeOut" as const };
+  return (
+    <motion.section
+      key={id}
+      role="tabpanel"
+      id={`dashboard-panel-${id}`}
+      aria-labelledby={`dashboard-tab-${id}`}
+      initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+      transition={transition}
+      className="space-y-5"
+    >
+      {children}
+    </motion.section>
+  );
+}
+
 function DashboardMain({
   seed,
   controls,
@@ -662,158 +897,307 @@ function DashboardMain({
   tailoring?: TailoringControls;
   customJd?: CustomJdControls;
 }) {
+  const [tab, setTab] = useDashboardTab();
+  const reducedMotion = usePrefersReducedMotion();
+  const hasLogs = (controls?.logs?.length ?? 0) > 0;
+
   return (
     <>
-      <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
+      <DashboardTabBar tab={tab} onChange={setTab} />
+      <AnimatePresence mode="wait" initial={false}>
+        <DashboardTabPanel id="today" active={tab} reducedMotion={reducedMotion}>
+          <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
+          <KpiGrid metrics={seed.metrics} reducedMotion={reducedMotion} />
+          <ActiveRunPanel seed={seed} controls={controls} />
+        </DashboardTabPanel>
 
-      <div className="grid gap-3 md:grid-cols-5">
-        {seed.metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-        <ActiveRunPanel seed={seed} controls={controls} />
-        <Panel title="Provider Coverage">
-          <div className="space-y-2">
-            {seed.providers.map((provider) => (
-              <GlassCard key={provider.provider} density="compact" className="rounded-[18px]">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-slate-950">{provider.provider}</div>
-                    <div className="mt-1 text-xs text-slate-500">{provider.detail}</div>
-                  </div>
-                  <Pill tone={provider.tone}>{provider.status}</Pill>
-                </div>
-              </GlassCard>
-            ))}
+        <DashboardTabPanel id="applications" active={tab} reducedMotion={reducedMotion}>
+          <div id="applications" className="scroll-mt-24">
+            <ApplicationPipelinePanel
+              seed={seed}
+              tailoring={tailoring}
+              customJd={customJd}
+              reducedMotion={reducedMotion}
+            />
           </div>
-        </Panel>
-      </div>
+          <SelectedJobPanel tailoring={tailoring} />
+          <FollowUpsPanel controls={tailoring?.followUps} />
+        </DashboardTabPanel>
 
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <div id="applications" className="scroll-mt-24">
-          <ApplicationPipelinePanel seed={seed} tailoring={tailoring} customJd={customJd} />
-        </div>
-        <SelectedJobPanel tailoring={tailoring} />
-      </div>
-
-      <FollowUpsPanel controls={tailoring?.followUps} />
-
-      <LiveLogStream logs={controls?.logs} busy={controls?.busy} />
-
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <Panel title="Activity & Proof Feed">
-          <EventLog events={seed.activity} />
-        </Panel>
-        <div id="artifacts" className="scroll-mt-24">
-          <Panel title="Artifacts">
-            <div className="grid gap-3 md:grid-cols-3">
-              {seed.artifacts.length === 0 ? (
-                <GlassCard>
-                  <div className="text-sm font-semibold text-slate-950">No artifacts yet</div>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
+        <DashboardTabPanel id="activity" active={tab} reducedMotion={reducedMotion}>
+          <Panel title="Provider Coverage">
+            <div className="space-y-2">
+              {seed.providers.map((provider) => (
+                <GlassCard key={provider.provider} density="compact" className="rounded-[18px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold leading-tight text-slate-950">{provider.provider}</div>
+                      <div className="mt-1 text-[11px] leading-tight text-slate-500">{provider.detail}</div>
+                    </div>
+                    <Pill tone={provider.tone}>{provider.status}</Pill>
+                  </div>
                 </GlassCard>
-              ) : seed.artifacts.map((artifact) => (
-                <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
               ))}
             </div>
-            <GlassCard className="mt-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-950">Claim safety</div>
-                  <div className="mt-1 text-sm text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
-                  <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
-                  <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
-                </div>
-              </div>
-            </GlassCard>
           </Panel>
-        </div>
-      </div>
+
+          {hasLogs ? (
+            <LiveLogStream logs={controls?.logs} busy={controls?.busy} reducedMotion={reducedMotion} />
+          ) : (
+            <Panel title="Live Logs" actions={<Pill tone="neutral">0 entries</Pill>}>
+              <DashboardEmpty
+                icon={Terminal}
+                title="No log activity"
+                description="Logs will stream here while ingestion, filtering, ranking, and tailoring run."
+              />
+            </Panel>
+          )}
+
+          <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+            <Panel title="Activity & Proof Feed">
+              {seed.activity.length === 0 ? (
+                <DashboardEmpty
+                  icon={ListChecks}
+                  title="No activity yet"
+                  description="Pipeline events, tool calls, and decisions will land here as runs progress."
+                />
+              ) : (
+                <EventLog events={seed.activity} />
+              )}
+            </Panel>
+            <div id="artifacts" className="scroll-mt-24">
+              <Panel title="Artifacts">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {seed.artifacts.length === 0 ? (
+                    <GlassCard>
+                      <div className="text-sm font-semibold leading-tight text-slate-950">No artifacts yet</div>
+                      <p className="mt-1 text-[13px] leading-tight text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
+                    </GlassCard>
+                  ) : seed.artifacts.map((artifact) => (
+                    <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
+                  ))}
+                </div>
+                <GlassCard className="mt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold leading-tight text-slate-950">Claim safety</div>
+                      <div className="mt-1 text-[13px] leading-tight text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
+                      <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
+                      <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
+                    </div>
+                  </div>
+                </GlassCard>
+              </Panel>
+            </div>
+          </div>
+        </DashboardTabPanel>
+      </AnimatePresence>
     </>
   );
+}
+
+interface KpiGridProps {
+  metrics: DashboardSeed["metrics"];
+  reducedMotion: boolean;
+}
+
+function KpiGrid({ metrics, reducedMotion }: KpiGridProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      {metrics.map((metric, index) => (
+        <motion.div
+          key={metric.label}
+          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={
+            reducedMotion
+              ? { duration: 0 }
+              : { duration: 0.36, ease: "easeOut", delay: Math.min(index, 5) * 0.06 }
+          }
+        >
+          <MetricCard metric={metric} />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+interface ApplicationPipelineRow {
+  key: string;
+  company: string;
+  role: string;
+  provider: string;
+  matchLabel: string;
+  statusLabel: string;
+  statusTone: StatusTone;
+  artifact: string;
+  selected: boolean;
+  onSelect?: () => void;
+  selectable: boolean;
+}
+
+function recommendationProvider(recommendation: LiveRecommendation): string {
+  const isCustomJd = recommendation.job?.sourceSlug === "custom-jd"
+    || recommendation.job?.jobUrl?.startsWith("custom-jd:");
+  return isCustomJd ? "Custom JD" : "Ashby";
+}
+
+function buildPipelineRows(
+  seed: DashboardSeed,
+  tailoring?: TailoringControls,
+): ApplicationPipelineRow[] {
+  const liveRows = tailoring?.recommendations ?? [];
+  if (liveRows.length > 0) {
+    return liveRows.map((recommendation) => {
+      const tracked = applicationForRecommendation(tailoring?.followUps?.summary, recommendation);
+      const provider = recommendationProvider(recommendation);
+      return {
+        key: recommendation._id ?? recommendation.jobId
+          ?? `${recommendation.company}-${recommendation.title}-${recommendation.rank}`,
+        company: recommendation.company,
+        role: recommendation.title,
+        provider,
+        matchLabel: `${Math.round(recommendation.score)}%`,
+        statusLabel: tracked ? statusLabel(tracked.status) : `rank #${recommendation.rank}`,
+        statusTone: tracked ? statusTone(tracked.status) : recommendation.rank <= 3 ? "success" : "neutral",
+        artifact: tracked?.nextFollowUpAt
+          ? `follow-up ${formatDateShort(tracked.nextFollowUpAt)}`
+          : recommendation.rationale ? "ranking rationale" : "job description",
+        selected: tailoring?.selected?.jobId === recommendation.jobId,
+        onSelect: () => tailoring?.onSelect(recommendation),
+        selectable: true,
+      };
+    });
+  }
+  return seed.applications.map((application, index) => ({
+    key: `${application.company}-${application.role}-${application.status}-${index}`,
+    company: application.company,
+    role: application.role,
+    provider: application.provider,
+    matchLabel: application.match,
+    statusLabel: application.status,
+    statusTone: application.tone,
+    artifact: application.artifact,
+    selected: false,
+    selectable: false,
+  }));
 }
 
 function ApplicationPipelinePanel({
   seed,
   tailoring,
   customJd,
+  reducedMotion = false,
 }: {
   seed: DashboardSeed;
   tailoring?: TailoringControls;
   customJd?: CustomJdControls;
+  reducedMotion?: boolean;
 }) {
-  const liveRows = tailoring?.recommendations ?? [];
+  const rows = buildPipelineRows(seed, tailoring);
 
   return (
     <Panel title="Application Pipeline">
       <CustomJobDescriptionPanel controls={customJd} />
-      <div className="overflow-x-auto rounded-[24px] border border-white/45 bg-white/20">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead>
-            <tr className="border-b border-white/45 text-left text-xs text-slate-500">
-              <th className="px-4 py-3 font-medium">Company</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Provider</th>
-              <th className="px-4 py-3 font-medium">Match</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Artifact</th>
-            </tr>
-          </thead>
-          <tbody>
-            {liveRows.length > 0 ? (
-              liveRows.map((recommendation) => {
-                const selected = tailoring?.selected?.jobId === recommendation.jobId;
-                const tracked = applicationForRecommendation(tailoring?.followUps?.summary, recommendation);
-                return (
-                  <tr
-                    key={recommendation._id ?? recommendation.jobId ?? `${recommendation.company}-${recommendation.title}-${recommendation.rank}`}
-                    className={cx(
-                      "cursor-pointer border-b border-white/35 transition last:border-0",
-                      selected ? "bg-white/45" : "hover:bg-white/22"
-                    )}
-                    onClick={() => tailoring?.onSelect(recommendation)}
-                  >
-                    <td className="px-4 py-3 font-semibold text-slate-950">{recommendation.company}</td>
-                    <td className="px-4 py-3 text-slate-600">{recommendation.title}</td>
-                    <td className="px-4 py-3 text-slate-500">{recommendation.job?.sourceSlug === "custom-jd" || recommendation.job?.jobUrl?.startsWith("custom-jd:") ? "Custom JD" : "Ashby"}</td>
-                    <td className="px-4 py-3 font-mono text-slate-950">{Math.round(recommendation.score)}%</td>
-                    <td className="px-4 py-3">
-                      <Pill tone={tracked ? statusTone(tracked.status) : recommendation.rank <= 3 ? "success" : "neutral"}>
-                        {tracked ? statusLabel(tracked.status) : `rank #${recommendation.rank}`}
-                      </Pill>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {tracked?.nextFollowUpAt
-                        ? `follow-up ${formatDateShort(tracked.nextFollowUpAt)}`
-                        : recommendation.rationale ? "ranking rationale" : "job description"}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : seed.applications.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
-                  No live recommendations yet. Start ingestion to fill this table.
-                </td>
-              </tr>
-            ) : (
-              seed.applications.map((application) => (
-                <tr key={`${application.company}-${application.role}-${application.status}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
-                  <td className="px-4 py-3 font-semibold text-slate-950">{application.company}</td>
-                  <td className="px-4 py-3 text-slate-600">{application.role}</td>
-                  <td className="px-4 py-3 text-slate-500">{application.provider}</td>
-                  <td className="px-4 py-3 font-mono text-slate-950">{application.match}</td>
-                  <td className="px-4 py-3"><Pill tone={application.tone}>{application.status}</Pill></td>
-                  <td className="px-4 py-3 text-slate-600">{application.artifact}</td>
+      {rows.length === 0 ? (
+        <DashboardEmpty
+          icon={Inbox}
+          title="No live recommendations yet"
+          description="Start ingestion to fill this table with ranked Ashby and Custom JD matches."
+        />
+      ) : (
+        <>
+          {/* Desktop / tablet: table with sticky header */}
+          <div className="hidden overflow-x-auto rounded-[24px] border border-white/45 bg-white/20 md:block">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="sticky top-0 z-10 bg-white/55 backdrop-blur">
+                <tr className="border-b border-white/45 text-left text-[11px] uppercase leading-none tracking-wide text-slate-500">
+                  <th className="px-4 py-3 font-medium">Company</th>
+                  <th className="px-4 py-3 font-medium">Role</th>
+                  <th className="px-4 py-3 font-medium">Provider</th>
+                  <th className="px-4 py-3 font-medium">Match</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Artifact</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <motion.tr
+                    key={row.key}
+                    initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      reducedMotion
+                        ? { duration: 0 }
+                        : { duration: 0.24, ease: "easeOut", delay: Math.min(index, 6) * 0.04 }
+                    }
+                    className={cx(
+                      "border-b border-white/35 transition last:border-0",
+                      row.selectable
+                        ? row.selected
+                          ? "cursor-pointer bg-white/45"
+                          : "cursor-pointer hover:bg-white/22"
+                        : "",
+                    )}
+                    onClick={row.onSelect}
+                  >
+                    <td className="px-4 py-3 font-semibold leading-tight text-slate-950">{row.company}</td>
+                    <td className="px-4 py-3 leading-tight text-slate-600">{row.role}</td>
+                    <td className="px-4 py-3 leading-tight text-slate-500">{row.provider}</td>
+                    <td className="px-4 py-3 font-mono leading-none text-slate-950">{row.matchLabel}</td>
+                    <td className="px-4 py-3"><Pill tone={row.statusTone}>{row.statusLabel}</Pill></td>
+                    <td className="px-4 py-3 leading-tight text-slate-600">{row.artifact}</td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: card list */}
+          <div className="grid gap-3 md:hidden">
+            {rows.map((row, index) => (
+              <motion.button
+                key={row.key}
+                type="button"
+                initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={
+                  reducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.24, ease: "easeOut", delay: Math.min(index, 6) * 0.04 }
+                }
+                onClick={row.onSelect}
+                disabled={!row.selectable}
+                className={cn(
+                  "rounded-[20px] border bg-white/30 p-4 text-left transition",
+                  row.selected
+                    ? "border-sky-300/70 bg-white/55"
+                    : "border-white/45 hover:bg-white/45",
+                  row.selectable
+                    ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                    : "cursor-default",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold leading-tight text-slate-950">{row.company}</div>
+                    <div className="mt-1 text-[13px] leading-tight text-slate-600">{row.role}</div>
+                  </div>
+                  <span className="font-mono text-sm leading-none text-slate-950">{row.matchLabel}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Pill tone={row.statusTone}>{row.statusLabel}</Pill>
+                  <span className="text-[11px] uppercase leading-none tracking-wide text-slate-500">{row.provider}</span>
+                </div>
+                <div className="mt-2 text-[11px] leading-tight text-slate-500">{row.artifact}</div>
+              </motion.button>
+            ))}
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
@@ -834,12 +1218,18 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
     ? tasksForApplication(followUps?.summary, trackedApplication._id)
     : [];
 
+  const handleClose = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const target = document.getElementById("applications");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   if (!tailoring) {
     return (
       <Panel title="Selected Job">
-        <GlassCard className="min-h-[420px]">
-          <div className="text-sm font-semibold text-slate-950">Live tailoring unavailable</div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Connect the dashboard to Convex to inspect jobs and run tailoring.</p>
+        <GlassCard>
+          <div className="text-sm font-semibold leading-tight text-slate-950">Live tailoring unavailable</div>
+          <p className="mt-2 text-[13px] leading-tight text-slate-600">Connect the dashboard to Convex to inspect jobs and run tailoring.</p>
         </GlassCard>
       </Panel>
     );
@@ -848,37 +1238,51 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
   if (!selected) {
     return (
       <Panel title="Selected Job">
-        <GlassCard className="flex min-h-[420px] items-center justify-center text-center">
-          <div>
-            <FileText className="mx-auto h-8 w-8 text-slate-400" />
-            <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
-              Click a ranked recommendation to inspect the description, ranking artifacts, tailoring output, and PDF state.
-            </p>
-          </div>
-        </GlassCard>
+        <DashboardEmpty
+          icon={FileText}
+          title="No job selected"
+          description="Click a ranked recommendation to inspect the description, ranking artifacts, tailoring output, and PDF state."
+        />
       </Panel>
     );
   }
 
   return (
-    <Panel title="Selected Job" actions={<Pill tone={tailored?.status === "completed" ? "success" : tailoring.state.running ? "active" : "neutral"}>{tailored?.status ?? "ready"}</Pill>}>
-      <GlassCard className="min-h-[420px] p-0">
+    <Panel
+      title="Selected Job"
+      actions={
+        <div className="flex items-center gap-2">
+          <Pill tone={tailored?.status === "completed" ? "success" : tailoring.state.running ? "active" : "neutral"}>
+            {tailored?.status ?? "ready"}
+          </Pill>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close selected job and scroll back to applications"
+            title="Close"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/55 bg-white/35 text-slate-600 transition hover:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      }
+    >
+      <GlassCard className="min-h-0 max-h-[80vh] overflow-y-auto p-0">
         <div className="flex items-start justify-between gap-4 border-b border-white/45 px-5 py-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Pill tone="active">selected</Pill>
               <Pill tone="success">score {Math.round(detail?.score?.totalScore ?? selected.score)}</Pill>
             </div>
-            <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">
+            <h3 className="mt-3 text-xl font-semibold leading-tight tracking-[-0.02em] text-slate-950">
               {job?.title ?? selected.title}
             </h3>
-            <p className="mt-1 text-sm text-slate-600">{job?.company ?? selected.company}</p>
+            <p className="mt-1 text-sm leading-tight text-slate-600">{job?.company ?? selected.company}</p>
             <a
               href={job?.jobUrl ?? selected.jobUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-sky-600"
+              className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] leading-none text-slate-500 hover:text-sky-600"
             >
               original job <ExternalLink className="h-3 w-3" />
             </a>
