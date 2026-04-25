@@ -6,13 +6,37 @@ const TIERS = {
 } as const;
 
 type Tier = keyof typeof TIERS;
+type CheckoutMode = "test" | "mock" | "disabled";
+
+function stripeSecret() {
+  return process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+}
+
+function mockCheckoutEnabled() {
+  return process.env.STRIPE_CHECKOUT_MOCK === "1";
+}
+
+function checkoutMode(secret = stripeSecret()): CheckoutMode {
+  if (secret.startsWith("sk_test_")) {
+    return "test";
+  }
+  if (!secret && mockCheckoutEnabled()) {
+    return "mock";
+  }
+  return "disabled";
+}
 
 function appUrl(req: Request) {
-  const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
   if (configured) {
     return configured.startsWith("http") ? configured : `https://${configured}`;
   }
   return new URL(req.url).origin;
+}
+
+export async function GET() {
+  const mode = checkoutMode();
+  return Response.json({ configured: mode !== "disabled", mode });
 }
 
 export async function POST(req: Request) {
@@ -34,14 +58,32 @@ export async function POST(req: Request) {
     );
   }
 
-  const secret = process.env.STRIPE_SECRET_KEY;
+  const secret = stripeSecret();
   if (!secret) {
+    if (mockCheckoutEnabled()) {
+      const origin = appUrl(req);
+      const selected = TIERS[tier as Tier];
+      const mockUrl = new URL("/checkout/mock", origin);
+      mockUrl.searchParams.set("tier", tier);
+      mockUrl.searchParams.set("plan", selected.name);
+      mockUrl.searchParams.set("amount", String(selected.unitAmount));
+      return Response.json({ url: mockUrl.toString() });
+    }
     return Response.json(
       {
         error: "checkout_unconfigured",
-        message: "Checkout is not configured for this deployment.",
+        message: "Stripe test checkout is not configured for this deployment.",
       },
       { status: 503 }
+    );
+  }
+  if (!secret.startsWith("sk_test_")) {
+    return Response.json(
+      {
+        error: "checkout_live_key_blocked",
+        message: "This demo only accepts Stripe test-mode keys.",
+      },
+      { status: 403 }
     );
   }
 

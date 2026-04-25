@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowRight, Check, CreditCard, LayoutDashboard, Loader2, Sparkles, X } from "lucide-react";
@@ -71,11 +71,48 @@ const tiers = [
 
 export default function PricingPage() {
   const [checkout, setCheckout] = useState<{ tier?: string; error?: string; loading?: boolean }>({});
+  const [stripeCheckoutReady, setStripeCheckoutReady] = useState<boolean | null>(null);
+  const [stripeMode, setStripeMode] = useState<"test" | "mock" | "disabled" | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadStripeConfig() {
+      try {
+        const response = await fetch("/api/checkout", { method: "GET", cache: "no-store" });
+        const body = await response.json().catch(() => null) as { configured?: boolean; mode?: "test" | "mock" | "disabled" } | null;
+        if (active) {
+          setStripeCheckoutReady(Boolean(response.ok && body?.configured));
+          setStripeMode(response.ok && body?.mode ? body.mode : "disabled");
+        }
+      } catch {
+        if (active) {
+          setStripeCheckoutReady(false);
+          setStripeMode("disabled");
+        }
+      }
+    }
+
+    void loadStripeConfig();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function startCheckout(tier: typeof tiers[number]) {
     if (!tier.checkoutTier) {
       router.push("/onboarding");
+      return;
+    }
+
+    if (stripeCheckoutReady !== true) {
+      setCheckout({
+        tier: tier.name,
+        loading: false,
+        error: "Stripe test checkout is not configured for this demo deployment.",
+      });
       return;
     }
 
@@ -115,7 +152,13 @@ export default function PricingPage() {
           actions={
             <>
               <StatusBadge tone="success">live</StatusBadge>
-              <StatusBadge tone="neutral">Stripe sandbox</StatusBadge>
+              <StatusBadge tone={stripeCheckoutReady === false ? "warning" : stripeCheckoutReady ? "success" : "neutral"}>
+                {stripeCheckoutReady === false
+                  ? "Stripe test key required"
+                  : stripeCheckoutReady
+                    ? stripeMode === "mock" ? "Mock checkout ready" : "Stripe test ready"
+                    : "Checking Stripe"}
+              </StatusBadge>
               <ActionButton size="sm" variant="secondary" onClick={() => router.push("/dashboard")}>
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -127,13 +170,15 @@ export default function PricingPage() {
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge tone="accent">client component</StatusBadge>
             <StatusBadge tone="neutral">3 tiers</StatusBadge>
-            <StatusBadge tone="warning">Stripe modal is mocked</StatusBadge>
+            <StatusBadge tone={stripeMode === "test" ? "success" : "warning"}>
+              {stripeMode === "test" ? "test checkout" : stripeMode === "mock" ? "mock checkout" : "no real billing"}
+            </StatusBadge>
           </div>
         </Panel>
 
         <Panel
           title="Plan ladder"
-            description="Free starts onboarding. Paid plans hand off to Stripe Checkout when sandbox credentials are configured."
+          description="Free starts onboarding. Paid plans hand off to Stripe Checkout when sandbox credentials are configured."
           actions={<StatusBadge tone="neutral">{tiers.length} plans</StatusBadge>}
         >
           <div className="grid gap-5 md:grid-cols-3">
@@ -156,6 +201,11 @@ export default function PricingPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge tone={tier.tone}>{tier.name}</StatusBadge>
+                        {tier.checkoutTier && stripeCheckoutReady !== true && (
+                          <StatusBadge tone="warning" variant="solid">
+                            {stripeCheckoutReady === false ? "Test key required" : "Verifying Stripe"}
+                          </StatusBadge>
+                        )}
                         {tier.highlight && (
                           <StatusBadge tone="accent" variant="solid">
                             <Sparkles className="h-3.5 w-3.5" />
@@ -179,10 +229,20 @@ export default function PricingPage() {
                     className="mt-5 w-full motion-safe:transition-transform motion-safe:hover:-translate-y-px motion-safe:active:scale-[0.98]"
                     variant={tier.highlight ? "primary" : "secondary"}
                     onClick={() => void startCheckout(tier)}
-                    disabled={checkout.loading}
+                    disabled={tier.checkoutTier ? checkout.loading || stripeCheckoutReady !== true : checkout.loading}
                   >
-                    {checkout.loading && checkout.tier === tier.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    {tier.cta}
+                    {checkout.loading && checkout.tier === tier.name ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : tier.checkoutTier && stripeCheckoutReady !== true ? (
+                      <X className="h-4 w-4" />
+                    ) : (
+                      <CreditCard className="h-4 w-4" />
+                    )}
+                    {tier.checkoutTier && stripeCheckoutReady !== true
+                      ? stripeCheckoutReady === false
+                        ? "Stripe test key required"
+                        : "Checking Stripe"
+                      : tier.cta}
                   </ActionButton>
 
                   <div className="mt-5 space-y-2.5">

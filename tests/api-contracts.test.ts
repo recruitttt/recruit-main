@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { GET as getCheckoutConfig, POST as postCheckout } from "../app/api/checkout/route";
 import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
@@ -10,7 +11,7 @@ import { GET as getFollowups, POST as postFollowups } from "../app/api/dashboard
 import { POST as postDashboardTailorJob } from "../app/api/dashboard/tailor-job/route";
 import type { UserProfile } from "../lib/profile";
 import type { Job, JobResearch } from "../lib/tailor/types";
-import { assertJsonResponse, badJsonRequest, jsonRequest, withEnvAsync } from "./helpers";
+import { assertJsonResponse, badJsonRequest, installFetchStub, jsonRequest, withEnvAsync } from "./helpers";
 
 async function main() {
 await assertJsonResponse(await postResearchJob(badJsonRequest()), 400, {
@@ -118,6 +119,51 @@ await assertJsonResponse(
   400,
   { ok: false, reason: "missing_file" }
 );
+
+await withEnvAsync({ STRIPE_SECRET_KEY: undefined, STRIPE_CHECKOUT_MOCK: undefined }, async () => {
+  await assertJsonResponse(await getCheckoutConfig(), 200, { configured: false, mode: "disabled" });
+  await assertJsonResponse(
+    await postCheckout(jsonRequest({ tier: "standard" }, "http://test.local/api/checkout")),
+    503,
+    { error: "checkout_unconfigured" }
+  );
+});
+
+await withEnvAsync({ STRIPE_SECRET_KEY: undefined, STRIPE_CHECKOUT_MOCK: "1" }, async () => {
+  await assertJsonResponse(await getCheckoutConfig(), 200, { configured: true, mode: "mock" });
+  const checkoutJson = await assertJsonResponse(
+    await postCheckout(jsonRequest({ tier: "standard" }, "http://test.local/api/checkout")),
+    200,
+    {}
+  );
+  assert.equal(checkoutJson.url, "http://test.local/checkout/mock?tier=standard&plan=Standard&amount=2400");
+});
+
+await withEnvAsync({ STRIPE_SECRET_KEY: "sk_live_123", STRIPE_CHECKOUT_MOCK: "1" }, async () => {
+  await assertJsonResponse(await getCheckoutConfig(), 200, { configured: false, mode: "disabled" });
+  await assertJsonResponse(
+    await postCheckout(jsonRequest({ tier: "standard" }, "http://test.local/api/checkout")),
+    403,
+    { error: "checkout_live_key_blocked" }
+  );
+});
+
+await withEnvAsync({ STRIPE_SECRET_KEY: "sk_test_123", STRIPE_CHECKOUT_MOCK: undefined }, async () => {
+  const restoreFetch = installFetchStub(async () => new Response(JSON.stringify({ url: "https://checkout.stripe.test/session" }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  }));
+  try {
+    await assertJsonResponse(await getCheckoutConfig(), 200, { configured: true, mode: "test" });
+    await assertJsonResponse(
+      await postCheckout(jsonRequest({ tier: "standard" }, "http://test.local/api/checkout")),
+      200,
+      { url: "https://checkout.stripe.test/session" }
+    );
+  } finally {
+    restoreFetch();
+  }
+});
 
 await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
   await assertJsonResponse(await postRunFirst3(), 500, {
