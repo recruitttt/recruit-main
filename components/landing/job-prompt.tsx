@@ -69,10 +69,10 @@ export function JobPrompt() {
           />
           <button
             type="submit"
-            aria-label="Send"
+            aria-label="Spin up agent"
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-[13px] font-medium text-[var(--color-bg)] hover:brightness-110 transition-all glow-accent cursor-pointer"
           >
-            Find me jobs
+            Spin up agent
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
