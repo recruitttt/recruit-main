@@ -4,6 +4,7 @@ import { ActiveRuns } from "@/components/dashboard/active-runs";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Pipeline } from "@/components/dashboard/pipeline";
 import { ProviderCoverage } from "@/components/dashboard/provider-coverage";
+import { TailorRunList } from "@/components/dashboard/tailor-run-list";
 import { mockDLQItems } from "@/lib/mock-data";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 
@@ -77,6 +78,11 @@ export default function DashboardPage() {
         <div>
           <ActivityFeed />
         </div>
+      </div>
+
+      {/* Tailor pipeline: research → tailor → PDF, sequential, 10 jobs */}
+      <div className="mt-6">
+        <TailorRunList />
       </div>
     </div>
   );

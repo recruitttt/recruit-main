@@ -1,23 +1,14 @@
 // POST { url } -> { ok: true, markdown, metadata } via Firecrawl /v1/scrape.
 // Used for GitHub profile pages, personal websites, DevPost, blogs - any
 // publicly fetchable URL we want as clean markdown for the LLM extractor.
+//
+// The actual scraping logic lives in lib/scrapers/server.ts so it can be
+// called directly by other server code (the tailor pipeline) without an
+// HTTP hop. This route is now a thin wrapper.
+
+import { scrapeFirecrawl } from "@/lib/scrapers/server";
 
 export const runtime = "nodejs";
-
-type FirecrawlResponse = {
-  success?: boolean;
-  data?: {
-    markdown?: string;
-    metadata?: {
-      title?: string;
-      description?: string;
-      siteName?: string;
-      language?: string;
-      ogImage?: string;
-    };
-  };
-  error?: string;
-};
 
 export async function POST(req: Request) {
   let body: { url?: string };
@@ -32,59 +23,15 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, reason: "missing_url" }, { status: 400 });
   }
 
-  const apiKey = process.env.FIRECRAWL_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { ok: false, reason: "no_api_key" },
-      { status: 503 }
-    );
+  const result = await scrapeFirecrawl(url, process.env.FIRECRAWL_API_KEY);
+  if (!result.ok) {
+    return Response.json({ ok: false, reason: result.reason }, { status: result.status });
   }
 
-  const target = normalizeUrl(url);
-
-  try {
-    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        url: target,
-        formats: ["markdown"],
-        onlyMainContent: true,
-        timeout: 25000,
-      }),
-    });
-
-    if (res.status === 402) {
-      return Response.json({ ok: false, reason: "quota" }, { status: 402 });
-    }
-
-    const json = (await res.json()) as FirecrawlResponse;
-
-    if (!res.ok || !json.success || !json.data?.markdown) {
-      return Response.json(
-        { ok: false, reason: json.error ?? "firecrawl_failed" },
-        { status: 502 }
-      );
-    }
-
-    return Response.json({
-      ok: true,
-      url: target,
-      markdown: json.data.markdown,
-      metadata: json.data.metadata ?? {},
-    });
-  } catch (err) {
-    return Response.json(
-      { ok: false, reason: (err as Error).message ?? "fetch_error" },
-      { status: 502 }
-    );
-  }
-}
-
-function normalizeUrl(input: string): string {
-  if (/^https?:\/\//i.test(input)) return input;
-  return `https://${input}`;
+  return Response.json({
+    ok: true,
+    url: result.url,
+    markdown: result.markdown,
+    metadata: result.metadata ?? {},
+  });
 }
