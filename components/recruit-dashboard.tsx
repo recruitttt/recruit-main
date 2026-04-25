@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useQuery } from "convex/react";
 import {
   AlertTriangle,
   Ban,
@@ -30,7 +33,73 @@ import {
   mistColors,
   type StatusTone,
 } from "@/components/design-system";
-import type { DashboardMetric, DashboardSeed } from "@/lib/dashboard-seed";
+import { convexRefs } from "@/lib/convex-refs";
+import type {
+  ActiveRun,
+  ApplicationRow,
+  ArtifactSummary,
+  DashboardMetric,
+  DashboardSeed,
+  ProviderCoverage,
+} from "@/lib/dashboard-seed";
+
+type LiveRunSummary = {
+  _id: string;
+  status: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+  startedAt: string;
+  completedAt?: string;
+  sourceCount: number;
+  fetchedCount: number;
+  rawJobCount: number;
+  filteredCount: number;
+  survivorCount: number;
+  llmScoredCount: number;
+  recommendedCount: number;
+  errorCount: number;
+  scoringMode?: string;
+  recommendations?: LiveRecommendation[];
+};
+
+type LiveRecommendation = {
+  company: string;
+  title: string;
+  location?: string;
+  score: number;
+  rank: number;
+  jobUrl: string;
+  rationale?: string;
+};
+
+const emptyDashboardSeed: DashboardSeed = {
+  generatedAt: "live",
+  mode: "live",
+  metrics: [
+    { label: "Applications", value: "0", detail: "no live runs yet", tone: "neutral", progress: 0 },
+    { label: "Active runs", value: "0", detail: "idle", tone: "neutral", progress: 0 },
+    { label: "DLQ pending", value: "0", detail: "no blockers", tone: "success", progress: 0 },
+    { label: "Cache reuse", value: "0%", detail: "awaiting data", tone: "neutral", progress: 0 },
+    { label: "Time saved", value: "0h", detail: "awaiting data", tone: "neutral", progress: 0 },
+  ],
+  activeRun: null,
+  providers: [
+    { provider: "Ashby", status: "ready", tone: "neutral", detail: "waiting for first live ingestion" },
+    { provider: "Greenhouse", status: "not run", tone: "neutral", detail: "validation pending" },
+    { provider: "Lever", status: "not run", tone: "neutral", detail: "validation pending" },
+    { provider: "Workday", status: "not run", tone: "neutral", detail: "validation pending" },
+  ],
+  applications: [],
+  dlq: [],
+  activity: [
+    {
+      time: "now",
+      type: "seen",
+      title: "Live dashboard ready",
+      detail: "Run ingestion to populate recommendations, artifacts, and tailoring state.",
+      evidence: "empty",
+    },
+  ],
+  artifacts: [],
+};
 
 const navItems = [
   ["Dashboard", LayoutDashboard, true],
@@ -130,6 +199,22 @@ function DashboardShell({ seed }: { seed: DashboardSeed }) {
 
 function ActiveRunPanel({ seed }: { seed: DashboardSeed }) {
   const run = seed.activeRun;
+  if (!run) {
+    return (
+      <Panel title="Active Run" actions={<Pill tone="neutral">idle</Pill>}>
+        <GlassCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <Pill tone="neutral">no live run</Pill>
+              <h2 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Ready for ingestion</h2>
+              <p className="mt-1 text-sm text-slate-600">Run the Ashby ingestion flow to populate this dashboard in real time.</p>
+            </div>
+            <RunStatusIndicator state="paused" label="Provider run" meta="idle" />
+          </div>
+        </GlassCard>
+      </Panel>
+    );
+  }
 
   return (
     <Panel title="Active Run" actions={<Pill tone="active">{run.id}</Pill>}>
@@ -211,7 +296,13 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
                 </tr>
               </thead>
               <tbody>
-                {seed.applications.map((application) => (
+                {seed.applications.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
+                      No live recommendations yet. Start ingestion to fill this table.
+                    </td>
+                  </tr>
+                ) : seed.applications.map((application) => (
                   <tr key={`${application.company}-${application.role}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
                     <td className="px-4 py-3 font-semibold text-slate-950">{application.company}</td>
                     <td className="px-4 py-3 text-slate-600">{application.role}</td>
@@ -228,7 +319,12 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
 
         <Panel title="DLQ & Cache">
           <div className="space-y-3">
-            {seed.dlq.map((item) => (
+            {seed.dlq.length === 0 ? (
+              <GlassCard>
+                <div className="text-sm font-semibold text-slate-950">No blockers</div>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Live DLQ items will appear here when a run needs human input.</p>
+              </GlassCard>
+            ) : seed.dlq.map((item) => (
               <GlassCard key={item.title} variant={item.tone === "warning" ? "selected" : "default"}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -259,7 +355,12 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
         </Panel>
         <Panel title="Artifacts">
           <div className="grid gap-3 md:grid-cols-3">
-            {seed.artifacts.map((artifact) => (
+            {seed.artifacts.length === 0 ? (
+              <GlassCard>
+                <div className="text-sm font-semibold text-slate-950">No artifacts yet</div>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
+              </GlassCard>
+            ) : seed.artifacts.map((artifact) => (
               <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
             ))}
           </div>
@@ -282,6 +383,160 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
   );
 }
 
-export function RecruitDashboard({ seed }: { seed: DashboardSeed }) {
-  return <DashboardShell seed={seed} />;
+function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendations: LiveRecommendation[] | undefined): DashboardSeed {
+  if (run === undefined || recommendations === undefined) {
+    return {
+      ...emptyDashboardSeed,
+      metrics: emptyDashboardSeed.metrics.map((metric) =>
+        metric.label === "Active runs"
+          ? { ...metric, detail: "connecting to Convex" }
+          : metric
+      ),
+      activity: [
+        {
+          time: "now",
+          type: "tool",
+          title: "Connecting to live data",
+          detail: "Waiting for Convex to return the latest ingestion run.",
+          evidence: "convex",
+        },
+      ],
+    };
+  }
+
+  if (!run) return emptyDashboardSeed;
+
+  const sortedRecommendations = [...(recommendations ?? [])].sort((a, b) => a.rank - b.rank);
+  const activeRun = mapRunToActiveRun(run);
+  const progress = run.status === "completed" ? 100 : run.status === "ranking" ? 72 : run.status === "fetched" ? 52 : run.status === "fetching" ? 28 : 100;
+  const hasErrors = run.errorCount > 0 || run.status === "failed";
+
+  return {
+    generatedAt: formatTime(run.completedAt ?? run.startedAt),
+    mode: "live",
+    metrics: [
+      { label: "Applications", value: String(run.recommendedCount || sortedRecommendations.length), detail: `${run.rawJobCount} jobs scraped`, tone: "accent", progress: Math.min(100, sortedRecommendations.length * 12) },
+      { label: "Active runs", value: run.status === "completed" || run.status === "failed" ? "0" : "1", detail: run.status, tone: run.status === "failed" ? "danger" : "active", progress },
+      { label: "DLQ pending", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
+      { label: "Cache reuse", value: "0%", detail: "live ingestion", tone: "neutral", progress: 0 },
+      { label: "Time saved", value: "0h", detail: "tracking soon", tone: "neutral", progress: 0 },
+    ],
+    activeRun,
+    providers: mapProviders(run),
+    applications: mapApplications(sortedRecommendations),
+    dlq: hasErrors
+      ? [
+          {
+            title: "Ingestion errors",
+            question: `${run.errorCount} source${run.errorCount === 1 ? "" : "s"} returned an error.`,
+            answerability: "review needed",
+            impact: "Open run logs before trusting recommendations.",
+            tone: "warning",
+          },
+        ]
+      : [],
+    activity: [
+      {
+        time: formatTime(run.startedAt),
+        type: run.status === "failed" ? "decision" : run.status === "completed" ? "success" : "tool",
+        title: `Ashby ingestion ${run.status}`,
+        detail: `${run.fetchedCount}/${run.sourceCount} sources fetched, ${run.rawJobCount} jobs scraped, ${run.recommendedCount} recommendations ranked.`,
+        evidence: run.scoringMode ?? "live",
+      },
+    ],
+    artifacts: mapArtifacts(run, sortedRecommendations),
+  };
+}
+
+function mapRunToActiveRun(run: LiveRunSummary): ActiveRun {
+  return {
+    id: shortId(run._id),
+    company: "Ashby ingestion",
+    role: `${run.sourceCount} source${run.sourceCount === 1 ? "" : "s"}`,
+    provider: "Ashby",
+    mode: "live",
+    state: run.status === "failed" ? "blocked" : run.status === "completed" ? "completed" : "running",
+    currentStep: run.status,
+    summary: `${run.rawJobCount} jobs scraped, ${run.filteredCount} filtered, ${run.recommendedCount} recommendations ready.`,
+    steps: [
+      { label: "Fetch sources", status: stepStatus(run, ["fetching"]) },
+      { label: "Store jobs", status: stepStatus(run, ["fetched"]) },
+      { label: "Rank matches", status: stepStatus(run, ["ranking"]) },
+      { label: "Recommend", status: run.status === "completed" ? "complete" : run.status === "failed" ? "blocked" : "pending" },
+      { label: "Tailor", status: "pending" },
+    ],
+  };
+}
+
+function stepStatus(run: LiveRunSummary, activeStatuses: LiveRunSummary["status"][]): ActiveRun["steps"][number]["status"] {
+  if (run.status === "failed") return "blocked";
+  if (activeStatuses.includes(run.status)) return "active";
+  const order = ["fetching", "fetched", "ranking", "completed"];
+  const statusIndex = order.indexOf(run.status);
+  const activeIndex = Math.max(...activeStatuses.map((status) => order.indexOf(status)));
+  return statusIndex > activeIndex || run.status === "completed" ? "complete" : "pending";
+}
+
+function mapProviders(run: LiveRunSummary): ProviderCoverage[] {
+  return [
+    {
+      provider: "Ashby",
+      status: run.status === "completed" ? "live data" : run.status,
+      tone: run.status === "failed" ? "danger" : run.status === "completed" ? "success" : "active",
+      detail: `${run.fetchedCount}/${run.sourceCount} sources fetched`,
+    },
+    { provider: "Greenhouse", status: "not run", tone: "neutral", detail: "validation pending" },
+    { provider: "Lever", status: "not run", tone: "neutral", detail: "validation pending" },
+    { provider: "Workday", status: "not run", tone: "neutral", detail: "validation pending" },
+  ];
+}
+
+function mapApplications(recommendations: LiveRecommendation[]): ApplicationRow[] {
+  return recommendations.map((recommendation) => ({
+    company: recommendation.company,
+    role: recommendation.title,
+    provider: "Ashby",
+    match: `${Math.round(recommendation.score)}%`,
+    status: `rank #${recommendation.rank}`,
+    tone: recommendation.rank <= 3 ? "success" : "neutral",
+    artifact: recommendation.rationale ? "ranking rationale" : "job description",
+  }));
+}
+
+function mapArtifacts(run: LiveRunSummary, recommendations: LiveRecommendation[]): ArtifactSummary[] {
+  const artifacts: ArtifactSummary[] = [
+    { title: "Ingestion run", meta: `${run.rawJobCount} scraped jobs`, type: "preview" },
+  ];
+  if (recommendations[0]) {
+    artifacts.push({
+      title: `${recommendations[0].company} recommendation`,
+      meta: `${Math.round(recommendations[0].score)}% match`,
+      type: "attachment",
+    });
+  }
+  return artifacts;
+}
+
+function shortId(id: string) {
+  return id.length > 8 ? id.slice(-8) : id;
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "live";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function ConnectedRecruitDashboard() {
+  const run = useQuery(convexRefs.ashby.latestIngestionRunSummary, {});
+  const recommendations = useQuery(convexRefs.ashby.currentRecommendations, {});
+  return <DashboardShell seed={buildDashboardSeed(run, recommendations)} />;
+}
+
+export function RecruitDashboard({ seed }: { seed?: DashboardSeed }) {
+  if (seed) return <DashboardShell seed={seed} />;
+  if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+    return <DashboardShell seed={emptyDashboardSeed} />;
+  }
+  return <ConnectedRecruitDashboard />;
 }

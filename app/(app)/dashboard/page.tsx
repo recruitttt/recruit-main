@@ -1,5 +1,4 @@
 import { RecruitDashboard } from "@/components/recruit-dashboard";
-import { dashboardSeed } from "@/lib/dashboard-seed";
 
 export const metadata = {
   title: "Recruit command center",
@@ -7,5 +6,5 @@ export const metadata = {
 };
 
 export default function DashboardPage() {
-  return <RecruitDashboard seed={dashboardSeed} />;
+  return <RecruitDashboard />;
 }
