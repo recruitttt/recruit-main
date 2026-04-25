@@ -49,9 +49,8 @@ export function Topnav() {
           })}
         </nav>
 
-        <RoomToggle />
-
         <div className="ml-auto flex items-center gap-2">
+          <RoomToggle />
           <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-80">
             <Search className="h-3.5 w-3.5" />
             <span>Search applications, jobs…</span>

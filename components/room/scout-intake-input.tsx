@@ -2,20 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { playSend } from "@/lib/sounds";
 import { useRoomStore } from "./room-store";
 
-const PLACEHOLDERS = [
-  "Your dream job…",
-  "Just the dream, or anything for now?",
-  "Remote? Minimum pay? Where?",
-];
-
 export function ScoutIntakeInput() {
   const intakePhase = useRoomStore((s) => s.intakePhase);
-  const intakeStep = useRoomStore((s) => s.intakeStep);
+  const pending = useRoomStore((s) => s.intakePending);
+  const messageCount = useRoomStore(
+    (s) => s.intakeMessages.filter((m) => m.role === "user").length
+  );
   const submitIntakeAnswer = useRoomStore((s) => s.submitIntakeAnswer);
   const visible = intakePhase === "questioning";
 
@@ -23,11 +20,11 @@ export function ScoutIntakeInput() {
     <AnimatePresence>
       {visible ? (
         <IntakeInput
-          key={intakeStep}
-          step={intakeStep}
+          pending={pending}
+          turnIndex={messageCount}
           onSubmit={(v) => {
             playSend();
-            submitIntakeAnswer(v);
+            void submitIntakeAnswer(v);
           }}
         />
       ) : null}
@@ -36,10 +33,12 @@ export function ScoutIntakeInput() {
 }
 
 function IntakeInput({
-  step,
+  pending,
+  turnIndex,
   onSubmit,
 }: {
-  step: number;
+  pending: boolean;
+  turnIndex: number;
   onSubmit: (value: string) => void;
 }) {
   const [value, setValue] = useState("");
@@ -50,8 +49,13 @@ function IntakeInput({
     return () => window.clearTimeout(id);
   }, []);
 
+  // Refocus the input after each submit clears.
+  useEffect(() => {
+    if (!pending) ref.current?.focus();
+  }, [pending, turnIndex]);
+
   const trimmed = value.trim();
-  const disabled = trimmed.length === 0;
+  const disabled = trimmed.length === 0 || pending;
 
   return (
     <motion.form
@@ -68,23 +72,25 @@ function IntakeInput({
       className="pointer-events-auto absolute bottom-6 left-1/2 z-20 flex w-[min(560px,calc(100%-32px))] -translate-x-1/2 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/95 p-2 shadow-[0_24px_48px_-24px_rgba(15,15,18,0.35)] backdrop-blur-md"
     >
       <div className="pl-3 pr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-        {step + 1} / 3
+        {pending ? "scout…" : `q${turnIndex + 1}`}
       </div>
       <input
         ref={ref}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder={PLACEHOLDERS[step] ?? ""}
-        className="flex-1 bg-transparent px-2 py-2 text-[14px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none"
+        placeholder={pending ? "Scout's thinking…" : "Tell Scout…"}
+        className="flex-1 bg-transparent px-2 py-2 text-[14px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none disabled:cursor-not-allowed"
         autoComplete="off"
+        disabled={pending}
       />
-      <Button
-        type="submit"
-        variant="accent"
-        size="md"
-        disabled={disabled}
-      >
-        Send <ArrowRight className="h-3.5 w-3.5" />
+      <Button type="submit" variant="accent" size="md" disabled={disabled}>
+        {pending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <>
+            Send <ArrowRight className="h-3.5 w-3.5" />
+          </>
+        )}
       </Button>
     </motion.form>
   );

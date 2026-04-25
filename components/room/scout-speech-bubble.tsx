@@ -6,18 +6,18 @@ import { AnimatePresence, motion } from "motion/react";
 import { FRONT_STAGE } from "@/lib/room/app-agent-map";
 import { useRoomStore } from "./room-store";
 
-export const INTAKE_QUESTIONS: readonly string[] = [
-  "Hey, while the others get moving — quick thing. What's the job you'd take in a heartbeat if it showed up tomorrow?",
-  "Got it. And what are you actually open to right now? Dream role only, or anything that pays the bills?",
-  "Last one — any hard lines on pay or where you want to work? Remote-only, Bay Area, minimum salary, anything like that.",
-];
-
-const REVEAL_MS_PER_CHAR = 26;
+const REVEAL_MS_PER_CHAR = 22;
 
 export function ScoutSpeechBubble() {
   const intakePhase = useRoomStore((s) => s.intakePhase);
-  const intakeStep = useRoomStore((s) => s.intakeStep);
+  const messages = useRoomStore((s) => s.intakeMessages);
+  const pending = useRoomStore((s) => s.intakePending);
   const visible = intakePhase === "questioning";
+
+  // Latest assistant message — that's what Scout is currently saying.
+  const latest = [...messages].reverse().find((m) => m.role === "assistant");
+  const text = latest?.content ?? "";
+  const showThinking = pending && !text;
 
   return (
     <Html
@@ -29,18 +29,22 @@ export function ScoutSpeechBubble() {
     >
       <AnimatePresence mode="wait">
         {visible ? (
-          <BubbleBody key={intakeStep} step={intakeStep} />
+          showThinking ? (
+            <BubbleBody key="__thinking" text="" thinking />
+          ) : (
+            <BubbleBody key={text} text={text} thinking={false} />
+          )
         ) : null}
       </AnimatePresence>
     </Html>
   );
 }
 
-function BubbleBody({ step }: { step: number }) {
-  const text = INTAKE_QUESTIONS[step] ?? "";
+function BubbleBody({ text, thinking }: { text: string; thinking: boolean }) {
   const [revealed, setRevealed] = useState(0);
 
   useEffect(() => {
+    if (thinking) return;
     setRevealed(0);
     const iv = window.setInterval(() => {
       setRevealed((r) => {
@@ -52,7 +56,7 @@ function BubbleBody({ step }: { step: number }) {
       });
     }, REVEAL_MS_PER_CHAR);
     return () => window.clearInterval(iv);
-  }, [text]);
+  }, [text, thinking]);
 
   return (
     <motion.div
@@ -73,17 +77,35 @@ function BubbleBody({ step }: { step: number }) {
         />
         Scout · Agent · lead
       </div>
-      <p className="text-[13.5px] leading-relaxed text-[var(--color-fg)]">
-        {text.slice(0, revealed)}
-        {revealed < text.length ? (
-          <span className="inline-block h-[1em] w-[2px] translate-y-[2px] bg-current opacity-70" />
-        ) : null}
-      </p>
+      {thinking ? (
+        <div className="flex items-center gap-1.5 py-1 text-[var(--color-fg-subtle)]">
+          <ThinkingDot delay={0} />
+          <ThinkingDot delay={0.18} />
+          <ThinkingDot delay={0.36} />
+        </div>
+      ) : (
+        <p className="text-[13.5px] leading-relaxed text-[var(--color-fg)]">
+          {text.slice(0, revealed)}
+          {revealed < text.length ? (
+            <span className="inline-block h-[1em] w-[2px] translate-y-[2px] bg-current opacity-70" />
+          ) : null}
+        </p>
+      )}
       {/* little pointer toward Scout's head */}
       <div
         aria-hidden
         className="absolute left-1/2 bottom-[-8px] h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)]/95"
       />
     </motion.div>
+  );
+}
+
+function ThinkingDot({ delay }: { delay: number }) {
+  return (
+    <motion.span
+      animate={{ opacity: [0.25, 1, 0.25] }}
+      transition={{ duration: 1.2, repeat: Infinity, delay }}
+      className="inline-block h-1.5 w-1.5 rounded-full bg-current"
+    />
   );
 }
