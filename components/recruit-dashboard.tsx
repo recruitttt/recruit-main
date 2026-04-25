@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   Ban,
@@ -10,6 +10,7 @@ import {
   CircleStop,
   FileText,
   LayoutDashboard,
+  Loader2,
   Pause,
   Play,
   Power,
@@ -33,7 +34,6 @@ import {
   mistColors,
   type StatusTone,
 } from "@/components/design-system";
-import { convexRefs } from "@/lib/convex-refs";
 import type {
   ActiveRun,
   ApplicationRow,
@@ -68,6 +68,22 @@ type LiveRecommendation = {
   rank: number;
   jobUrl: string;
   rationale?: string;
+};
+
+type PipelineControls = {
+  canRun: boolean;
+  busy: boolean;
+  label: string;
+  message?: string;
+  error?: string;
+  onRunFirst3?: () => void;
+};
+
+type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | "error";
+
+type LiveDashboardPayload = {
+  run: LiveRunSummary | null;
+  recommendations: LiveRecommendation[];
 };
 
 const emptyDashboardSeed: DashboardSeed = {
@@ -133,7 +149,7 @@ function MetricCard({ metric }: { metric: DashboardMetric }) {
   );
 }
 
-function DashboardShell({ seed }: { seed: DashboardSeed }) {
+function DashboardShell({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -190,14 +206,14 @@ function DashboardShell({ seed }: { seed: DashboardSeed }) {
             </div>
           </header>
 
-          <DashboardMain seed={seed} />
+          <DashboardMain seed={seed} controls={controls} />
         </section>
       </div>
     </main>
   );
 }
 
-function ActiveRunPanel({ seed }: { seed: DashboardSeed }) {
+function ActiveRunPanel({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
   const run = seed.activeRun;
   if (!run) {
     return (
@@ -211,6 +227,7 @@ function ActiveRunPanel({ seed }: { seed: DashboardSeed }) {
             </div>
             <RunStatusIndicator state="paused" label="Provider run" meta="idle" />
           </div>
+          <PipelineControlsBar controls={controls} className="mt-5" />
         </GlassCard>
       </Panel>
     );
@@ -229,11 +246,7 @@ function ActiveRunPanel({ seed }: { seed: DashboardSeed }) {
             <RunStatusIndicator state={run.state} label="Provider run" meta={run.currentStep} />
           </div>
           <p className="mt-5 text-sm leading-6 text-slate-600">{run.summary}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button size="sm" variant="success"><Play className="h-3.5 w-3.5" /> Start</Button>
-            <Button size="sm" variant="secondary"><Pause className="h-3.5 w-3.5" /> Pause</Button>
-            <Button size="sm" variant="danger"><CircleStop className="h-3.5 w-3.5" /> Stop</Button>
-          </div>
+          <PipelineControlsBar controls={controls} className="mt-5" />
         </GlassCard>
         <GlassCard>
           <div className="mb-3 text-sm font-semibold text-slate-950">Run step progress</div>
@@ -255,7 +268,51 @@ function ActiveRunPanel({ seed }: { seed: DashboardSeed }) {
   );
 }
 
-function DashboardMain({ seed }: { seed: DashboardSeed }) {
+function PipelineControlsBar({
+  controls,
+  className,
+}: {
+  controls?: PipelineControls;
+  className?: string;
+}) {
+  if (!controls) {
+    return null;
+  }
+
+  return (
+    <div className={cx("space-y-3", className)}>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="success"
+          disabled={!controls.canRun || controls.busy}
+          onClick={controls.onRunFirst3}
+        >
+          {controls.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+          {controls.label}
+        </Button>
+        <Button size="sm" variant="secondary" disabled>
+          <Pause className="h-3.5 w-3.5" /> Pause
+        </Button>
+        <Button size="sm" variant="danger" disabled>
+          <CircleStop className="h-3.5 w-3.5" /> Stop
+        </Button>
+      </div>
+      {(controls.message || controls.error) && (
+        <div className={cx(
+          "rounded-[16px] border px-3 py-2 text-xs leading-5",
+          controls.error
+            ? "border-red-300/55 bg-red-50/45 text-red-700"
+            : "border-white/45 bg-white/26 text-slate-600"
+        )}>
+          {controls.error ?? controls.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
   return (
     <>
       <div className="grid gap-3 md:grid-cols-5">
@@ -263,7 +320,7 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-        <ActiveRunPanel seed={seed} />
+        <ActiveRunPanel seed={seed} controls={controls} />
         <Panel title="Provider Coverage">
           <div className="space-y-2">
             {seed.providers.map((provider) => (
@@ -303,7 +360,7 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
                     </td>
                   </tr>
                 ) : seed.applications.map((application) => (
-                  <tr key={`${application.company}-${application.role}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
+                  <tr key={`${application.company}-${application.role}-${application.status}`} className="border-b border-white/35 transition hover:bg-white/22 last:border-0">
                     <td className="px-4 py-3 font-semibold text-slate-950">{application.company}</td>
                     <td className="px-4 py-3 text-slate-600">{application.role}</td>
                     <td className="px-4 py-3 text-slate-500">{application.provider}</td>
@@ -528,15 +585,104 @@ function formatTime(value: string) {
 }
 
 function ConnectedRecruitDashboard() {
-  const run = useQuery(convexRefs.ashby.latestIngestionRunSummary, {});
-  const recommendations = useQuery(convexRefs.ashby.currentRecommendations, {});
-  return <DashboardShell seed={buildDashboardSeed(run, recommendations)} />;
+  const [runState, setRunState] = useState<PipelineRunState>("idle");
+  const [runMessage, setRunMessage] = useState<string>();
+  const [runError, setRunError] = useState<string>();
+  const [liveData, setLiveData] = useState<LiveDashboardPayload>();
+
+  const busy = runState === "syncing" || runState === "ingesting" || runState === "ranking";
+
+  const refreshLiveData = useCallback(async () => {
+    const response = await fetch("/api/dashboard/live", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`dashboard_live_${response.status}`);
+    }
+    setLiveData(await response.json() as LiveDashboardPayload);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refresh() {
+      try {
+        const response = await fetch("/api/dashboard/live", { cache: "no-store" });
+        if (!response.ok) throw new Error(`dashboard_live_${response.status}`);
+        const payload = await response.json() as LiveDashboardPayload;
+        if (!cancelled) setLiveData(payload);
+      } catch (err) {
+        if (!cancelled) {
+          setRunError(err instanceof Error ? err.message : String(err));
+          setLiveData({ run: null, recommendations: [] });
+        }
+      }
+    }
+
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), busy ? 2500 : 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [busy]);
+
+  async function runFirstThreeSources() {
+    if (busy) return;
+
+    try {
+      setRunError(undefined);
+      setRunMessage("Preparing Ashby sources...");
+      setRunState("syncing");
+
+      setRunMessage("Fetching jobs from the first 3 Ashby sources...");
+      setRunState("ingesting");
+
+      setRunMessage("Ranking scraped jobs...");
+      setRunState("ranking");
+      const response = await fetch("/api/dashboard/run-first-3", { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error ?? `dashboard_run_${response.status}`);
+      }
+
+      setRunState("done");
+      setRunMessage("Pipeline run complete. Live dashboard updated from Convex.");
+      await refreshLiveData();
+    } catch (err) {
+      setRunState("error");
+      setRunError(err instanceof Error ? err.message : String(err));
+      setRunMessage(undefined);
+    }
+  }
+
+  return (
+    <DashboardShell
+      seed={buildDashboardSeed(liveData?.run, liveData?.recommendations)}
+      controls={{
+        canRun: true,
+        busy,
+        label: busy ? runState : "Run first 3",
+        message: runMessage,
+        error: runError,
+        onRunFirst3: () => void runFirstThreeSources(),
+      }}
+    />
+  );
 }
 
 export function RecruitDashboard({ seed }: { seed?: DashboardSeed }) {
   if (seed) return <DashboardShell seed={seed} />;
   if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
-    return <DashboardShell seed={emptyDashboardSeed} />;
+    return (
+      <DashboardShell
+        seed={emptyDashboardSeed}
+        controls={{
+          canRun: false,
+          busy: false,
+          label: "Run first 3",
+          message: "Set NEXT_PUBLIC_CONVEX_URL before running the live pipeline.",
+        }}
+      />
+    );
   }
   return <ConnectedRecruitDashboard />;
 }
