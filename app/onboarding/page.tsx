@@ -741,22 +741,6 @@ function ResumeInput({
           if (f) handleFile(f);
         }}
       />
-
-      {!filename && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-mono">
-          <button
-            type="button"
-            onClick={() =>
-              onSubmit("resume", "I don't have a resume yet. We'll build one together.", {
-                resumeFilename: "",
-              })
-            }
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border-strong)] transition-colors"
-          >
-            I don't have one yet
-          </button>
-        </div>
-      )}
     </Well>
   );
 }
