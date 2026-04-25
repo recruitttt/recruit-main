@@ -557,8 +557,6 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
 }
 
 function CustomIconLab({ variantKey }: { variantKey: VariantKey }) {
-  const v = variants[variantKey];
-
   return (
     <Panel variantKey={variantKey} title="Custom Icon Lab">
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
@@ -1009,7 +1007,7 @@ function AnalyticsFunnel({ variantKey }: { variantKey: VariantKey }) {
           <div className="flex h-28 items-end gap-2">{[34, 56, 78, 52, 36, 22, 14].map((height, index) => <div key={index} className="flex-1 rounded-t-full" style={{ height: `${height}%`, background: `linear-gradient(180deg, ${v.accent}, rgba(14,165,233,0.16))` }} />)}</div>
         </GlassCard>
         <GlassCard>
-          <div className="text-sm font-semibold text-slate-950">What's working</div>
+          <div className="text-sm font-semibold text-slate-950">What&apos;s working</div>
           <div className="mt-4 font-mono text-3xl text-slate-950">AI Product</div>
           <div className="mt-1 text-sm leading-6 text-slate-600">Best resume variant by interview conversion.</div>
           <MiniMeter value={82} color={v.success} />
@@ -1020,7 +1018,6 @@ function AnalyticsFunnel({ variantKey }: { variantKey: VariantKey }) {
 }
 
 function OnboardingFirstRun({ variantKey }: { variantKey: VariantKey }) {
-  const v = variants[variantKey];
   const steps = [["Upload resume", UploadCloud], ["Confirm persona", CheckCircle2], ["Connect providers", PlugZap], ["Dry run", Eye]] as const;
 
   return (
