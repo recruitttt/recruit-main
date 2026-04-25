@@ -251,6 +251,81 @@ export const listEnabledSourcesForAction = internalQuery({
   },
 });
 
+export const upsertAtsSources = internalMutation({
+  args: { sources: v.array(v.any()) },
+  returns: v.object({ upserted: v.number() }),
+  handler: async (ctx, args) => {
+    let upserted = 0;
+    const now = new Date().toISOString();
+
+    for (const source of args.sources) {
+      const provider = String(source.provider ?? "").trim();
+      const slug = String(source.slug ?? "").trim();
+      const company = String(source.company ?? "").trim();
+      if (!["greenhouse", "lever", "workday"].includes(provider) || !slug || !company) {
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("atsSources")
+        .withIndex("by_provider_slug", (q) =>
+          q.eq("provider", provider)
+        )
+        .filter((q) => q.eq(q.field("slug"), slug))
+        .unique();
+
+      const doc = {
+        provider,
+        company,
+        slug,
+        careersUrl:
+          typeof source.careersUrl === "string" && source.careersUrl.trim()
+            ? source.careersUrl.trim()
+            : undefined,
+        enabled: source.enabled !== false,
+        config: source.config,
+        seededFrom:
+          typeof source.seededFrom === "string" && source.seededFrom.trim()
+            ? source.seededFrom.trim()
+            : undefined,
+        updatedAt: now,
+      };
+
+      if (existing) {
+        await ctx.db.patch(existing._id, omitUndefined(doc));
+      } else {
+        await ctx.db.insert("atsSources", omitUndefined(doc));
+      }
+      upserted++;
+    }
+
+    return { upserted };
+  },
+});
+
+export const listEnabledAtsSourcesForAction = internalQuery({
+  args: {
+    provider: v.union(
+      v.literal("greenhouse"),
+      v.literal("lever"),
+      v.literal("workday")
+    ),
+    limit: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const sources = await ctx.db
+      .query("atsSources")
+      .withIndex("by_provider_enabled", (q) =>
+        q.eq("provider", args.provider)
+      )
+      .filter((q) => q.eq(q.field("enabled"), true))
+      .collect();
+    const sorted = sources.sort((a, b) => a.company.localeCompare(b.company));
+    return typeof args.limit === "number" ? sorted.slice(0, args.limit) : sorted;
+  },
+});
+
 export const createIngestionRun = internalMutation({
   args: {
     demoUserId: v.optional(v.string()),
