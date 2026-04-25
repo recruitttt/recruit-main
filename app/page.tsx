@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "motion/react";
 import {
   ArrowRight,
   Check,
@@ -98,29 +101,49 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
-          <div className="mx-auto max-w-5xl text-center">
-            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/62 px-3 py-1.5 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="mx-auto max-w-5xl space-y-6 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/62 px-3 py-1.5 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_16px_40px_rgba(15,23,42,0.06)]"
+            >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white">
                 <Sparkles className="h-3 w-3" />
               </span>
               AI agents for the job hunt
-            </div>
+            </motion.div>
 
-            <h1 className="mx-auto mt-7 max-w-5xl text-balance font-serif text-[clamp(48px,9vw,112px)] leading-[0.91] tracking-tight text-slate-950">
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+              className="mx-auto max-w-5xl text-balance font-serif text-[clamp(48px,9vw,112px)] leading-[0.91] tracking-tight text-slate-950"
+            >
               Apply to jobs without applying.
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-balance text-[16px] leading-7 text-slate-600 sm:text-[18px]">
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+              className="mx-auto max-w-2xl text-balance text-[16px] leading-7 text-slate-600 sm:text-[18px]"
+            >
               Recruit finds roles, researches each company, tailors your resume, and pauses only when it needs your truth.
-            </p>
+            </motion.p>
 
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/onboarding">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
+              className="flex flex-col items-center justify-center gap-3 sm:flex-row"
+            >
+              <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
                 <Button size="lg" className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800">
                   Spin up my agents
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/dashboard">
+              <Link href="/dashboard" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.02]">
                 <Button
                   variant="secondary"
                   size="lg"
@@ -129,7 +152,7 @@ export default function LandingPage() {
                   View live dashboard
                 </Button>
               </Link>
-            </div>
+            </motion.div>
           </div>
 
           <div className="relative mx-auto mt-12 w-full max-w-6xl flex-1">
