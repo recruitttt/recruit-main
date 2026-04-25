@@ -76,14 +76,25 @@ type PipelineControls = {
   label: string;
   message?: string;
   error?: string;
+  logs?: PipelineLog[];
   onRunFirst3?: () => void;
 };
 
 type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | "error";
 
+type PipelineLog = {
+  _id?: string;
+  stage: string;
+  level: "info" | "success" | "warning" | "error";
+  message: string;
+  createdAt: string;
+  payload?: unknown;
+};
+
 type LiveDashboardPayload = {
   run: LiveRunSummary | null;
   recommendations: LiveRecommendation[];
+  logs?: PipelineLog[];
 };
 
 const emptyDashboardSeed: DashboardSeed = {
@@ -312,6 +323,50 @@ function PipelineControlsBar({
   );
 }
 
+function LiveLogStream({ logs = [], busy }: { logs?: PipelineLog[]; busy?: boolean }) {
+  const orderedLogs = [...logs].reverse();
+
+  return (
+    <Panel
+      title="Live Logs"
+      actions={<Pill tone={busy ? "active" : "neutral"}>{logs.length} entries</Pill>}
+    >
+      <div className="max-h-[420px] overflow-y-auto rounded-[24px] border border-white/45 bg-slate-950/70 p-3 text-xs text-slate-100 shadow-inner">
+        {orderedLogs.length === 0 ? (
+          <div className="rounded-[18px] border border-white/10 bg-white/5 px-3 py-4 text-slate-300">
+            Logs will stream here while ingestion, filtering, ranking, scoring, and artifact writes run.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {orderedLogs.map((log) => (
+              <div
+                key={log._id ?? `${log.createdAt}-${log.stage}-${log.message}`}
+                className="grid gap-2 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 md:grid-cols-[86px_92px_1fr]"
+              >
+                <span className="font-mono text-[11px] text-slate-400">{formatLogTime(log.createdAt)}</span>
+                <span className="flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full" style={{ backgroundColor: getStatusColor(logTone(log.level)) }} />
+                  <span className="font-mono text-[11px] uppercase text-slate-300">{log.stage}</span>
+                </span>
+                <span className="min-w-0">
+                  <span className={cx("font-medium", log.level === "error" ? "text-red-200" : log.level === "warning" ? "text-amber-200" : log.level === "success" ? "text-emerald-200" : "text-slate-100")}>
+                    {log.message}
+                  </span>
+                  {log.payload ? (
+                    <span className="mt-1 block truncate font-mono text-[11px] text-slate-500">
+                      {compactPayload(log.payload)}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: PipelineControls }) {
   return (
     <>
@@ -405,6 +460,8 @@ function DashboardMain({ seed, controls }: { seed: DashboardSeed; controls?: Pip
           </div>
         </Panel>
       </div>
+
+      <LiveLogStream logs={controls?.logs} busy={controls?.busy} />
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <Panel title="Activity & Proof Feed">
@@ -584,6 +641,31 @@ function formatTime(value: string) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatLogTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--:--";
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function logTone(level: PipelineLog["level"]): StatusTone {
+  if (level === "success") return "success";
+  if (level === "warning") return "warning";
+  if (level === "error") return "danger";
+  return "active";
+}
+
+function compactPayload(payload: unknown) {
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return String(payload);
+  }
+}
+
 function ConnectedRecruitDashboard() {
   const [runState, setRunState] = useState<PipelineRunState>("idle");
   const [runMessage, setRunMessage] = useState<string>();
@@ -612,7 +694,7 @@ function ConnectedRecruitDashboard() {
       } catch (err) {
         if (!cancelled) {
           setRunError(err instanceof Error ? err.message : String(err));
-          setLiveData({ run: null, recommendations: [] });
+          setLiveData({ run: null, recommendations: [], logs: [] });
         }
       }
     }
@@ -663,6 +745,7 @@ function ConnectedRecruitDashboard() {
         label: busy ? runState : "Run first 3",
         message: runMessage,
         error: runError,
+        logs: liveData?.logs ?? [],
         onRunFirst3: () => void runFirstThreeSources(),
       }}
     />

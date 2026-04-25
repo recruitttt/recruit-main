@@ -208,4 +208,21 @@ export default defineSchema({
     .index("by_job", ["jobId"])
     .index("by_run", ["runId"])
     .index("by_demo_user", ["demoUserId"]),
+
+  pipelineLogs: defineTable({
+    demoUserId: v.string(),
+    runId: v.optional(v.id("ingestionRuns")),
+    stage: v.string(),
+    level: v.union(
+      v.literal("info"),
+      v.literal("success"),
+      v.literal("warning"),
+      v.literal("error")
+    ),
+    message: v.string(),
+    payload: v.optional(v.any()),
+    createdAt: isoString,
+  })
+    .index("by_run", ["runId", "createdAt"])
+    .index("by_demo_user", ["demoUserId", "createdAt"]),
 });

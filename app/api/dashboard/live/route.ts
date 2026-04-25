@@ -21,8 +21,11 @@ export async function GET() {
       client.query(api.ashby.latestIngestionRunSummary, {}),
       client.query(api.ashby.currentRecommendations, {}),
     ]);
+    const logs = await client.query(api.ashby.latestPipelineLogs, run?._id
+      ? { runId: run._id, limit: 200 }
+      : { limit: 200 });
 
-    return Response.json({ run, recommendations });
+    return Response.json({ run, recommendations, logs });
   } catch (err) {
     const error = err as Error & { cause?: { code?: string; message?: string } };
     const message = [
