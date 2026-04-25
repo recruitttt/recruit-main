@@ -464,13 +464,16 @@ export default function OnboardingChatPage() {
 
           {/* chat */}
           <div ref={scrollRef} className="relative min-w-0 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
-            <div className="space-y-5 pb-24">
-              {rendered.map((m) => {
+            <div className="space-y-5 pb-6">
+              {rendered.map((m, i) => {
                 if (m.kind === "agent") {
                   const shown = m.text.slice(0, m.revealed);
                   const typing = m.revealed < m.text.length;
+                  const prev = rendered[i - 1];
+                  const hideHeader =
+                    prev?.kind === "agent" && prev.from === m.from;
                   return (
-                    <AgentMessage key={m.id} from={m.from}>
+                    <AgentMessage key={m.id} from={m.from} showAvatar={!hideHeader} compact={hideHeader}>
                       {shown}
                       {typing && <Caret />}
                     </AgentMessage>

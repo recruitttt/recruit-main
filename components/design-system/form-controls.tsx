@@ -50,8 +50,8 @@ export function TextField({
       {label && <span className="mb-2 block text-xs font-semibold text-slate-500">{label}</span>}
       <span
         className={cx(
-          "flex items-start gap-3 border px-3 text-sm text-slate-700",
-          multiline ? "min-h-24 py-3" : "h-11 items-center",
+          "flex gap-3 border px-3 text-sm text-slate-700",
+          multiline ? "min-h-24 items-start py-3" : "h-11 items-center",
           mistClasses.card,
           state === "error" && "border-red-500/35 bg-red-500/8",
           state === "disabled" && "opacity-55",
