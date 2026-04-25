@@ -66,7 +66,7 @@ const beats: Beat[] = [
 
   { k: "wake", who: "mimi" },
   { k: "agent", from: "scout", text: "Mimi's online. Agent two." },
-  { k: "agent", from: "scout", text: "Got a resume? Drop it here. If you don't have one yet, that's fine. We'll build one as we go." },
+  { k: "agent", from: "scout", text: "Got a resume? Drop it here." },
   { k: "input", kind: "resume", from: "scout" },
   { k: "pause", ms: 500 },
 
