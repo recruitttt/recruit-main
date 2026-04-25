@@ -9,6 +9,8 @@ import {
   CreditCard,
   LayoutDashboard,
   LayoutGrid,
+  LogIn,
+  LogOut,
   Settings,
   X,
   type LucideIcon,
@@ -32,9 +34,15 @@ export interface MobileNavProps {
   isOpen: boolean;
   onClose: () => void;
   pathname: string;
+  isPending?: boolean;
+  user?: {
+    email?: string | null;
+    name?: string | null;
+  } | null;
+  onSignOut?: () => void;
 }
 
-export function MobileNav({ isOpen, onClose, pathname }: MobileNavProps) {
+export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, onSignOut }: MobileNavProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -188,6 +196,43 @@ export function MobileNav({ isOpen, onClose, pathname }: MobileNavProps) {
                 </div>
               </div>
             )}
+
+            <div className="mt-auto rounded-2xl border border-white/55 bg-white/30 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+              {isPending ? (
+                <div className="h-10 animate-pulse rounded-xl bg-white/45" aria-hidden="true" />
+              ) : user ? (
+                <div className="space-y-2">
+                  <div className="px-2 py-1">
+                    <div className="truncate text-[12px] font-semibold text-slate-950">
+                      {user.name || "Recruit user"}
+                    </div>
+                    <div className="truncate text-[11px] text-slate-500">
+                      {user.email}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSignOut?.();
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/58 px-3 py-2.5 text-[13px] font-semibold text-slate-800 transition hover:bg-white/72"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/sign-in"
+                  onClick={onClose}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/58 px-3 py-2.5 text-[13px] font-semibold text-slate-800 transition hover:bg-white/72"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Log in
+                </Link>
+              )}
+            </div>
           </motion.aside>
         </>
       )}
