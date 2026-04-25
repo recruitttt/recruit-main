@@ -597,6 +597,22 @@ export const upsertTailoredApplication = mutation({
       }));
     }
 
+    await ctx.db.insert("pipelineLogs", omitUndefined({
+      demoUserId,
+      runId: sourceJob?.runId,
+      stage: "tailoring",
+      level: args.status === "failed" ? "error" : args.status === "completed" ? "success" : "info",
+      message: tailoringLogMessage(args.status, sourceJob?.company, sourceJob?.title),
+      payload: {
+        jobId: args.jobId,
+        pdfReady: args.pdfReady ?? false,
+        tailoringScore: args.tailoringScore,
+        keywordCoverage: args.keywordCoverage,
+        error: args.error,
+      },
+      createdAt: now,
+    }));
+
     return null;
   },
 });
@@ -655,4 +671,11 @@ function omitUndefined<T extends Record<string, any>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined && item !== null)
   ) as T;
+}
+
+function tailoringLogMessage(status: string, company?: string, title?: string) {
+  const jobLabel = [company, title].filter(Boolean).join(" - ") || "selected job";
+  if (status === "completed") return `Tailored resume ready for ${jobLabel}`;
+  if (status === "failed") return `Tailoring failed for ${jobLabel}`;
+  return `Started tailoring ${jobLabel}`;
 }
