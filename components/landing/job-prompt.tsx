@@ -95,11 +95,6 @@ export function JobPrompt() {
         ))}
       </div>
 
-      <div className="mt-5 text-center">
-        <span className="text-[12px] text-[var(--color-fg-subtle)] font-mono">
-          Free tier · No credit card · 5 applications on us
-        </span>
-      </div>
     </div>
   );
 }

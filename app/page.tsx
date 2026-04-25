@@ -49,47 +49,31 @@ export default function LandingPage() {
         <div className="absolute inset-0 grid-bg grid-bg-fade" />
         <div className="absolute inset-x-0 top-0 h-[400px] bg-gradient-to-b from-cyan-500/[0.04] via-transparent to-transparent pointer-events-none" />
 
-        <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-32">
+        <div className="relative mx-auto max-w-6xl px-6 pt-16 pb-24">
           <div className="flex flex-col items-center text-center">
-            <Link
-              href="#changelog"
-              className="group mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-md py-1 pl-1 pr-3 text-[12px] hover:border-[var(--color-border-strong)] transition-colors"
-            >
-              <span className="rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--color-accent)]">
-                New
-              </span>
-              <span className="text-[var(--color-fg-muted)]">
-                Ashby end-to-end coverage is live
-              </span>
-              <ArrowRight className="h-3 w-3 text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-
-            <h1 className="font-serif text-[clamp(48px,8vw,96px)] leading-[1.02] tracking-[-0.02em] text-[var(--color-fg)] max-w-4xl">
+            <h1 className="font-serif text-[clamp(48px,8vw,88px)] leading-[1.02] tracking-[-0.02em] text-[var(--color-fg)] max-w-4xl">
               Apply to jobs.
               <br />
               <span className="text-[var(--color-fg-subtle)] italic">Without applying.</span>
             </h1>
 
-            <p className="mt-7 max-w-xl text-[17px] leading-relaxed text-[var(--color-fg-muted)]">
-              An autonomous agent that sources roles, tailors your resume, fills
-              the form, and remembers what works. Tell it what you want — it
-              starts applying.
+            <p className="mt-5 max-w-lg text-[16px] leading-relaxed text-[var(--color-fg-muted)]">
+              Tell the agent what you want. It applies.
             </p>
 
-            <div className="mt-10 w-full flex justify-center">
+            <div className="mt-8 w-full flex justify-center">
               <JobPrompt />
             </div>
 
-            <Link
-              href="/dashboard"
-              className="mt-6 inline-flex items-center gap-1.5 text-[12px] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-muted)] font-mono transition-colors"
-            >
-              or browse the demo dashboard
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-
-            <div className="mt-12">
+            <div className="mt-10 flex items-center gap-3">
               <AgentTicker />
+              <Link
+                href="/dashboard"
+                className="hidden md:inline-flex items-center gap-1.5 text-[12px] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-muted)] font-mono transition-colors"
+              >
+                or see dashboard
+                <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
           </div>
 
