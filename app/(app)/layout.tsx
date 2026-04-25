@@ -1,3 +1,4 @@
+import { PageTransition } from "@/components/page-transition";
 import { Topnav } from "@/components/shell/topnav";
 
 export default function AppLayout({
@@ -8,7 +9,9 @@ export default function AppLayout({
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
       <Topnav />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <PageTransition>{children}</PageTransition>
+      </main>
     </div>
   );
 }
