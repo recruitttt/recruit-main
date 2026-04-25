@@ -52,7 +52,7 @@ export function AgentMessage({
             </span>
           </div>
         )}
-        <div className="text-[15px] leading-relaxed text-slate-950">
+        <div className="text-[15px] leading-snug text-slate-950">
           {children}
         </div>
       </div>
@@ -68,7 +68,7 @@ export function UserMessage({ children }: { children: React.ReactNode }) {
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="flex justify-end"
     >
-      <div className={cx("max-w-[80%] rounded-[22px] rounded-tr-md border px-4 py-2.5 text-[14px] leading-relaxed text-slate-800", mistClasses.card)}>
+      <div className={cx("max-w-[80%] rounded-[22px] rounded-tr-md border px-4 py-2 text-[14px] leading-snug text-slate-800", mistClasses.card)}>
         {children}
       </div>
     </motion.div>
