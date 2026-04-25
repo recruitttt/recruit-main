@@ -900,106 +900,111 @@ function DashboardMain({
   const [tab, setTab] = useDashboardTab();
   const reducedMotion = usePrefersReducedMotion();
   const hasLogs = (controls?.logs?.length ?? 0) > 0;
+  let activePanel: ReactNode;
+
+  if (tab === "today") {
+    activePanel = (
+      <DashboardTabPanel key="today" id="today" active={tab} reducedMotion={reducedMotion}>
+        <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
+        <KpiGrid metrics={seed.metrics} reducedMotion={reducedMotion} />
+        <ActiveRunPanel seed={seed} controls={controls} />
+      </DashboardTabPanel>
+    );
+  } else if (tab === "applications") {
+    activePanel = (
+      <DashboardTabPanel key="applications" id="applications" active={tab} reducedMotion={reducedMotion}>
+        <div id="applications" className="scroll-mt-24">
+          <ApplicationPipelinePanel
+            seed={seed}
+            tailoring={tailoring}
+            customJd={customJd}
+            reducedMotion={reducedMotion}
+          />
+        </div>
+        <SelectedJobPanel tailoring={tailoring} />
+        <FollowUpsPanel controls={tailoring?.followUps} />
+      </DashboardTabPanel>
+    );
+  } else {
+    activePanel = (
+      <DashboardTabPanel key="activity" id="activity" active={tab} reducedMotion={reducedMotion}>
+        <Panel title="Provider Coverage">
+          <div className="space-y-2">
+            {seed.providers.map((provider) => (
+              <GlassCard key={provider.provider} density="compact" className="rounded-[18px]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold leading-tight text-slate-950">{provider.provider}</div>
+                    <div className="mt-1 text-[11px] leading-tight text-slate-500">{provider.detail}</div>
+                  </div>
+                  <Pill tone={provider.tone}>{provider.status}</Pill>
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </Panel>
+
+        {hasLogs ? (
+          <LiveLogStream logs={controls?.logs} busy={controls?.busy} reducedMotion={reducedMotion} />
+        ) : (
+          <Panel title="Live Logs" actions={<Pill tone="neutral">0 entries</Pill>}>
+            <DashboardEmpty
+              icon={Terminal}
+              title="No log activity"
+              description="Logs will stream here while ingestion, filtering, ranking, and tailoring run."
+            />
+          </Panel>
+        )}
+
+        <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+          <Panel title="Activity & Proof Feed">
+            {seed.activity.length === 0 ? (
+              <DashboardEmpty
+                icon={ListChecks}
+                title="No activity yet"
+                description="Pipeline events, tool calls, and decisions will land here as runs progress."
+              />
+            ) : (
+              <EventLog events={seed.activity} />
+            )}
+          </Panel>
+          <div id="artifacts" className="scroll-mt-24">
+            <Panel title="Artifacts">
+              <div className="grid gap-3 md:grid-cols-3">
+                {seed.artifacts.length === 0 ? (
+                  <GlassCard>
+                    <div className="text-sm font-semibold leading-tight text-slate-950">No artifacts yet</div>
+                    <p className="mt-1 text-[13px] leading-tight text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
+                  </GlassCard>
+                ) : seed.artifacts.map((artifact) => (
+                  <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
+                ))}
+              </div>
+              <GlassCard className="mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold leading-tight text-slate-950">Claim safety</div>
+                    <div className="mt-1 text-[13px] leading-tight text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
+                    <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
+                    <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
+                  </div>
+                </div>
+              </GlassCard>
+            </Panel>
+          </div>
+        </div>
+      </DashboardTabPanel>
+    );
+  }
 
   return (
     <>
       <DashboardTabBar tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
-        {tab === "today" && (
-        <DashboardTabPanel id="today" active={tab} reducedMotion={reducedMotion}>
-          <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
-          <KpiGrid metrics={seed.metrics} reducedMotion={reducedMotion} />
-          <ActiveRunPanel seed={seed} controls={controls} />
-        </DashboardTabPanel>
-        )}
-
-        {tab === "applications" && (
-        <DashboardTabPanel id="applications" active={tab} reducedMotion={reducedMotion}>
-          <div id="applications" className="scroll-mt-24">
-            <ApplicationPipelinePanel
-              seed={seed}
-              tailoring={tailoring}
-              customJd={customJd}
-              reducedMotion={reducedMotion}
-            />
-          </div>
-          <SelectedJobPanel tailoring={tailoring} />
-          <FollowUpsPanel controls={tailoring?.followUps} />
-        </DashboardTabPanel>
-        )}
-
-        {tab === "activity" && (
-        <DashboardTabPanel id="activity" active={tab} reducedMotion={reducedMotion}>
-          <Panel title="Provider Coverage">
-            <div className="space-y-2">
-              {seed.providers.map((provider) => (
-                <GlassCard key={provider.provider} density="compact" className="rounded-[18px]">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold leading-tight text-slate-950">{provider.provider}</div>
-                      <div className="mt-1 text-[11px] leading-tight text-slate-500">{provider.detail}</div>
-                    </div>
-                    <Pill tone={provider.tone}>{provider.status}</Pill>
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          </Panel>
-
-          {hasLogs ? (
-            <LiveLogStream logs={controls?.logs} busy={controls?.busy} reducedMotion={reducedMotion} />
-          ) : (
-            <Panel title="Live Logs" actions={<Pill tone="neutral">0 entries</Pill>}>
-              <DashboardEmpty
-                icon={Terminal}
-                title="No log activity"
-                description="Logs will stream here while ingestion, filtering, ranking, and tailoring run."
-              />
-            </Panel>
-          )}
-
-          <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-            <Panel title="Activity & Proof Feed">
-              {seed.activity.length === 0 ? (
-                <DashboardEmpty
-                  icon={ListChecks}
-                  title="No activity yet"
-                  description="Pipeline events, tool calls, and decisions will land here as runs progress."
-                />
-              ) : (
-                <EventLog events={seed.activity} />
-              )}
-            </Panel>
-            <div id="artifacts" className="scroll-mt-24">
-              <Panel title="Artifacts">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {seed.artifacts.length === 0 ? (
-                    <GlassCard>
-                      <div className="text-sm font-semibold leading-tight text-slate-950">No artifacts yet</div>
-                      <p className="mt-1 text-[13px] leading-tight text-slate-600">Job descriptions, ranking scores, tailored resumes, and PDF metadata will appear after live runs.</p>
-                    </GlassCard>
-                  ) : seed.artifacts.map((artifact) => (
-                    <ArtifactCard key={artifact.title} title={artifact.title} meta={artifact.meta} type={artifact.type} />
-                  ))}
-                </div>
-                <GlassCard className="mt-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold leading-tight text-slate-950">Claim safety</div>
-                      <div className="mt-1 text-[13px] leading-tight text-slate-600">Ashby is live/proven. Other providers stay labeled seeded, stretch, or replay until evidence exists.</div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
-                      <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
-                      <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
-                    </div>
-                  </div>
-                </GlassCard>
-              </Panel>
-            </div>
-          </div>
-        </DashboardTabPanel>
-        )}
+        {activePanel}
       </AnimatePresence>
     </>
   );
