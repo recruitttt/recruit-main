@@ -9,6 +9,7 @@ import {
   XIcon,
   DevpostIcon,
 } from "@/components/ui/brand-icons";
+import { GlassCard, cx, mistClasses, mistRadii } from "@/components/design-system";
 import {
   EMPTY_PROFILE,
   readProfile,
@@ -40,11 +41,11 @@ export function ProfileCard() {
     hasResume;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-5 backdrop-blur-sm">
+    <GlassCard density="spacious">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-[var(--color-accent)]" />
-          <span className="text-[10px] uppercase tracking-[0.18em] font-mono text-[var(--color-fg-subtle)]">
+          <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+          <span className={mistClasses.sectionLabel}>
             Building your profile
           </span>
         </div>
@@ -55,9 +56,9 @@ export function ProfileCard() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg)]/50 px-4 py-8 text-center"
+          className={cx("border border-dashed border-white/60 bg-white/28 px-4 py-8 text-center", mistRadii.nested)}
         >
-          <p className="text-[12px] text-[var(--color-fg-subtle)] leading-relaxed">
+          <p className="text-[12px] leading-relaxed text-slate-500">
             As you chat, your profile fills in here.
             <br />
             The squad will read this when they apply.
@@ -133,7 +134,7 @@ export function ProfileCard() {
 
           {profile.summary && (
             <Section key="summary" title="Bio">
-              <p className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed line-clamp-4">
+              <p className="line-clamp-4 text-[12px] leading-relaxed text-slate-600">
                 {profile.summary}
               </p>
             </Section>
@@ -141,7 +142,7 @@ export function ProfileCard() {
 
           {hasResume && profile.resume && (
             <Section key="resume" title="Resume">
-              <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
+              <div className="flex items-center gap-2 text-[12px] text-slate-600">
                 <FileText className="h-3.5 w-3.5" style={{ color: SOURCE_HUE.resume }} />
                 <span className="truncate">{profile.resume.filename}</span>
               </div>
@@ -157,13 +158,13 @@ export function ProfileCard() {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(i, 12) * 0.03, duration: 0.25 }}
-                    className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
+                    className="rounded-full border border-white/55 bg-white/32 px-2 py-0.5 text-[11px] text-slate-600"
                   >
                     {s}
                   </motion.span>
                 ))}
                 {profile.skills.length > 18 && (
-                  <span className="text-[11px] font-mono text-[var(--color-fg-subtle)] self-center">
+                  <span className="self-center font-mono text-[11px] text-slate-500">
                     +{profile.skills.length - 18}
                   </span>
                 )}
@@ -174,7 +175,7 @@ export function ProfileCard() {
           {profile.github?.topRepos && profile.github.topRepos.length > 0 && (
             <Section key="github-repos" title="GitHub">
               {profile.github.bio && (
-                <p className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed mb-1.5">
+                <p className="mb-1.5 text-[12px] leading-relaxed text-slate-600">
                   {profile.github.bio}
                 </p>
               )}
@@ -185,21 +186,21 @@ export function ProfileCard() {
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05, duration: 0.25 }}
-                    className="rounded-md bg-[var(--color-surface-1)]/60 px-2.5 py-1.5"
+                    className={cx("bg-white/30 px-2.5 py-1.5", mistRadii.nested)}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[12px] font-mono text-[var(--color-fg)]">{repo.name}</span>
+                      <span className="font-mono text-[12px] text-slate-900">{repo.name}</span>
                       {repo.language && (
-                        <span className="text-[10px] font-mono text-[var(--color-fg-subtle)] rounded-full border border-[var(--color-border)] px-1.5 py-0.5">
+                        <span className="rounded-full border border-white/55 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
                           {repo.language}
                         </span>
                       )}
                       {repo.stars != null && repo.stars > 0 && (
-                        <span className="ml-auto text-[10px] font-mono text-[var(--color-fg-subtle)]">★ {repo.stars}</span>
+                        <span className="ml-auto font-mono text-[10px] text-slate-500">★ {repo.stars}</span>
                       )}
                     </div>
                     {repo.description && (
-                      <div className="text-[11px] text-[var(--color-fg-subtle)] truncate mt-0.5">{repo.description}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-slate-500">{repo.description}</div>
                     )}
                   </motion.div>
                 ))}
@@ -216,19 +217,19 @@ export function ProfileCard() {
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05, duration: 0.25 }}
-                    className="flex items-start gap-2 rounded-md bg-[var(--color-surface-1)]/60 px-2.5 py-1.5"
+                    className={cx("flex items-start gap-2 bg-white/30 px-2.5 py-1.5", mistRadii.nested)}
                   >
-                    <Briefcase className="h-3 w-3 mt-1 text-[var(--color-fg-subtle)] shrink-0" />
+                    <Briefcase className="mt-1 h-3 w-3 shrink-0 text-slate-500" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px] text-[var(--color-fg)]">
+                      <div className="truncate text-[12px] text-slate-900">
                         {e.title}
                       </div>
-                      <div className="truncate text-[11px] font-mono text-[var(--color-fg-subtle)]">
+                      <div className="truncate font-mono text-[11px] text-slate-500">
                         {e.company}
                         {e.startDate && ` · ${e.startDate}${e.endDate ? ` – ${e.endDate}` : ""}`}
                       </div>
                       {e.description && (
-                        <div className="text-[11px] text-[var(--color-fg-subtle)] line-clamp-2 mt-0.5 leading-relaxed">
+                        <div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
                           {e.description}
                         </div>
                       )}
@@ -236,7 +237,7 @@ export function ProfileCard() {
                   </motion.div>
                 ))}
                 {profile.experience.length > 3 && (
-                  <div className="pl-5 text-[10px] font-mono text-[var(--color-fg-subtle)]">
+                  <div className="pl-5 font-mono text-[10px] text-slate-500">
                     +{profile.experience.length - 3} more
                   </div>
                 )}
@@ -250,15 +251,15 @@ export function ProfileCard() {
                 {profile.education.slice(0, 2).map((e, i) => (
                   <div
                     key={`${e.school}-${i}`}
-                    className="flex items-start gap-2 rounded-md bg-[var(--color-surface-1)]/60 px-2.5 py-1.5"
+                    className={cx("flex items-start gap-2 bg-white/30 px-2.5 py-1.5", mistRadii.nested)}
                   >
-                    <GraduationCap className="h-3 w-3 mt-1 text-[var(--color-fg-subtle)] shrink-0" />
+                    <GraduationCap className="mt-1 h-3 w-3 shrink-0 text-slate-500" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px] text-[var(--color-fg)]">
+                      <div className="truncate text-[12px] text-slate-900">
                         {e.school}
                       </div>
                       {(e.degree || e.field) && (
-                        <div className="truncate text-[11px] font-mono text-[var(--color-fg-subtle)]">
+                        <div className="truncate font-mono text-[11px] text-slate-500">
                           {[e.degree, e.field].filter(Boolean).join(" · ")}
                         </div>
                       )}
@@ -275,14 +276,14 @@ export function ProfileCard() {
                 {profile.prefs.roles.map((r) => (
                   <span
                     key={r}
-                    className="rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)] px-2 py-0.5 text-[11px] text-[var(--color-accent)]"
+                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-600"
                   >
                     {r}
                   </span>
                 ))}
               </div>
               {profile.prefs.locations.length > 0 && (
-                <div className="mt-1.5 text-[11px] font-mono text-[var(--color-fg-subtle)]">
+                <div className="mt-1.5 font-mono text-[11px] text-slate-500">
                   {profile.prefs.locations.join(", ")}
                   {profile.prefs.workAuth && ` · ${profile.prefs.workAuth}`}
                 </div>
@@ -293,8 +294,8 @@ export function ProfileCard() {
       </div>
 
       {profile.log.length > 0 && (
-        <div className="mt-5 border-t border-[var(--color-border)] pt-3">
-          <div className="mb-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-[var(--color-fg-subtle)]">
+        <div className="mt-5 border-t border-white/45 pt-3">
+          <div className={cx("mb-1.5", mistClasses.sectionLabel)}>
             Activity
           </div>
           <div className="space-y-0.5">
@@ -308,7 +309,7 @@ export function ProfileCard() {
                 style={{ color: SOURCE_HUE[entry.source] }}
               >
                 <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                <span className="text-[var(--color-fg-muted)] truncate">
+                <span className="truncate text-slate-600">
                   {entry.label}
                 </span>
               </motion.div>
@@ -316,7 +317,7 @@ export function ProfileCard() {
           </div>
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -334,7 +335,7 @@ function Section({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.32, ease: "easeOut" }}
     >
-      <div className="mb-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-[var(--color-fg-subtle)]">
+      <div className={cx("mb-1.5", mistClasses.sectionLabel)}>
         {title}
       </div>
       <div className="space-y-1.5">{children}</div>
@@ -366,7 +367,7 @@ function FieldRow({
       <span
         className={[
           "min-w-0 truncate",
-          small ? "text-[11px] text-[var(--color-fg-muted)]" : "text-[13px] text-[var(--color-fg)]",
+          small ? "text-[11px] text-slate-600" : "text-[13px] text-slate-900",
           italic ? "italic" : "",
           mono ? "font-mono text-[12px]" : "",
         ].filter(Boolean).join(" ")}
@@ -387,16 +388,16 @@ function LinkChip({
   source?: ProvenanceSource;
 }) {
   const filled = Boolean(href);
-  const hue = source ? SOURCE_HUE[source] : "var(--color-fg-subtle)";
+  const hue = source ? SOURCE_HUE[source] : "#6B7A90";
   return (
     <motion.span
       animate={filled ? { scale: [1, 1.1, 1] } : { scale: 1 }}
       transition={{ duration: 0.4 }}
       className="flex h-7 items-center gap-1 rounded-full border px-2"
       style={{
-        borderColor: filled ? `${hue}` : "var(--color-border)",
-        backgroundColor: filled ? "var(--color-surface-1)" : "var(--color-surface)",
-        color: filled ? hue : "var(--color-fg-subtle)",
+        borderColor: filled ? `${hue}` : "rgba(255,255,255,0.55)",
+        backgroundColor: filled ? "rgba(255,255,255,0.36)" : "rgba(248,251,255,0.28)",
+        color: filled ? hue : "#6B7A90",
         opacity: filled ? 1 : 0.55,
       }}
       title={source ? SOURCE_LABEL[source] : "Not provided"}
@@ -418,7 +419,7 @@ function PulseDot({ active }: { active: boolean }) {
       )}
       <span
         className="relative inline-block h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: active ? "#10B981" : "var(--color-fg-subtle)" }}
+        style={{ backgroundColor: active ? "#10B981" : "#6B7A90" }}
       />
     </span>
   );
