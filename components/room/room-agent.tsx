@@ -6,6 +6,8 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import {
   agentHomePosition,
+  frontStagePosition,
+  FRONT_STAGE_FACING,
   pickWanderTarget,
   stationForAgent,
 } from "@/lib/room/app-agent-map";
@@ -35,6 +37,12 @@ export function RoomAgent({ agentId }: Props) {
   const selected = useRoomStore((s) => s.selectedAgentId === agentId);
   const setHovered = useRoomStore((s) => s.setHovered);
   const setSelected = useRoomStore((s) => s.setSelected);
+  const intakePhase = useRoomStore((s) => s.intakePhase);
+  const setIntakePhase = useRoomStore((s) => s.setIntakePhase);
+  const finishIntake = useRoomStore((s) => s.finishIntake);
+
+  const isScout = agentId === "scout";
+  const scoutInterlude = isScout && intakePhase !== "inactive";
 
   const initialPos = useMemo(() => agentHomePosition(agentId), [agentId]);
   const wanderState = useRef({
@@ -42,6 +50,7 @@ export function RoomAgent({ agentId }: Props) {
     nextRollAt: Math.random() * 4 + 2,
     lastIdle: 0,
   });
+  const waveStartRef = useRef<number | null>(null);
 
   // Place the agent at its home station on mount. Without this, the root
   // group sits at world origin and the wander vectors pull it off the map.
@@ -51,13 +60,36 @@ export function RoomAgent({ agentId }: Props) {
     }
   }, [initialPos, refs.group]);
 
+  // After the wave animation plays out, advance Scout to the questioning
+  // phase so the speech bubble + intake input appear.
+  useEffect(() => {
+    if (!isScout) return;
+    if (intakePhase !== "waving") return;
+    const timer = window.setTimeout(() => {
+      setIntakePhase("questioning");
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [intakePhase, isScout, setIntakePhase]);
+
   useFrame(({ clock }, delta) => {
     const g = refs.group.current;
     if (!g) return;
     const t = clock.elapsedTime;
     const station = stationForAgent(agentId);
 
-    if (t > wanderState.current.nextRollAt) {
+    // Scout's intake interlude overrides the normal wander loop:
+    // walk to front stage -> wave -> idle during questions -> walk home.
+    if (scoutInterlude) {
+      const goingForward =
+        intakePhase === "walking-forward" ||
+        intakePhase === "waving" ||
+        intakePhase === "questioning";
+      const homePos = initialPos;
+      const stagePos = frontStagePosition();
+      const target = goingForward ? stagePos : homePos;
+      wanderState.current.target = target.clone();
+      wanderState.current.nextRollAt = t + 999;
+    } else if (t > wanderState.current.nextRollAt) {
       const bucket = Math.floor(t / 3);
       wanderState.current.target = pickWanderTarget(agentId, bucket);
       wanderState.current.nextRollAt = t + 3 + Math.random() * 3;
@@ -69,10 +101,28 @@ export function RoomAgent({ agentId }: Props) {
     toTarget.y = 0;
     const dist = toTarget.length();
 
+    // When Scout arrives at front stage, transition walking-forward -> waving
+    // (parent component advances to questioning after the wave plays out).
+    if (scoutInterlude && intakePhase === "walking-forward" && dist < 0.08) {
+      setIntakePhase("waving");
+      waveStartRef.current = t;
+    }
+    // When Scout arrives home after the interlude, reset store to inactive.
+    if (scoutInterlude && intakePhase === "walking-back" && dist < 0.08) {
+      finishIntake();
+      waveStartRef.current = null;
+    }
+
     if (dist > 0.06) {
       toTarget.normalize().multiplyScalar(Math.min(WALK_SPEED * delta, dist));
       pos.add(toTarget);
-      g.rotation.y = dampYaw(g.rotation.y, station.facing, delta);
+      // During the interlude, Scout is crossing most of the room, so face
+      // direction of travel instead of station.facing (which would make her
+      // shuffle sideways).
+      const yawTarget = scoutInterlude
+        ? Math.atan2(toTarget.x, toTarget.z)
+        : station.facing;
+      g.rotation.y = dampYaw(g.rotation.y, yawTarget, delta);
 
       if (refs.body.current) {
         refs.body.current.position.y = 0.47 + phase(t) * BOB_AMPLITUDE;
@@ -103,7 +153,14 @@ export function RoomAgent({ agentId }: Props) {
         refs.wristR.current.rotation.z = 0;
       }
     } else {
-      const facing = selected ? -0.55 : station.facing;
+      const interludeFront =
+        scoutInterlude &&
+        (intakePhase === "waving" || intakePhase === "questioning");
+      const facing = interludeFront
+        ? FRONT_STAGE_FACING
+        : selected
+        ? -0.55
+        : station.facing;
       g.rotation.y = dampYaw(g.rotation.y, facing, delta);
       wanderState.current.lastIdle += delta;
 
@@ -131,7 +188,9 @@ export function RoomAgent({ agentId }: Props) {
         );
       }
 
-      const stationIdle = stationIdleFor(station.id, t, agentId);
+      const stationIdle = interludeFront
+        ? scoutInterludeIdle(t, intakePhase === "waving")
+        : stationIdleFor(station.id, t, agentId);
       if (refs.armL.current) {
         refs.armL.current.rotation.x = THREE.MathUtils.damp(
           refs.armL.current.rotation.x,
@@ -213,6 +272,39 @@ export function RoomAgent({ agentId }: Props) {
       onClick={handleClick}
     />
   );
+}
+
+/**
+ * Scout's idle pose for the intake interlude. While `waving` is true the
+ * right arm lifts overhead and rocks; while questioning it rests, head
+ * slightly tilted as if listening. Shape matches StationIdle so the caller
+ * can treat it interchangeably with station-specific poses.
+ */
+function scoutInterludeIdle(t: number, waving: boolean): StationIdle {
+  if (waving) {
+    // Overhead wave. rotation.z around π*0.82 raises the arm up-and-out;
+    // wrist oscillates for a friendly "hi" motion.
+    const swing = Math.sin(t * 8.2) * 0.22;
+    return {
+      armL: -0.04,
+      armLz: 0,
+      armR: 0,
+      armRz: Math.PI * 0.82 + swing,
+      wristRz: Math.sin(t * 8.2 + 0.6) * 0.2,
+      headYaw: 0,
+      headPitch: -0.04,
+    };
+  }
+  // Listening pose: arms at sides, head tilted slightly toward the viewer.
+  const listen = Math.sin(t * 1.1) * 0.08;
+  return {
+    armL: Math.sin(t * 1.3) * 0.03,
+    armLz: 0,
+    armR: Math.sin(t * 1.3 + 0.5) * 0.03,
+    armRz: 0,
+    headYaw: listen,
+    headPitch: 0.06,
+  };
 }
 
 function seed(id: AgentId): number {

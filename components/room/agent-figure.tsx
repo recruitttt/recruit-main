@@ -3,6 +3,7 @@
 import { useMemo, useRef } from "react";
 import type { RefObject } from "react";
 import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { RoundedBox, Outlines } from "@react-three/drei";
 import { AGENTS, type AgentId } from "@/lib/agents";
@@ -206,11 +207,75 @@ export function AgentFigure({
               />
             </mesh>
           ) : null}
+          <BlinkingEyes agentId={agentId} />
           <AgentTopper id={agentId} />
         </group>
       </group>
     </group>
   );
+}
+
+function BlinkingEyes({ agentId }: { agentId: AgentId }) {
+  const left = useRef<THREE.Mesh>(null);
+  const right = useRef<THREE.Mesh>(null);
+  const timing = useMemo(() => blinkTiming(agentId), [agentId]);
+
+  useFrame(({ clock }) => {
+    const openness = blinkOpenness(clock.elapsedTime, timing.period, timing.offset);
+    const scaleY = Math.max(0.08, openness);
+    if (left.current) left.current.scale.y = scaleY;
+    if (right.current) right.current.scale.y = scaleY;
+  });
+
+  return (
+    <group position={[0, 0.035, 0.264]} renderOrder={4}>
+      <mesh ref={left} position={[-0.12, 0, 0]}>
+        <planeGeometry args={[0.074, 0.084]} />
+        <meshBasicMaterial
+          color="#050505"
+          toneMapped={false}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-4}
+          polygonOffsetUnits={-4}
+        />
+      </mesh>
+      <mesh ref={right} position={[0.12, 0, 0]}>
+        <planeGeometry args={[0.074, 0.084]} />
+        <meshBasicMaterial
+          color="#050505"
+          toneMapped={false}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-4}
+          polygonOffsetUnits={-4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function blinkTiming(agentId: AgentId) {
+  const seed = {
+    scout: 0.15,
+    mimi: 0.48,
+    pip: 0.82,
+    juno: 1.18,
+    bodhi: 1.54,
+  } satisfies Record<AgentId, number>;
+  const n = seed[agentId];
+  return {
+    period: 3.35 + n * 0.55,
+    offset: n * 2.4,
+  };
+}
+
+function blinkOpenness(t: number, period: number, offset: number) {
+  const blinkDuration = 0.16;
+  const phase = (t + offset) % period;
+  if (phase > blinkDuration) return 1;
+  const x = phase / blinkDuration;
+  return 1 - Math.sin(x * Math.PI) * 0.92;
 }
 
 function paletteFor(hex: string) {

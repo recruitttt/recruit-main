@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   Environment,
@@ -15,8 +15,25 @@ import { RoomStations } from "./room-stations";
 import { RoomAgents } from "./room-agents";
 import { RoomCamera } from "./room-camera";
 import { RoomFurniture } from "./room-furniture";
+import {
+  IntroRevealGroup,
+  RoomIntroCamera,
+  RoomIntroScout,
+  type RoomIntroPhase,
+} from "./room-intro";
 
-export default function RoomScene() {
+export type RoomSceneProps = {
+  introPhase?: RoomIntroPhase;
+  onReady?: () => void;
+};
+
+export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
+  const activeIntroPhase = introPhase && introPhase !== "done" ? introPhase : null;
+
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
+
   return (
     <Canvas
       shadows={false}
@@ -42,20 +59,29 @@ export default function RoomScene() {
       </Suspense>
 
       <RoomLighting />
-      <RoomFloor />
-      <RoomFurniture />
-      <RoomStations />
-      <RoomAgents />
-      <ContactShadows
-        position={[0, 0.004, -0.4]}
-        opacity={0.38}
-        scale={28}
-        blur={2.8}
-        far={5.5}
-        resolution={1024}
-        color="#2B2620"
-      />
-      <RoomCamera />
+      <IntroRevealGroup phase={introPhase}>
+        <RoomFloor />
+        <RoomFurniture />
+        <RoomStations />
+        <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
+        <ContactShadows
+          position={[0, 0.004, -0.4]}
+          opacity={0.38}
+          scale={28}
+          blur={2.8}
+          far={5.5}
+          resolution={1024}
+          color="#2B2620"
+        />
+      </IntroRevealGroup>
+      {activeIntroPhase ? (
+        <>
+          <RoomIntroScout phase={activeIntroPhase} />
+          <RoomIntroCamera phase={activeIntroPhase} />
+        </>
+      ) : (
+        <RoomCamera />
+      )}
     </Canvas>
   );
 }

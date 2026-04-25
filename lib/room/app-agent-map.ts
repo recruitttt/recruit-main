@@ -4,6 +4,19 @@ import { mockApplications, type Application } from "@/lib/mock-data";
 import { stationForStage, type Station } from "./stations";
 
 /**
+ * Where Scout stands when delivering the intake interlude. Picked so it's
+ * visible in the overview camera (centered, forward of the stations) without
+ * colliding with desks or the camera frustum's near plane.
+ */
+export const FRONT_STAGE: readonly [number, number, number] = [0, 0, 2.6];
+export const FRONT_STAGE_FACING = Math.PI;
+
+export function frontStagePosition(): THREE.Vector3 {
+  const [x, y, z] = FRONT_STAGE;
+  return new THREE.Vector3(x, y, z);
+}
+
+/**
  * Implicit mapping: AGENT_ORDER[i] works on mockApplications[i].
  */
 export function applicationForAgent(agentId: AgentId): Application {

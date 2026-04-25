@@ -1,13 +1,13 @@
 "use client";
 
-import { AGENT_ORDER } from "@/lib/agents";
+import { AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { RoomAgent } from "./room-agent";
 
-export function RoomAgents() {
+export function RoomAgents({ hiddenAgentId }: { hiddenAgentId?: AgentId | null }) {
   return (
     <group>
       {AGENT_ORDER.map((id) => (
-        <RoomAgent key={id} agentId={id} />
+        id === hiddenAgentId ? null : <RoomAgent key={id} agentId={id} />
       ))}
     </group>
   );

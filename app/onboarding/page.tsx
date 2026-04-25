@@ -16,6 +16,7 @@ import { AgentCharacter } from "@/components/onboarding/characters";
 import { isMuted, setMuted, playSend, playReceive, playWake, playActivate } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { SceneTransition } from "@/components/room/scene-transition";
+import { preloadRoomScene } from "@/components/room/room-canvas-client";
 
 type InputKind = "name" | "email" | "resume" | "links" | "prefs";
 
@@ -110,6 +111,12 @@ export default function OnboardingChatPage() {
   useEffect(() => {
     setMutedState(isMuted());
   }, []);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    const id = setTimeout(() => preloadRoomScene(), 600);
+    return () => window.clearTimeout(id);
+  }, [router]);
 
   const toggleMute = () => {
     const next = !muted;
