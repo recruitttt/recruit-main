@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { ArrowRight, Check, CreditCard, LayoutDashboard, Loader2, Sparkles, X } from "lucide-react";
 
 import {
@@ -13,6 +14,7 @@ import {
   mistClasses,
   mistColors,
 } from "@/components/design-system";
+import { cn } from "@/lib/utils";
 
 const tiers = [
   {
@@ -135,58 +137,70 @@ export default function PricingPage() {
           actions={<StatusBadge tone="neutral">{tiers.length} plans</StatusBadge>}
         >
           <div className="grid gap-5 md:grid-cols-3">
-            {tiers.map((tier) => (
-              <GlassCard
+            {tiers.map((tier, i) => (
+              <motion.div
                 key={tier.name}
-                variant={tier.highlight ? "selected" : "default"}
-                className="flex h-full flex-col"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                className={cn(
+                  "min-w-0 motion-safe:transition-transform motion-safe:duration-200",
+                  "motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_24px_56px_-32px_rgba(15,23,42,0.22)]",
+                )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge tone={tier.tone}>{tier.name}</StatusBadge>
-                      {tier.highlight && (
-                        <StatusBadge tone="accent" variant="solid">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Most popular
-                        </StatusBadge>
-                      )}
-                    </div>
-                    <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-slate-950">{tier.name}</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{tier.description}</p>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-baseline gap-2">
-                  <span className="text-4xl font-semibold tracking-[-0.03em] text-slate-950">{tier.price}</span>
-                  <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">{tier.cadence}</span>
-                </div>
-
-                <ActionButton
-                  className="mt-5 w-full"
-                  variant={tier.highlight ? "primary" : "secondary"}
-                  onClick={() => void startCheckout(tier)}
-                  disabled={checkout.loading}
+                <GlassCard
+                  variant={tier.highlight ? "selected" : "default"}
+                  className="flex h-full flex-col"
                 >
-                  {checkout.loading && checkout.tier === tier.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {tier.cta}
-                </ActionButton>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge tone={tier.tone}>{tier.name}</StatusBadge>
+                        {tier.highlight && (
+                          <StatusBadge tone="accent" variant="solid">
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-cyan-400 to-sky-500 [background-size:200%_100%] motion-safe:animate-[shimmer_2.4s_linear_infinite]">
+                              Most popular
+                            </span>
+                          </StatusBadge>
+                        )}
+                      </div>
+                      <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-slate-950">{tier.name}</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">{tier.description}</p>
+                    </div>
+                  </div>
 
-                <div className="mt-5 space-y-2.5">
-                  {tier.features.map((feature) => (
-                    <div key={feature} className="flex items-start gap-2.5 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
-                      <span className="text-slate-600">{feature}</span>
-                    </div>
-                  ))}
-                  {tier.notIncluded.map((feature) => (
-                    <div key={feature} className="flex items-start gap-2.5 text-sm">
-                      <X className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="text-slate-400 line-through">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
+                  <div className="mt-5 flex items-baseline gap-2">
+                    <span className="text-4xl font-semibold tracking-[-0.03em] text-slate-950">{tier.price}</span>
+                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-slate-500">{tier.cadence}</span>
+                  </div>
+
+                  <ActionButton
+                    className="mt-5 w-full motion-safe:transition-transform motion-safe:hover:-translate-y-px motion-safe:active:scale-[0.98]"
+                    variant={tier.highlight ? "primary" : "secondary"}
+                    onClick={() => void startCheckout(tier)}
+                    disabled={checkout.loading}
+                  >
+                    {checkout.loading && checkout.tier === tier.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    {tier.cta}
+                  </ActionButton>
+
+                  <div className="mt-5 space-y-2.5">
+                    {tier.features.map((feature) => (
+                      <div key={feature} className="flex items-start gap-2.5 text-sm">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
+                        <span className="text-slate-600">{feature}</span>
+                      </div>
+                    ))}
+                    {tier.notIncluded.map((feature) => (
+                      <div key={feature} className="flex items-start gap-2.5 text-sm">
+                        <X className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="text-slate-400 line-through">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              </motion.div>
             ))}
           </div>
 
