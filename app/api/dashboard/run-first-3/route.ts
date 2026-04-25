@@ -20,20 +20,32 @@ export async function POST() {
     );
   }
 
+  let ingestion: { runId: Id<"ingestionRuns"> };
   try {
     await client.action(api.ashbyActions.seedAshbySourcesFromCareerOps, {});
-    const ingestion = await client.action(api.ashbyActions.runAshbyIngestion, {
+    ingestion = await client.action(api.ashbyActions.runAshbyIngestion, {
       limitSources: 3,
     }) as { runId: Id<"ingestionRuns"> };
-    const ranking = await client.action(api.ashbyActions.rankIngestionRun, {
-      runId: ingestion.runId,
-    });
-
-    return Response.json({ ingestion, ranking });
   } catch (err) {
     const message = err instanceof Error && err.message
       ? err.message
-      : "Convex pipeline run failed.";
-    return Response.json({ error: message }, { status: 500 });
+      : "Convex ingestion run failed.";
+    return Response.json({ error: message, stage: "ingestion" }, { status: 500 });
+  }
+
+  try {
+    const ranking = await client.action(api.ashbyActions.rankIngestionRun, {
+      runId: ingestion.runId,
+    });
+    return Response.json({ ingestion, ranking, rankingWarning: null });
+  } catch (err) {
+    const message = err instanceof Error && err.message
+      ? err.message
+      : "Ranking failed after ingestion completed.";
+    return Response.json({
+      ingestion,
+      ranking: null,
+      rankingWarning: message,
+    }, { status: 207 });
   }
 }

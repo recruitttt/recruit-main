@@ -122,8 +122,8 @@ export default async function ApplicationDetailPage({
           >
             <Download className="h-3.5 w-3.5" /> {app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata stored" : "Resume PDF unavailable"}
           </Button>
-          <Button variant="secondary" size="sm" disabled={app.browserEvidence.tone !== "Recorded"}>
-            <Play className="h-3.5 w-3.5" /> Replay run
+          <Button variant="secondary" size="sm" disabled title="Replay artifacts are not persisted for this application yet.">
+            <Play className="h-3.5 w-3.5" /> Replay unavailable
           </Button>
         </div>
       </div>
@@ -202,8 +202,8 @@ export default async function ApplicationDetailPage({
                 <Pill tone={app.browserEvidence.tone === "Recorded" ? "success" : "warn"}>
                   {app.browserEvidence.tone}
                 </Pill>
-                <Button variant="ghost" size="sm" disabled={app.browserEvidence.tone !== "Recorded"}>
-                  <Play className="h-3 w-3" /> Watch replay
+                <Button variant="ghost" size="sm" disabled title="Replay artifacts are not persisted for this application yet.">
+                  <Play className="h-3 w-3" /> Watch unavailable
                 </Button>
               </div>
             </CardHeader>

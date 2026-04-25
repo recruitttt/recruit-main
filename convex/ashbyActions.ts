@@ -1095,40 +1095,49 @@ async function scoreCandidatesWithLlm(
     description: truncate(candidate.job.descriptionPlain ?? "", 1200),
   }));
 
-  const res = await fetchWithTimeout(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                "You score job fit for a candidate. Return JSON only. Be strict. If a job is weak or only vaguely related, score it below 70.",
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                candidateProfile: profile,
+                scoringScale:
+                  "0 to 100. 70 means worth recommending. 85 means strong fit.",
+                requiredShape:
+                  "{ scores: [{ jobId, score, rationale, strengths: string[], risks: string[] }] }",
+                jobs,
+              }),
+            },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You score job fit for a candidate. Return JSON only. Be strict. If a job is weak or only vaguely related, score it below 70.",
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              candidateProfile: profile,
-              scoringScale:
-                "0 to 100. 70 means worth recommending. 85 means strong fit.",
-              requiredShape:
-                "{ scores: [{ jobId, score, rationale, strengths: string[], risks: string[] }] }",
-              jobs,
-            }),
-          },
-        ],
-      }),
-    },
-    45_000
-  );
+      45_000
+    );
+  } catch {
+    return {
+      mode: "heuristic_fallback",
+      model,
+      scores: candidates.map((candidate) => heuristicLlmScore(candidate)),
+    };
+  }
 
   if (!res.ok) {
     return {

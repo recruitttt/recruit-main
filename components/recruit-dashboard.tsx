@@ -408,9 +408,14 @@ function DashboardShell({
               <p className="mt-2 max-w-[calc(100vw-4.5rem)] text-sm leading-6 text-slate-600 [overflow-wrap:anywhere] md:max-w-2xl">Autonomous applications, human approval stops, provider proof, and fallback-safe status in one operating surface.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary"><Pause className="h-4 w-4" /> Pause</Button>
-              <Button variant="secondary"><Sparkles className="h-4 w-4" /> Review queue</Button>
-              <Button variant="dangerStrong"><Power className="h-4 w-4" /> Kill switch</Button>
+              <Button variant="secondary" disabled title="Pause controls are not wired for the demo backend yet."><Pause className="h-4 w-4" /> Pause</Button>
+              <Link
+                href="/dlq"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/55 bg-white/24 px-4 text-sm font-semibold text-slate-700 transition hover:bg-white/40"
+              >
+                <Sparkles className="h-4 w-4" /> Review queue
+              </Link>
+              <Button variant="dangerStrong" disabled title="Kill switch controls are not wired for the demo backend yet."><Power className="h-4 w-4" /> Kill switch</Button>
             </div>
           </header>
 
@@ -633,7 +638,7 @@ function DashboardMain({
               <div className="flex flex-wrap gap-2">
                 <Pill tone="success"><Check className="h-3 w-3" /> proof</Pill>
                 <Pill tone="neutral"><ShieldCheck className="h-3 w-3" /> honest labels</Pill>
-                <Button size="sm" variant="secondary"><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
+                <Button size="sm" variant="secondary" disabled title="Claim freeze persistence is not wired for this demo."><Ban className="h-3.5 w-3.5" /> Freeze claims</Button>
               </div>
             </div>
           </GlassCard>
@@ -1513,6 +1518,29 @@ function compactPayload(payload: unknown) {
   }
 }
 
+function canStartRun(run: LiveRunSummary | null | undefined) {
+  if (!run) return true;
+  return !["fetching", "fetched", "ranking", "failed"].includes(run.status);
+}
+
+function runButtonLabel(run: LiveRunSummary | null | undefined) {
+  if (!run) return "Run first 3";
+  if (["fetching", "fetched", "ranking"].includes(run.status)) return "Run active";
+  if (run.status === "failed") return "Reset required";
+  return "Run first 3";
+}
+
+function runGuardMessage(run: LiveRunSummary | null | undefined) {
+  if (!run) return undefined;
+  if (["fetching", "fetched", "ranking"].includes(run.status)) {
+    return "A live ingestion run is already active. Wait for it to finish before starting another.";
+  }
+  if (run.status === "failed") {
+    return "Latest run failed. Review logs before resetting or starting another ingestion.";
+  }
+  return undefined;
+}
+
 function ConnectedRecruitDashboard() {
   const [runState, setRunState] = useState<PipelineRunState>("idle");
   const [runMessage, setRunMessage] = useState<string>();
@@ -1604,7 +1632,7 @@ function ConnectedRecruitDashboard() {
   }, [selected?.jobId]);
 
   async function runFirstThreeSources() {
-    if (busy) return;
+    if (busy || !canStartRun(liveData?.run)) return;
 
     try {
       setRunError(undefined);
@@ -1617,13 +1645,15 @@ function ConnectedRecruitDashboard() {
       setRunMessage("Ranking scraped jobs...");
       setRunState("ranking");
       const response = await fetch("/api/dashboard/run-first-3", { method: "POST" });
+      const body = await response.json().catch(() => null) as { error?: string; rankingWarning?: string | null } | null;
       if (!response.ok) {
-        const body = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(body?.error ?? `dashboard_run_${response.status}`);
       }
 
       setRunState("done");
-      setRunMessage("Pipeline run complete. Live dashboard updated from Convex.");
+      setRunMessage(body?.rankingWarning
+        ? `Ingestion completed. Ranking fallback needs review: ${body.rankingWarning}`
+        : "Pipeline run complete. Live dashboard updated from Convex.");
       await refreshLiveData();
     } catch (err) {
       setRunState("error");
@@ -1866,10 +1896,10 @@ function ConnectedRecruitDashboard() {
         onDownload: downloadTailoredPdf,
       }}
       controls={{
-        canRun: true,
+        canRun: canStartRun(liveData?.run),
         busy,
-        label: busy ? runState : "Run first 3",
-        message: runMessage,
+        label: busy ? runState : runButtonLabel(liveData?.run),
+        message: runMessage ?? runGuardMessage(liveData?.run),
         error: runError,
         logs: liveData?.logs ?? [],
         onRunFirst3: () => void runFirstThreeSources(),
