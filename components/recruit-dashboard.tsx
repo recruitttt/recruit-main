@@ -53,6 +53,7 @@ import { readProfile } from "@/lib/profile";
 import { isProfileUsable } from "@/lib/demo-profile";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
+import { AgentWorkLogPanel } from "@/components/dashboard/agent-work-log";
 
 type LiveRunSummary = {
   _id: string;
@@ -584,6 +585,7 @@ function DashboardMain({
       </div>
 
       <FollowUpsPanel controls={tailoring?.followUps} />
+      <AgentWorkLogPanel />
 
       <LiveLogStream logs={controls?.logs} busy={controls?.busy} />
 
