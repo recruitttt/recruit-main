@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { GithubIcon, LinkedinIcon, XIcon, DevpostIcon } from "@/components/ui/brand-icons";
-import { Globe, Sparkles } from "lucide-react";
+import { Check, Globe, Sparkles } from "lucide-react";
 import {
+  ActionButton,
   GlassCard,
   Panel,
   StatusBadge,
@@ -14,6 +15,7 @@ import {
 } from "@/components/design-system";
 import {
   readProfile,
+  mergeProfile,
   subscribeProfile,
   SOURCE_HUE,
   SOURCE_LABEL,
@@ -23,15 +25,82 @@ import {
 
 const PLACEHOLDER = "·";
 
+type ProfileDraft = {
+  name: string;
+  email: string;
+  headline: string;
+  location: string;
+  workAuth: string;
+  roles: string;
+  locations: string;
+  github: string;
+  linkedin: string;
+  website: string;
+  devpost: string;
+  twitter: string;
+};
+
+function draftFromProfile(profile: UserProfile): ProfileDraft {
+  return {
+    name: profile.name ?? "",
+    email: profile.email ?? "",
+    headline: profile.headline ?? "",
+    location: profile.location ?? "",
+    workAuth: profile.prefs.workAuth ?? "",
+    roles: profile.prefs.roles.join(", "),
+    locations: profile.prefs.locations.join(", "),
+    github: profile.links.github ?? "",
+    linkedin: profile.links.linkedin ?? "",
+    website: profile.links.website ?? "",
+    devpost: profile.links.devpost ?? "",
+    twitter: profile.links.twitter ?? "",
+  };
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile>(() => readProfile());
+  const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(readProfile()));
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    return subscribeProfile((p) => setProfile(p ?? readProfile()));
+    return subscribeProfile((p) => {
+      const next = p ?? readProfile();
+      setProfile(next);
+      setDraft(draftFromProfile(next));
+    });
   }, []);
 
   const display = (v?: string) => (v && v.trim() ? v : PLACEHOLDER);
   const enriched = profile.log.length > 0;
+  const setDraftField = (field: keyof ProfileDraft, value: string) => {
+    setSaved(false);
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+  const saveDraft = () => {
+    mergeProfile(
+      {
+        name: draft.name,
+        email: draft.email,
+        headline: draft.headline,
+        location: draft.location,
+        links: {
+          github: draft.github,
+          linkedin: draft.linkedin,
+          website: draft.website,
+          devpost: draft.devpost,
+          twitter: draft.twitter,
+        },
+        prefs: {
+          roles: parseList(draft.roles),
+          locations: parseList(draft.locations || draft.location),
+          workAuth: draft.workAuth,
+        },
+      },
+      "manual",
+      "Edited settings"
+    );
+    setSaved(true);
+  };
 
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
@@ -56,7 +125,7 @@ export default function SettingsPage() {
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl">Settings</h1>
             <p className="mt-2 max-w-[calc(100vw-4.5rem)] text-sm leading-6 text-slate-600 [overflow-wrap:anywhere] md:max-w-2xl">
-              The intake the agent uses on every application. Edit anything and the agent picks up changes immediately.
+              The intake the agent uses on every application. Edit core fields here and the agent picks up changes immediately.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -67,6 +136,34 @@ export default function SettingsPage() {
 
         <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-5">
+            <Panel
+              title="Edit profile"
+              description="Manual edits are saved to this browser profile and used by dashboard tailoring."
+              actions={saved ? <StatusBadge tone="success"><Check className="h-3.5 w-3.5" /> saved</StatusBadge> : <StatusBadge tone="neutral">local profile</StatusBadge>}
+            >
+              <GlassCard density="compact" className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditInput label="Full name" value={draft.name} onChange={(value) => setDraftField("name", value)} />
+                  <EditInput label="Email" value={draft.email} onChange={(value) => setDraftField("email", value)} />
+                  <EditInput label="Headline" value={draft.headline} onChange={(value) => setDraftField("headline", value)} />
+                  <EditInput label="Location" value={draft.location} onChange={(value) => setDraftField("location", value)} />
+                  <EditInput label="Work auth" value={draft.workAuth} onChange={(value) => setDraftField("workAuth", value)} />
+                  <EditInput label="Target roles" value={draft.roles} onChange={(value) => setDraftField("roles", value)} placeholder="Software Engineer, Product Engineer" />
+                  <EditInput label="Target locations" value={draft.locations} onChange={(value) => setDraftField("locations", value)} placeholder="Remote, San Francisco" />
+                  <EditInput label="Website" value={draft.website} onChange={(value) => setDraftField("website", value)} />
+                  <EditInput label="GitHub" value={draft.github} onChange={(value) => setDraftField("github", value)} />
+                  <EditInput label="LinkedIn" value={draft.linkedin} onChange={(value) => setDraftField("linkedin", value)} />
+                  <EditInput label="DevPost" value={draft.devpost} onChange={(value) => setDraftField("devpost", value)} />
+                  <EditInput label="X / Twitter" value={draft.twitter} onChange={(value) => setDraftField("twitter", value)} />
+                </div>
+                <div className="flex justify-end">
+                  <ActionButton type="button" variant="primary" onClick={saveDraft}>
+                    Save changes
+                  </ActionButton>
+                </div>
+              </GlassCard>
+            </Panel>
+
             <Panel
               title="Profile"
               description="Core identity used for applications."
@@ -319,6 +416,37 @@ function Field({
       <div className="min-w-0 flex-1 text-sm text-slate-950">{value}</div>
     </GlassCard>
   );
+}
+
+function EditInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-10 w-full rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/15"
+      />
+    </label>
+  );
+}
+
+function parseList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function SuggestionValue({ label, value }: { label: string; value: unknown }) {

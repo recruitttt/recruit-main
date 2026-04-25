@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -24,11 +24,83 @@ import {
 import { mockDLQItems, type DLQItem } from "@/lib/mock-data";
 import { formatRelative } from "@/lib/utils";
 
+type PersistedDLQItem = DLQItem & {
+  status: "open" | "cached" | "skipped" | "resolved";
+  answer?: string;
+  resolvedAt?: string;
+};
+
+type QueuePayload = {
+  items: PersistedDLQItem[];
+  openCount: number;
+  resolvedCount: number;
+};
+
 export default function DLQPage() {
-  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  const [queue, setQueue] = useState<QueuePayload>({
+    items: mockDLQItems.map((item) => ({ ...item, status: "open" })),
+    openCount: mockDLQItems.length,
+    resolvedCount: 0,
+  });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const open = mockDLQItems.filter((item) => !resolved.has(item.id));
-  const resolvedCount = mockDLQItems.length - open.length;
+  const [busyItem, setBusyItem] = useState<string>();
+  const [message, setMessage] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const open = queue.items.filter((item) => item.status === "open");
+  const resolvedCount = queue.resolvedCount;
+
+  const loadQueue = useCallback(async () => {
+    try {
+      setError(undefined);
+      const response = await fetch("/api/dlq", { cache: "no-store" });
+      const body = await response.json().catch(() => null) as QueuePayload | { message?: string } | null;
+      if (!response.ok || !body || !("items" in body)) {
+        throw new Error(body && "message" in body ? body.message : `dlq_${response.status}`);
+      }
+      setQueue(body);
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const item of body.items) {
+          if (next[item.id] === undefined) next[item.id] = item.answer ?? item.suggestedAnswer ?? "";
+        }
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => void loadQueue(), 0);
+    return () => window.clearTimeout(id);
+  }, [loadQueue]);
+
+  async function mutateQueue(itemId: string, action: "approve-cache" | "skip-role" | "mark-resolved") {
+    try {
+      setBusyItem(itemId);
+      setError(undefined);
+      setMessage(action === "approve-cache" ? "Caching answer..." : action === "skip-role" ? "Skipping role..." : "Resolving item...");
+      const response = await fetch("/api/dlq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, itemId, answer: drafts[itemId] ?? "" }),
+      });
+      const body = await response.json().catch(() => null) as { ok?: boolean; queue?: QueuePayload; message?: string } | null;
+      if (!response.ok || !body?.ok || !body.queue) {
+        throw new Error(body?.message ?? `dlq_update_${response.status}`);
+      }
+      setQueue(body.queue);
+      setMessage(action === "approve-cache" ? "Answer cached for future applications." : "Queue decision saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setMessage(undefined);
+    } finally {
+      setBusyItem(undefined);
+    }
+  }
 
   return (
     <main className={cx("min-h-[calc(100vh-56px)] px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
@@ -48,16 +120,24 @@ export default function DLQPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" disabled>
+              <Button variant="secondary" onClick={() => void loadQueue()} disabled={loading}>
                 <RotateCcw className="h-4 w-4" />
                 Sync queue
               </Button>
-              <Button variant="success" disabled={open.length === 0}>
+              <Button variant="success" disabled>
                 <Check className="h-4 w-4" />
                 Review ready
               </Button>
             </div>
           </div>
+          {(message || error) && (
+            <div className={cx(
+              "mt-4 rounded-[16px] border px-3 py-2 text-xs leading-5",
+              error ? "border-red-300/55 bg-red-50/45 text-red-700" : "border-white/45 bg-white/30 text-slate-600"
+            )}>
+              {error ?? message}
+            </div>
+          )}
         </header>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -85,7 +165,9 @@ export default function DLQPage() {
                     item={item}
                     draft={drafts[item.id] ?? item.suggestedAnswer ?? ""}
                     setDraft={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
-                    onResolve={() => setResolved((current) => new Set([...current, item.id]))}
+                    busy={busyItem === item.id}
+                    onSkip={() => void mutateQueue(item.id, "skip-role")}
+                    onResolve={() => void mutateQueue(item.id, item.type === "unanswerable_question" ? "approve-cache" : "mark-resolved")}
                   />
                 ))}
               </div>
@@ -153,11 +235,15 @@ function DLQCard({
   item,
   draft,
   setDraft,
+  busy,
+  onSkip,
   onResolve,
 }: {
-  item: DLQItem;
+  item: PersistedDLQItem;
   draft: string;
   setDraft: (value: string) => void;
+  busy: boolean;
+  onSkip: () => void;
   onResolve: () => void;
 }) {
   const isQuestion = item.type === "unanswerable_question";
@@ -228,10 +314,10 @@ function DLQCard({
           {isQuestion ? "Approving caches this answer for future applications." : "Manual submit will reuse the preserved form state."}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Button size="sm" variant="secondary">
+          <Button size="sm" variant="secondary" onClick={onSkip} disabled={busy}>
             Skip role
           </Button>
-          <Button size="sm" variant={isQuestion ? "success" : "danger"} onClick={onResolve}>
+          <Button size="sm" variant={isQuestion ? "success" : "danger"} onClick={onResolve} disabled={busy}>
             {isQuestion ? "Approve & cache" : "Mark resolved"}
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>

@@ -705,6 +705,17 @@ function ResumeInput({
       ) : (
         <FileUploadControl fileName={filename} parsing={parsing} onBrowse={() => inputRef.current?.click()} onClear={clearFile} />
       )}
+      <div className="mt-3 flex justify-end">
+        <ActionButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={parsing}
+          onClick={() => onSubmit("resume", "Skipped for now", { resumeFilename: "" })}
+        >
+          Skip for now <ArrowRight className="h-3.5 w-3.5" />
+        </ActionButton>
+      </div>
 
       <input
         ref={inputRef}
