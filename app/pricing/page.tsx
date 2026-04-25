@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Check, CreditCard, LayoutDashboard, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, LayoutDashboard, Sparkles, X } from "lucide-react";
 
 import {
   ActionButton,
@@ -18,6 +17,7 @@ import {
 const tiers = [
   {
     name: "Free",
+    key: "free",
     price: "$0",
     cadence: "forever",
     description: "Try the agent on a handful of roles. No credit card.",
@@ -29,6 +29,7 @@ const tiers = [
   },
   {
     name: "Standard",
+    key: "standard",
     price: "$24",
     cadence: "/ month",
     description: "For active job seekers who want real momentum.",
@@ -47,6 +48,7 @@ const tiers = [
   },
   {
     name: "Pro",
+    key: "pro",
     price: "$79",
     cadence: "/ month",
     description: "Full autonomy. Recruiter outreach. White-glove support.",
@@ -66,8 +68,35 @@ const tiers = [
 ] as const;
 
 export default function PricingPage() {
-  const [confirmed, setConfirmed] = useState<string | null>(null);
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  async function handleCheckout(tier: (typeof tiers)[number]) {
+    setError(null);
+
+    if (tier.key === "free") {
+      router.push("/onboarding");
+      return;
+    }
+
+    setLoadingTier(tier.key);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: tier.key }),
+      });
+      const json = (await res.json()) as { url?: string; message?: string };
+      if (!res.ok || !json.url) {
+        throw new Error(json.message ?? "Stripe sandbox checkout is unavailable.");
+      }
+      window.location.assign(json.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setLoadingTier(null);
+    }
+  }
 
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
@@ -84,7 +113,7 @@ export default function PricingPage() {
           actions={
             <>
               <StatusBadge tone="success">live</StatusBadge>
-              <StatusBadge tone="neutral">mock checkout</StatusBadge>
+              <StatusBadge tone="neutral">Stripe sandbox</StatusBadge>
               <ActionButton size="sm" variant="secondary" onClick={() => router.push("/dashboard")}>
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -96,13 +125,19 @@ export default function PricingPage() {
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge tone="accent">client component</StatusBadge>
             <StatusBadge tone="neutral">3 tiers</StatusBadge>
-            <StatusBadge tone="warning">Stripe modal is mocked</StatusBadge>
+            <StatusBadge tone="warning">test mode checkout</StatusBadge>
           </div>
+          {error && (
+            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-900">
+              <div className="font-mono text-[10px] uppercase tracking-[0.15em]">Sandbox checkout unavailable</div>
+              <div className="mt-1">{error}</div>
+            </div>
+          )}
         </Panel>
 
         <Panel
           title="Plan ladder"
-          description="Each CTA opens the same mock Stripe flow. Close the modal to stay here, or continue to the dashboard."
+          description="Paid CTAs open Stripe Checkout in sandbox mode; the free tier starts onboarding."
           actions={<StatusBadge tone="neutral">{tiers.length} plans</StatusBadge>}
         >
           <div className="grid gap-5 md:grid-cols-3">
@@ -136,9 +171,10 @@ export default function PricingPage() {
                 <ActionButton
                   className="mt-5 w-full"
                   variant={tier.highlight ? "primary" : "secondary"}
-                  onClick={() => setConfirmed(tier.name)}
+                  loading={loadingTier === tier.key}
+                  disabled={loadingTier !== null}
+                  onClick={() => void handleCheckout(tier)}
                 >
-                  <CreditCard className="h-4 w-4" />
                   {tier.cta}
                 </ActionButton>
 
@@ -162,59 +198,10 @@ export default function PricingPage() {
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-500">
             <span>All plans · cancel anytime · no contract</span>
-            <span>Checkout returns to /dashboard</span>
+            <span>Stripe sandbox only · no live payment</span>
           </div>
         </Panel>
       </div>
-
-      <AnimatePresence>
-        {confirmed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
-            onClick={() => setConfirmed(null)}
-          >
-            <motion.div
-              initial={{ y: 16, scale: 0.97 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 16, scale: 0.97 }}
-              transition={{ duration: 0.25 }}
-              className="w-full max-w-md"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <GlassCard density="spacious" variant="selected">
-                <div className="flex items-center gap-2">
-                  <StatusBadge tone="neutral" variant="solid">
-                    Stripe
-                  </StatusBadge>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">test mode</span>
-                </div>
-                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-950">{confirmed} plan</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  This is a mockup. In the real product, Stripe Checkout would open here.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-end gap-2">
-                  <ActionButton variant="ghost" onClick={() => setConfirmed(null)}>
-                    Close
-                  </ActionButton>
-                  <ActionButton
-                    variant="primary"
-                    onClick={() => {
-                      setConfirmed(null);
-                      router.push("/dashboard");
-                    }}
-                  >
-                    Go to dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </ActionButton>
-                </div>
-              </GlassCard>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
