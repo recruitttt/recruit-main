@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Ban,
   BriefcaseBusiness,
+  CalendarClock,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -15,9 +16,12 @@ import {
   FileText,
   LayoutDashboard,
   Loader2,
+  Mail,
+  MessageSquare,
   Pause,
   Play,
   Power,
+  Reply,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -91,6 +95,69 @@ type LiveRecommendation = {
   } | null;
 };
 
+type FollowUpApplication = {
+  _id: string;
+  jobId?: string;
+  company: string;
+  title: string;
+  provider: string;
+  jobUrl?: string;
+  status:
+    | "draft"
+    | "ready_to_apply"
+    | "applied"
+    | "follow_up_due"
+    | "followed_up"
+    | "responded"
+    | "interview"
+    | "rejected"
+    | "offer"
+    | "closed"
+    | "blocked";
+  appliedAt?: string;
+  nextFollowUpAt?: string;
+  responseAt?: string;
+  responseSummary?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type OutreachDraft = {
+  _id: string;
+  channel: "email" | "linkedin" | "manual";
+  subject?: string;
+  body: string;
+  recipient?: string;
+  tone?: string;
+  approvedAt?: string;
+};
+
+type FollowUpTask = {
+  _id: string;
+  applicationId: string;
+  channel: "email" | "linkedin" | "manual";
+  state: "scheduled" | "draft_ready" | "sent_manually" | "skipped" | "blocked";
+  scheduledFor: string;
+  completedAt?: string;
+  draftId?: string;
+  sequence?: number;
+  application?: FollowUpApplication | null;
+  draft?: OutreachDraft | null;
+};
+
+type FollowUpSummary = {
+  applications: FollowUpApplication[];
+  dueTasks: FollowUpTask[];
+  scheduledTasks: FollowUpTask[];
+  counts: {
+    applications: number;
+    applied: number;
+    due: number;
+    responses: number;
+    interviews: number;
+    rejectedClosed: number;
+  };
+};
+
 type JobDetail = {
   job?: {
     _id: string;
@@ -161,9 +228,24 @@ type TailoringControls = {
   selected: LiveRecommendation | null;
   detail: JobDetail | null | undefined;
   state: TailorState;
+  followUps?: FollowUpControls;
   onSelect: (recommendation: LiveRecommendation) => void;
   onTailor: () => void;
   onDownload: () => void;
+};
+
+type FollowUpControls = {
+  summary?: FollowUpSummary;
+  busy: boolean;
+  message?: string;
+  error?: string;
+  onMarkApplied: (recommendation: LiveRecommendation, detail: JobDetail | null | undefined) => void;
+  onGenerateDraft: (applicationId: string, channel: FollowUpTask["channel"], taskId?: string) => void;
+  onUpdateDraft: (draftId: string, fields: Partial<Pick<OutreachDraft, "subject" | "body" | "recipient" | "tone">>) => void;
+  onApproveDraft: (draftId: string) => void;
+  onManualSend: (taskId: string) => void;
+  onSkipTask: (taskId: string) => void;
+  onRecordResponse: (applicationId: string, status: FollowUpApplication["status"], responseSummary: string) => void;
 };
 
 type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | "error";
@@ -181,6 +263,7 @@ type LiveDashboardPayload = {
   run: LiveRunSummary | null;
   recommendations: LiveRecommendation[];
   logs?: PipelineLog[];
+  followUps?: FollowUpSummary;
 };
 
 const emptyDashboardSeed: DashboardSeed = {
@@ -500,6 +583,8 @@ function DashboardMain({
         <SelectedJobPanel tailoring={tailoring} />
       </div>
 
+      <FollowUpsPanel controls={tailoring?.followUps} />
+
       <LiveLogStream logs={controls?.logs} busy={controls?.busy} />
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -563,6 +648,7 @@ function ApplicationPipelinePanel({
             {liveRows.length > 0 ? (
               liveRows.map((recommendation) => {
                 const selected = tailoring?.selected?.jobId === recommendation.jobId;
+                const tracked = applicationForRecommendation(tailoring?.followUps?.summary, recommendation);
                 return (
                   <tr
                     key={recommendation._id ?? recommendation.jobId ?? `${recommendation.company}-${recommendation.title}-${recommendation.rank}`}
@@ -577,10 +663,14 @@ function ApplicationPipelinePanel({
                     <td className="px-4 py-3 text-slate-500">Ashby</td>
                     <td className="px-4 py-3 font-mono text-slate-950">{Math.round(recommendation.score)}%</td>
                     <td className="px-4 py-3">
-                      <Pill tone={recommendation.rank <= 3 ? "success" : "neutral"}>rank #{recommendation.rank}</Pill>
+                      <Pill tone={tracked ? statusTone(tracked.status) : recommendation.rank <= 3 ? "success" : "neutral"}>
+                        {tracked ? statusLabel(tracked.status) : `rank #${recommendation.rank}`}
+                      </Pill>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {recommendation.rationale ? "ranking rationale" : "job description"}
+                      {tracked?.nextFollowUpAt
+                        ? `follow-up ${formatDateShort(tracked.nextFollowUpAt)}`
+                        : recommendation.rationale ? "ranking rationale" : "job description"}
                     </td>
                   </tr>
                 );
@@ -617,6 +707,13 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
   const tailored = detail?.tailoredApplication;
   const artifacts = detail?.artifacts ?? [];
   const loading = selected && detail === undefined;
+  const followUps = tailoring?.followUps;
+  const trackedApplication = selected
+    ? applicationForRecommendation(followUps?.summary, selected)
+    : undefined;
+  const trackedTasks = trackedApplication
+    ? tasksForApplication(followUps?.summary, trackedApplication._id)
+    : [];
 
   if (!tailoring) {
     return (
@@ -692,6 +789,90 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
             {tailoring.state.error ?? tailoring.state.message}
           </div>
 
+          {followUps && selected ? (
+            <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+                    <CalendarClock className="h-4 w-4 text-sky-600" />
+                    Follow-up state
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {trackedApplication
+                      ? `${statusLabel(trackedApplication.status)}${trackedApplication.appliedAt ? ` · applied ${formatDateShort(trackedApplication.appliedAt)}` : ""}`
+                      : "Not tracked as applied yet."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {!trackedApplication ? (
+                    <Button
+                      size="sm"
+                      onClick={() => followUps.onMarkApplied(selected, detail)}
+                      disabled={followUps.busy}
+                    >
+                      {followUps.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      Mark applied
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => followUps.onRecordResponse(trackedApplication._id, "responded", "Company replied to the application.")}
+                        disabled={followUps.busy}
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                        Record response
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => followUps.onRecordResponse(trackedApplication._id, "interview", "Interview request received.")}
+                        disabled={followUps.busy}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Interview
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {(followUps.message || followUps.error) && (
+                <div className={cx(
+                  "mb-3 rounded-[14px] border px-3 py-2 text-xs",
+                  followUps.error
+                    ? "border-red-300/55 bg-red-50/45 text-red-700"
+                    : "border-white/45 bg-white/35 text-slate-600"
+                )}>
+                  {followUps.error ?? followUps.message}
+                </div>
+              )}
+
+              {trackedApplication ? (
+                <div className="space-y-3">
+                  {trackedApplication.nextFollowUpAt ? (
+                    <div className="text-xs text-slate-500">
+                      Next follow-up: <span className="font-semibold text-slate-700">{formatDateShort(trackedApplication.nextFollowUpAt)}</span>
+                    </div>
+                  ) : null}
+                  {trackedApplication.responseSummary ? (
+                    <div className="rounded-[14px] border border-emerald-300/45 bg-emerald-50/45 px-3 py-2 text-sm text-emerald-800">
+                      {trackedApplication.responseSummary}
+                    </div>
+                  ) : null}
+                  {trackedTasks.length === 0 ? (
+                    <div className="text-sm text-slate-500">No open follow-up tasks.</div>
+                  ) : (
+                    trackedTasks.map((task) => (
+                      <FollowUpTaskCard key={task._id} task={task} controls={followUps} />
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="rounded-[18px] border border-white/45 bg-white/24 p-4 text-sm text-slate-500">
               Loading job artifacts...
@@ -722,6 +903,166 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
         </div>
       </GlassCard>
     </Panel>
+  );
+}
+
+function FollowUpsPanel({ controls }: { controls?: FollowUpControls }) {
+  const summary = controls?.summary;
+  if (!controls || !summary) {
+    return (
+      <Panel title="Follow-ups" actions={<Pill tone="neutral">draft-only</Pill>}>
+        <GlassCard>
+          <div className="text-sm font-semibold text-slate-950">Follow-up tracker unavailable</div>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Connect Convex to track applied jobs, schedule reminders, and generate outreach drafts.</p>
+        </GlassCard>
+      </Panel>
+    );
+  }
+
+  const rows = summary.dueTasks.length > 0 ? summary.dueTasks : summary.scheduledTasks.slice(0, 6);
+
+  return (
+    <Panel
+      title="Follow-ups"
+      actions={<Pill tone={summary.counts.due > 0 ? "warning" : "success"}>{summary.counts.due} due</Pill>}
+    >
+      <div className="grid gap-4 xl:grid-cols-[0.7fr_1.3fr]">
+        <GlassCard>
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <FollowUpStat label="Tracked" value={summary.counts.applications} />
+            <FollowUpStat label="Responses" value={summary.counts.responses} />
+            <FollowUpStat label="Interviews" value={summary.counts.interviews} />
+          </div>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            Outreach is draft-only. Email and LinkedIn actions create editable copy and require a manual send confirmation.
+          </p>
+        </GlassCard>
+        <div className="space-y-3">
+          {rows.length === 0 ? (
+            <GlassCard>
+              <div className="text-sm font-semibold text-slate-950">No follow-ups scheduled</div>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Mark an application as applied to create the default 5-business-day and 7-business-day reminders.</p>
+            </GlassCard>
+          ) : (
+            rows.map((task) => <FollowUpTaskCard key={task._id} task={task} controls={controls} />)
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function FollowUpStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[16px] border border-white/45 bg-white/28 px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="mt-1 font-mono text-2xl text-slate-950">{value}</div>
+    </div>
+  );
+}
+
+function FollowUpTaskCard({ task, controls }: { task: FollowUpTask; controls: FollowUpControls }) {
+  const application = task.application;
+  const draft = task.draft;
+  const due = task.scheduledFor <= new Date().toISOString();
+  return (
+    <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill tone={due ? "warning" : "neutral"}>{due ? "due" : "scheduled"}</Pill>
+            <Pill tone={task.state === "draft_ready" ? "active" : "neutral"}>{task.channel}</Pill>
+          </div>
+          <div className="mt-2 text-sm font-semibold text-slate-950">
+            {application ? `${application.company} - ${application.title}` : "Application follow-up"}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">Scheduled {formatDateShort(task.scheduledFor)}</div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => controls.onGenerateDraft(task.applicationId, task.channel, task._id)}
+            disabled={controls.busy}
+          >
+            {task.channel === "email" ? <Mail className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+            {draft ? "Regenerate" : "Draft"}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => controls.onManualSend(task._id)}
+            disabled={controls.busy}
+          >
+            <Check className="h-3.5 w-3.5" />
+            Sent manually
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => controls.onSkipTask(task._id)}
+            disabled={controls.busy}
+          >
+            Skip
+          </Button>
+        </div>
+      </div>
+      {draft ? (
+        <DraftEditor draft={draft} controls={controls} />
+      ) : null}
+    </div>
+  );
+}
+
+function DraftEditor({ draft, controls }: { draft: OutreachDraft; controls: FollowUpControls }) {
+  const [subject, setSubject] = useState(draft.subject ?? "");
+  const [recipient, setRecipient] = useState(draft.recipient ?? "");
+  const [body, setBody] = useState(draft.body);
+
+  return (
+    <div className="mt-4 space-y-3 rounded-[16px] border border-white/45 bg-white/32 p-3">
+      {draft.channel === "email" ? (
+        <input
+          className="w-full rounded-[12px] border border-white/60 bg-white/70 px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-300"
+          value={subject}
+          onChange={(event) => setSubject(event.target.value)}
+          placeholder="Subject"
+        />
+      ) : null}
+      <input
+        className="w-full rounded-[12px] border border-white/60 bg-white/70 px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-300"
+        value={recipient}
+        onChange={(event) => setRecipient(event.target.value)}
+        placeholder="Recipient"
+      />
+      <textarea
+        className="min-h-40 w-full resize-y rounded-[12px] border border-white/60 bg-white/70 px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-sky-300"
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => controls.onUpdateDraft(draft._id, {
+            subject: draft.channel === "email" ? subject : undefined,
+            recipient,
+            body,
+          })}
+          disabled={controls.busy}
+        >
+          Save draft
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => controls.onApproveDraft(draft._id)}
+          disabled={controls.busy || Boolean(draft.approvedAt)}
+        >
+          <Check className="h-3.5 w-3.5" />
+          {draft.approvedAt ? "Approved" : "Approve"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -794,7 +1135,11 @@ function resumeText(value: unknown): string {
   ].filter(Boolean).join("\n\n");
 }
 
-function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendations: LiveRecommendation[] | undefined): DashboardSeed {
+function buildDashboardSeed(
+  run: LiveRunSummary | null | undefined,
+  recommendations: LiveRecommendation[] | undefined,
+  followUps?: FollowUpSummary
+): DashboardSeed {
   if (run === undefined || recommendations === undefined) {
     return {
       ...emptyDashboardSeed,
@@ -815,6 +1160,22 @@ function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendati
     };
   }
 
+  if (!run && followUps && followUps.counts.applications > 0) {
+    return {
+      ...emptyDashboardSeed,
+      metrics: followUpMetrics(followUps),
+      activity: [
+        {
+          time: "now",
+          type: followUps.counts.due > 0 ? "decision" : "success",
+          title: "Follow-up tracker active",
+          detail: `${followUps.counts.applications} applications tracked, ${followUps.counts.due} follow-ups due.`,
+          evidence: "convex",
+        },
+      ],
+    };
+  }
+
   if (!run) return emptyDashboardSeed;
 
   const sortedRecommendations = [...(recommendations ?? [])].sort((a, b) => a.rank - b.rank);
@@ -825,13 +1186,15 @@ function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendati
   return {
     generatedAt: formatTime(run.completedAt ?? run.startedAt),
     mode: "live",
-    metrics: [
-      { label: "Applications", value: String(run.recommendedCount || sortedRecommendations.length), detail: `${run.rawJobCount} jobs scraped`, tone: "accent", progress: Math.min(100, sortedRecommendations.length * 12) },
-      { label: "Active runs", value: run.status === "completed" || run.status === "failed" ? "0" : "1", detail: run.status, tone: run.status === "failed" ? "danger" : "active", progress },
-      { label: "DLQ pending", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
-      { label: "Cache reuse", value: "0%", detail: "live ingestion", tone: "neutral", progress: 0 },
-      { label: "Time saved", value: "0h", detail: "tracking soon", tone: "neutral", progress: 0 },
-    ],
+    metrics: followUps
+      ? followUpMetrics(followUps, run, sortedRecommendations.length, progress, hasErrors)
+      : [
+          { label: "Applications", value: String(run.recommendedCount || sortedRecommendations.length), detail: `${run.rawJobCount} jobs scraped`, tone: "accent", progress: Math.min(100, sortedRecommendations.length * 12) },
+          { label: "Active runs", value: run.status === "completed" || run.status === "failed" ? "0" : "1", detail: run.status, tone: run.status === "failed" ? "danger" : "active", progress },
+          { label: "DLQ pending", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
+          { label: "Cache reuse", value: "0%", detail: "live ingestion", tone: "neutral", progress: 0 },
+          { label: "Time saved", value: "0h", detail: "tracking soon", tone: "neutral", progress: 0 },
+        ],
     activeRun,
     providers: mapProviders(run),
     applications: mapApplications(sortedRecommendations),
@@ -857,6 +1220,52 @@ function buildDashboardSeed(run: LiveRunSummary | null | undefined, recommendati
     ],
     artifacts: mapArtifacts(run, sortedRecommendations),
   };
+}
+
+function followUpMetrics(
+  followUps: FollowUpSummary,
+  run?: LiveRunSummary,
+  recommendationCount = 0,
+  runProgress = 0,
+  hasErrors = false
+): DashboardMetric[] {
+  return [
+    {
+      label: "Applications",
+      value: String(Math.max(followUps.counts.applications, run?.recommendedCount ?? recommendationCount)),
+      detail: `${followUps.counts.applied} applied`,
+      tone: "accent",
+      progress: Math.min(100, Math.max(followUps.counts.applications, recommendationCount) * 12),
+    },
+    {
+      label: "Active runs",
+      value: run && run.status !== "completed" && run.status !== "failed" ? "1" : "0",
+      detail: run?.status ?? "follow-up mode",
+      tone: run?.status === "failed" ? "danger" : "active",
+      progress: run ? runProgress : 0,
+    },
+    {
+      label: "Follow-ups due",
+      value: String(followUps.counts.due),
+      detail: followUps.counts.due > 0 ? "needs draft or manual send" : "none due",
+      tone: followUps.counts.due > 0 ? "warning" : "success",
+      progress: Math.min(100, followUps.counts.due * 20),
+    },
+    {
+      label: "Responses",
+      value: String(followUps.counts.responses),
+      detail: hasErrors ? "run errors captured" : `${followUps.counts.interviews} interviews`,
+      tone: followUps.counts.responses > 0 ? "success" : "neutral",
+      progress: Math.min(100, followUps.counts.responses * 15),
+    },
+    {
+      label: "Closed",
+      value: String(followUps.counts.rejectedClosed),
+      detail: "rejected or closed",
+      tone: "neutral",
+      progress: Math.min(100, followUps.counts.rejectedClosed * 12),
+    },
+  ];
 }
 
 function mapRunToActiveRun(run: LiveRunSummary): ActiveRun {
@@ -938,6 +1347,39 @@ function formatTime(value: string) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDateShort(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function applicationForRecommendation(
+  summary: FollowUpSummary | undefined,
+  recommendation: LiveRecommendation
+) {
+  return summary?.applications.find((application) =>
+    recommendation.jobId
+      ? application.jobId === recommendation.jobId
+      : application.company === recommendation.company && application.title === recommendation.title
+  );
+}
+
+function tasksForApplication(summary: FollowUpSummary | undefined, applicationId: string) {
+  return (summary?.scheduledTasks ?? []).filter((task) => task.applicationId === applicationId);
+}
+
+function statusLabel(status: FollowUpApplication["status"]) {
+  return status.replace(/_/g, " ");
+}
+
+function statusTone(status: FollowUpApplication["status"]): StatusTone {
+  if (["responded", "interview", "offer"].includes(status)) return "success";
+  if (["follow_up_due", "blocked"].includes(status)) return "warning";
+  if (["rejected", "closed"].includes(status)) return "danger";
+  if (["applied", "followed_up"].includes(status)) return "active";
+  return "neutral";
+}
+
 function formatLogTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--:--:--";
@@ -974,6 +1416,9 @@ function ConnectedRecruitDashboard() {
     running: false,
     message: "Select a ranked job to inspect and tailor.",
   });
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [followUpMessage, setFollowUpMessage] = useState<string>();
+  const [followUpError, setFollowUpError] = useState<string>();
 
   const busy = runState === "syncing" || runState === "ingesting" || runState === "ranking";
 
@@ -1153,14 +1598,130 @@ function ConnectedRecruitDashboard() {
     }
   }
 
+  async function postFollowUpAction(payload: Record<string, unknown>, successMessage: string) {
+    try {
+      setFollowUpBusy(true);
+      setFollowUpError(undefined);
+      setFollowUpMessage(successMessage);
+      const response = await fetch("/api/dashboard/followups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => null) as { ok?: boolean; reason?: string } | null;
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.reason ?? `followups_${response.status}`);
+      }
+      await refreshLiveData();
+      if (selected?.jobId) {
+        const detailResponse = await fetch(`/api/dashboard/job-detail?jobId=${encodeURIComponent(selected.jobId)}`, {
+          cache: "no-store",
+        });
+        if (detailResponse.ok) {
+          const payload = await detailResponse.json() as { detail: JobDetail };
+          setJobDetail(payload.detail);
+        }
+      }
+    } catch (err) {
+      setFollowUpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFollowUpBusy(false);
+    }
+  }
+
+  function markRecommendationApplied(recommendation: LiveRecommendation, detail: JobDetail | null | undefined) {
+    const sourceJob = detail?.job ?? recommendation.job ?? null;
+    void postFollowUpAction({
+      action: "mark-applied",
+      jobId: recommendation.jobId,
+      company: sourceJob?.company ?? recommendation.company,
+      title: sourceJob?.title ?? recommendation.title,
+      provider: "Ashby",
+      jobUrl: sourceJob?.jobUrl ?? recommendation.jobUrl,
+      metadata: {
+        rank: recommendation.rank,
+        score: recommendation.score,
+        compensationSummary: recommendation.compensationSummary,
+      },
+    }, "Application marked applied. Default follow-ups scheduled.");
+  }
+
+  function generateFollowUpDraft(applicationId: string, channel: FollowUpTask["channel"], taskId?: string) {
+    void postFollowUpAction({
+      action: "generate-draft",
+      applicationId,
+      taskId,
+      channel,
+      profile: readProfile(),
+    }, "Draft generated. Review it before sending manually.");
+  }
+
+  function updateFollowUpDraft(
+    draftId: string,
+    fields: Partial<Pick<OutreachDraft, "subject" | "body" | "recipient" | "tone">>
+  ) {
+    void postFollowUpAction({
+      action: "update-draft",
+      draftId,
+      ...fields,
+    }, "Draft updated.");
+  }
+
+  function approveFollowUpDraft(draftId: string) {
+    void postFollowUpAction({
+      action: "approve-draft",
+      draftId,
+    }, "Draft approved. It still requires manual sending.");
+  }
+
+  function markFollowUpSent(taskId: string) {
+    void postFollowUpAction({
+      action: "manual-send",
+      taskId,
+    }, "Manual send recorded.");
+  }
+
+  function skipFollowUpTask(taskId: string) {
+    void postFollowUpAction({
+      action: "skip",
+      taskId,
+    }, "Follow-up skipped.");
+  }
+
+  function recordApplicationResponse(
+    applicationId: string,
+    status: FollowUpApplication["status"],
+    responseSummary: string
+  ) {
+    void postFollowUpAction({
+      action: "record-response",
+      applicationId,
+      status,
+      responseSummary,
+    }, "Application response recorded.");
+  }
+
   return (
     <DashboardShell
-      seed={buildDashboardSeed(liveData?.run, liveData?.recommendations)}
+      seed={buildDashboardSeed(liveData?.run, liveData?.recommendations, liveData?.followUps)}
       tailoring={{
         recommendations: liveData?.recommendations ?? [],
         selected,
         detail: jobDetail,
         state: tailorState,
+        followUps: {
+          summary: liveData?.followUps,
+          busy: followUpBusy,
+          message: followUpMessage,
+          error: followUpError,
+          onMarkApplied: markRecommendationApplied,
+          onGenerateDraft: generateFollowUpDraft,
+          onUpdateDraft: updateFollowUpDraft,
+          onApproveDraft: approveFollowUpDraft,
+          onManualSend: markFollowUpSent,
+          onSkipTask: skipFollowUpTask,
+          onRecordResponse: recordApplicationResponse,
+        },
         onSelect: selectRecommendation,
         onTailor: () => void tailorSelectedJob(),
         onDownload: downloadTailoredPdf,
