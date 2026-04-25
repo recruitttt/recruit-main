@@ -151,6 +151,30 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-5">
+            {profile.suggestions.filter((item) => item.status === "pending").length > 0 && (
+              <Panel
+                title="Profile suggestions"
+                description="Public-link enrichment is suggest-only and cannot overwrite resume or chat identity."
+                actions={<StatusBadge tone="warning">{profile.suggestions.filter((item) => item.status === "pending").length} pending</StatusBadge>}
+              >
+                <div className="space-y-2">
+                  {profile.suggestions.filter((item) => item.status === "pending").map((suggestion) => (
+                    <GlassCard key={suggestion.id} density="compact" className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ProvenanceDot source={suggestion.source} />
+                        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500">{suggestion.source}</span>
+                        <StatusBadge tone="warning" variant="soft">{suggestion.field}</StatusBadge>
+                      </div>
+                      <div className="grid gap-2 text-xs leading-5 md:grid-cols-2">
+                        <SuggestionValue label="Current" value={suggestion.currentValue} />
+                        <SuggestionValue label="Suggested" value={suggestion.suggestedValue} />
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              </Panel>
+            )}
+
             {profile.experience.length > 0 && (
               <Panel
                 title="Experience"
@@ -239,12 +263,20 @@ export default function SettingsPage() {
               ) : (
                 <div className="space-y-2">
                   {[...profile.log].reverse().map((entry, i) => (
-                    <GlassCard key={`${entry.at}-${i}`} density="compact" className="flex items-center gap-3">
-                      <ProvenanceDot source={entry.source} />
-                      <span className="w-[84px] shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                        {entry.source}
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm leading-6 text-slate-700">{entry.label}</span>
+                    <GlassCard key={`${entry.at}-${i}`} density="compact" className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <ProvenanceDot source={entry.source} />
+                        <span className="w-[84px] shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                          {entry.source}
+                        </span>
+                        <StatusBadge tone={logTone(entry.level)} variant="soft">{entry.level ?? "success"}</StatusBadge>
+                        <span className="min-w-0 flex-1 text-sm leading-6 text-slate-700">{entry.label}</span>
+                      </div>
+                      {entry.payload !== undefined && (
+                        <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md border border-white/45 bg-white/30 p-2 text-[11px] leading-4 text-slate-600">
+                          {compactPayload(entry.payload)}
+                        </pre>
+                      )}
                     </GlassCard>
                   ))}
                 </div>
@@ -287,6 +319,32 @@ function Field({
       <div className="min-w-0 flex-1 text-sm text-slate-950">{value}</div>
     </GlassCard>
   );
+}
+
+function SuggestionValue({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="rounded-md border border-white/45 bg-white/30 p-2">
+      <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-[11px] leading-4 text-slate-700">{compactPayload(value) || PLACEHOLDER}</pre>
+    </div>
+  );
+}
+
+function logTone(level?: UserProfile["log"][number]["level"]) {
+  if (level === "error") return "danger";
+  if (level === "warning") return "warning";
+  if (level === "info") return "active";
+  return "success";
+}
+
+function compactPayload(value: unknown) {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function LinkRow({

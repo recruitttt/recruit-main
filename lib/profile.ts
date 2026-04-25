@@ -74,6 +74,19 @@ export type ProfileLogEntry = {
   at: string;
   source: ProvenanceSource;
   label: string;
+  level?: "info" | "success" | "warning" | "error";
+  payload?: unknown;
+};
+
+export type ProfileSuggestion = {
+  id: string;
+  field: string;
+  currentValue?: unknown;
+  suggestedValue: unknown;
+  source: ProvenanceSource;
+  label: string;
+  createdAt: string;
+  status: "pending" | "accepted" | "dismissed";
 };
 
 export type UserProfile = {
@@ -89,6 +102,7 @@ export type UserProfile = {
   skills: string[];
   github?: GitHubEnrichment;
   prefs: ProfilePrefs;
+  suggestions: ProfileSuggestion[];
   provenance: Record<string, ProvenanceSource>;
   log: ProfileLogEntry[];
   updatedAt: string;
@@ -100,12 +114,15 @@ export const EMPTY_PROFILE: UserProfile = {
   education: [],
   skills: [],
   prefs: { roles: [], locations: [] },
+  suggestions: [],
   provenance: {},
   log: [],
   updatedAt: new Date(0).toISOString(),
 };
 
 const subscribers = new Set<(p: UserProfile) => void>();
+const ENRICHMENT_SOURCES = new Set<ProvenanceSource>(["github", "linkedin", "website", "devpost"]);
+const SUGGEST_ONLY_FIELDS = ["name", "location", "headline", "summary", "experience", "education", "skills"] as const;
 
 // Cached snapshot. Required for useSyncExternalStore's getSnapshot, which
 // must return a stable reference between renders or React loops forever.
@@ -118,7 +135,18 @@ function hydrate(): UserProfile {
     const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
     if (!raw) return EMPTY_PROFILE;
     const parsed = JSON.parse(raw) as Partial<UserProfile>;
-    return { ...EMPTY_PROFILE, ...parsed };
+    return {
+      ...EMPTY_PROFILE,
+      ...parsed,
+      links: { ...EMPTY_PROFILE.links, ...(parsed.links ?? {}) },
+      experience: parsed.experience ?? [],
+      education: parsed.education ?? [],
+      skills: parsed.skills ?? [],
+      prefs: { ...EMPTY_PROFILE.prefs, ...(parsed.prefs ?? {}) },
+      suggestions: parsed.suggestions ?? [],
+      provenance: parsed.provenance ?? {},
+      log: parsed.log ?? [],
+    };
   } catch {
     return EMPTY_PROFILE;
   }
@@ -165,6 +193,19 @@ function stampProvenance(
   return next;
 }
 
+function appendLog(
+  current: ProfileLogEntry[],
+  source: ProvenanceSource,
+  label: string,
+  level: ProfileLogEntry["level"] = "success",
+  payload?: unknown
+): ProfileLogEntry[] {
+  return [
+    ...current,
+    { at: new Date().toISOString(), source, label, level, ...(payload === undefined ? {} : { payload }) },
+  ].slice(-80);
+}
+
 // Merge non-empty values; arrays replace if updater has at least one entry.
 function shallowAccept<T>(prev: T | undefined, next: T | undefined): T | undefined {
   if (next === undefined || next === null) return prev;
@@ -175,70 +216,141 @@ function shallowAccept<T>(prev: T | undefined, next: T | undefined): T | undefin
   return next;
 }
 
+function hasUsableValue(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function suggestionId(source: ProvenanceSource, field: string, value: unknown): string {
+  let encoded = "";
+  try {
+    encoded = JSON.stringify(value);
+  } catch {
+    encoded = String(value);
+  }
+  return `${source}:${field}:${encoded.slice(0, 180)}`;
+}
+
+function collectEnrichmentSuggestions(
+  current: UserProfile,
+  updates: Partial<UserProfile>,
+  source: ProvenanceSource
+): ProfileSuggestion[] {
+  if (!ENRICHMENT_SOURCES.has(source)) return [];
+  const createdAt = new Date().toISOString();
+  return SUGGEST_ONLY_FIELDS.flatMap((field) => {
+    const suggestedValue = updates[field];
+    if (!hasUsableValue(suggestedValue)) return [];
+    return [{
+      id: suggestionId(source, field, suggestedValue),
+      field,
+      currentValue: current[field],
+      suggestedValue,
+      source,
+      label: `${SOURCE_LABEL[source]} suggested ${field}`,
+      createdAt,
+      status: "pending" as const,
+    }];
+  });
+}
+
+function mergeSuggestions(current: ProfileSuggestion[], incoming: ProfileSuggestion[]) {
+  if (incoming.length === 0) return current;
+  const byId = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) if (!byId.has(item.id)) byId.set(item.id, item);
+  return Array.from(byId.values()).slice(-80);
+}
+
+function omitSuggestOnlyFields(updates: Partial<UserProfile>): Partial<UserProfile> {
+  const next = { ...updates };
+  for (const field of SUGGEST_ONLY_FIELDS) delete next[field];
+  return next;
+}
+
 export function mergeProfile(
   updates: Partial<UserProfile>,
   source: ProvenanceSource,
   label: string
 ): UserProfile {
   const current = readProfile();
+  const suggestions = collectEnrichmentSuggestions(current, updates, source);
+  const acceptedUpdates = ENRICHMENT_SOURCES.has(source) ? omitSuggestOnlyFields(updates) : updates;
 
   const merged: UserProfile = {
     ...current,
-    name: shallowAccept(current.name, updates.name),
-    email: shallowAccept(current.email, updates.email),
-    location: shallowAccept(current.location, updates.location),
-    headline: shallowAccept(current.headline, updates.headline),
-    summary: shallowAccept(current.summary, updates.summary),
-    links: { ...current.links, ...(updates.links ?? {}) },
-    resume: updates.resume ? { ...current.resume, ...updates.resume } : current.resume,
+    name: shallowAccept(current.name, acceptedUpdates.name),
+    email: shallowAccept(current.email, acceptedUpdates.email),
+    location: shallowAccept(current.location, acceptedUpdates.location),
+    headline: shallowAccept(current.headline, acceptedUpdates.headline),
+    summary: shallowAccept(current.summary, acceptedUpdates.summary),
+    links: { ...current.links, ...(acceptedUpdates.links ?? {}) },
+    resume: acceptedUpdates.resume ? { ...current.resume, ...acceptedUpdates.resume } : current.resume,
     experience:
-      updates.experience && updates.experience.length > 0
-        ? updates.experience
+      acceptedUpdates.experience && acceptedUpdates.experience.length > 0
+        ? acceptedUpdates.experience
         : current.experience,
     education:
-      updates.education && updates.education.length > 0
-        ? updates.education
+      acceptedUpdates.education && acceptedUpdates.education.length > 0
+        ? acceptedUpdates.education
         : current.education,
     skills:
-      updates.skills && updates.skills.length > 0
-        ? Array.from(new Set([...current.skills, ...updates.skills])).slice(0, 30)
+      acceptedUpdates.skills && acceptedUpdates.skills.length > 0
+        ? Array.from(new Set([...current.skills, ...acceptedUpdates.skills])).slice(0, 30)
         : current.skills,
-    github: updates.github
+    github: acceptedUpdates.github
       ? {
           ...current.github,
-          ...updates.github,
+          ...acceptedUpdates.github,
           topRepos:
-            updates.github.topRepos && updates.github.topRepos.length > 0
-              ? updates.github.topRepos
+            acceptedUpdates.github.topRepos && acceptedUpdates.github.topRepos.length > 0
+              ? acceptedUpdates.github.topRepos
               : current.github?.topRepos ?? [],
         }
       : current.github,
     prefs: {
       roles:
-        updates.prefs?.roles && updates.prefs.roles.length > 0
-          ? updates.prefs.roles
+        acceptedUpdates.prefs?.roles && acceptedUpdates.prefs.roles.length > 0
+          ? acceptedUpdates.prefs.roles
           : current.prefs.roles,
       locations:
-        updates.prefs?.locations && updates.prefs.locations.length > 0
-          ? updates.prefs.locations
+        acceptedUpdates.prefs?.locations && acceptedUpdates.prefs.locations.length > 0
+          ? acceptedUpdates.prefs.locations
           : current.prefs.locations,
-      workAuth: shallowAccept(current.prefs.workAuth, updates.prefs?.workAuth),
-      minSalary: shallowAccept(current.prefs.minSalary, updates.prefs?.minSalary),
+      workAuth: shallowAccept(current.prefs.workAuth, acceptedUpdates.prefs?.workAuth),
+      minSalary: shallowAccept(current.prefs.minSalary, acceptedUpdates.prefs?.minSalary),
       companySizes:
-        updates.prefs?.companySizes && updates.prefs.companySizes.length > 0
-          ? updates.prefs.companySizes
+        acceptedUpdates.prefs?.companySizes && acceptedUpdates.prefs.companySizes.length > 0
+          ? acceptedUpdates.prefs.companySizes
           : current.prefs.companySizes,
     },
-    provenance: stampProvenance(current.provenance, updates, source),
-    log: [
-      ...current.log,
-      { at: new Date().toISOString(), source, label },
-    ].slice(-30),
+    suggestions: mergeSuggestions(current.suggestions, suggestions),
+    provenance: stampProvenance(current.provenance, acceptedUpdates, source),
+    log: appendLog(
+      current.log,
+      source,
+      label,
+      suggestions.length > 0 ? "warning" : "success",
+      suggestions.length > 0 ? { suggestionsStored: suggestions.length, mode: "suggest_only" } : undefined
+    ),
     updatedAt: new Date().toISOString(),
   };
 
   writeProfile(merged);
   return merged;
+}
+
+export function logProfileEvent(
+  source: ProvenanceSource,
+  label: string,
+  level: ProfileLogEntry["level"] = "info",
+  payload?: unknown
+): UserProfile {
+  const current = readProfile();
+  const next = { ...current, log: appendLog(current.log, source, label, level, payload), updatedAt: new Date().toISOString() };
+  writeProfile(next);
+  return next;
 }
 
 // Compatible with both `(p) => void` listeners and React's

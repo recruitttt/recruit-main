@@ -300,6 +300,7 @@ export default defineSchema({
       v.literal("ranking_score"),
       v.literal("research_snapshot"),
       v.literal("tailored_resume"),
+      v.literal("cover_letter"),
       v.literal("pdf_ready")
     ),
     title: v.string(),

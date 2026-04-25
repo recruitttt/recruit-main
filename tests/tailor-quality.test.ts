@@ -45,6 +45,7 @@ const profile: UserProfile = {
     ],
   },
   prefs: { roles: [], locations: [] },
+  suggestions: [],
   provenance: {},
   log: [],
   updatedAt: "2026-04-25T00:00:00.000Z",
