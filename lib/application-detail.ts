@@ -64,6 +64,7 @@ export type ApplicationDetailModel = {
     tone: "success" | "warn" | "neutral";
     detail: string;
   };
+  pdfDownloadUrl?: string;
 };
 
 type LiveJobDetail = {
@@ -116,6 +117,7 @@ type LiveJobDetail = {
     pdfReady: boolean;
     pdfFilename?: string;
     pdfByteLength?: number;
+    pdfBase64?: string;
     error?: string;
     createdAt?: string;
     updatedAt?: string;
@@ -285,6 +287,9 @@ function liveDetail(id: string, detail: LiveJobDetail, logs: PipelineLog[]): App
     cacheReuseCount: null,
     personaReviews: [],
     artifacts: artifactList,
+    pdfDownloadUrl: tailored?.pdfReady
+      ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(id)}`
+      : undefined,
     summary: liveSummary(detail),
     events: eventList.length > 0 ? eventList : [
       {

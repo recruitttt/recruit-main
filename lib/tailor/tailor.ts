@@ -59,7 +59,49 @@ function repoSkills(profile: UserProfile): string[] {
 }
 
 function supportedSkills(profile: UserProfile): string[] {
-  return [...profile.skills, ...repoSkills(profile)];
+  return [
+    ...profile.skills,
+    ...repoSkills(profile),
+    ...profileBackedSkillPhrases(profile),
+  ];
+}
+
+function profileBackedSkillPhrases(profile: UserProfile): string[] {
+  const text = [
+    profile.headline,
+    profile.summary,
+    ...profile.experience.flatMap((experience) => [
+      experience.title,
+      experience.description,
+    ]),
+  ].filter((value): value is string => Boolean(value && value.trim()));
+
+  const phrases = new Set<string>();
+  for (const value of text) {
+    for (const phrase of skillLikePhrases(value)) {
+      phrases.add(phrase);
+    }
+  }
+  return [...phrases];
+}
+
+function skillLikePhrases(text: string): string[] {
+  const normalized = text
+    .replace(/[/+]/g, " ")
+    .replace(/[^a-zA-Z0-9.#\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return [];
+
+  const words = normalized.split(" ");
+  const phrases: string[] = [];
+  for (let index = 0; index < words.length; index += 1) {
+    for (const length of [2, 3]) {
+      const phrase = words.slice(index, index + length).join(" ");
+      if (phrase.split(" ").length === length) phrases.push(phrase);
+    }
+  }
+  return phrases;
 }
 
 function normalizeProjects(rawProjects: unknown, profile: UserProfile): TailoredProject[] {

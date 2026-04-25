@@ -77,11 +77,12 @@ type JobDetail = {
     pdfReady: boolean;
     pdfFilename?: string;
     pdfByteLength?: number;
+    pdfBase64?: string;
     error?: string;
   };
   artifacts?: Array<{
     _id: string;
-    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "pdf_ready";
+    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "cover_letter" | "pdf_ready" | "pdf_file";
     title: string;
     content?: string;
     payload?: unknown;

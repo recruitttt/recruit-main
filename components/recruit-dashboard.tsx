@@ -197,11 +197,12 @@ type JobDetail = {
     pdfReady: boolean;
     pdfFilename?: string;
     pdfByteLength?: number;
+    pdfBase64?: string;
     error?: string;
   };
   artifacts?: Array<{
     _id: string;
-    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "cover_letter" | "pdf_ready";
+    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "cover_letter" | "pdf_ready" | "pdf_file";
     title: string;
     content?: string;
     payload?: unknown;
@@ -731,6 +732,7 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
   const job = detail?.job ?? selected?.job ?? null;
   const tailored = detail?.tailoredApplication;
   const artifacts = detail?.artifacts ?? [];
+  const hasPersistedPdf = Boolean(tailored?.pdfBase64 || artifactOf(artifacts, "pdf_file"));
   const loading = selected && detail === undefined;
   const followUps = tailoring?.followUps;
   const trackedApplication = selected
@@ -811,11 +813,11 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
                 size="sm"
                 variant="secondary"
                 onClick={tailoring.onDownload}
-                disabled={!tailoring.state.downloadable}
-                title={!tailoring.state.downloadable && tailored?.pdfReady ? "PDF metadata is persisted; download bytes are only available immediately after tailoring in this browser session." : undefined}
+                disabled={!tailoring.state.downloadable && !hasPersistedPdf}
+                title={!tailoring.state.downloadable && tailored?.pdfReady && !hasPersistedPdf ? "PDF metadata is persisted, but the PDF bytes are not available for this older run." : undefined}
               >
                 <Download className="h-3.5 w-3.5" />
-                {tailoring.state.downloadable ? "Download PDF" : "PDF metadata stored"}
+                {tailoring.state.downloadable || hasPersistedPdf ? "Download PDF" : "PDF metadata stored"}
               </Button>
             )}
           </div>
@@ -1734,6 +1736,10 @@ function ConnectedRecruitDashboard() {
   function downloadTailoredPdf() {
     if (tailorState.downloadable) {
       downloadPdf(tailorState.downloadable);
+      return;
+    }
+    if (selected?.jobId && (jobDetail?.tailoredApplication?.pdfBase64 || artifactOf(jobDetail?.artifacts ?? [], "pdf_file"))) {
+      window.location.href = `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(selected.jobId)}`;
     }
   }
 

@@ -199,6 +199,7 @@ export default defineSchema({
     pdfReady: v.boolean(),
     pdfFilename: v.optional(v.string()),
     pdfByteLength: v.optional(v.number()),
+    pdfBase64: v.optional(v.string()),
     error: v.optional(v.string()),
     createdAt: isoString,
     updatedAt: isoString,
@@ -301,7 +302,8 @@ export default defineSchema({
       v.literal("research_snapshot"),
       v.literal("tailored_resume"),
       v.literal("cover_letter"),
-      v.literal("pdf_ready")
+      v.literal("pdf_ready"),
+      v.literal("pdf_file")
     ),
     title: v.string(),
     content: v.optional(v.string()),
