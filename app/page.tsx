@@ -177,19 +177,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* trusted by */}
+      {/* coverage strip */}
       <section className="border-y border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto max-w-6xl px-6 py-7">
-          <div className="flex flex-wrap items-center justify-between gap-x-12 gap-y-4">
-            <div className="text-[12px] uppercase tracking-wider text-[var(--color-fg-subtle)] font-mono">
-              Applies to roles at
+        <div className="mx-auto max-w-6xl px-6 py-8">
+          <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:gap-10">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-fg-muted)] font-mono">
+                Sourcing roles at
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-x-10 gap-y-3">
-              {trustedBy.map((co) => (
-                <div key={co} className="font-serif text-[18px] tracking-tight text-[var(--color-fg-muted)]">
-                  {co}
+            <div className="flex flex-1 flex-wrap items-center gap-x-1 gap-y-2">
+              {trustedBy.map((co, i) => (
+                <div key={co} className="flex items-center gap-1">
+                  <span className="font-medium text-[15px] tracking-tight text-[var(--color-fg)]">
+                    {co}
+                  </span>
+                  {i < trustedBy.length - 1 && (
+                    <span className="ml-3 text-[var(--color-border-strong)]">·</span>
+                  )}
                 </div>
               ))}
+            </div>
+            <div className="text-[11px] font-mono text-[var(--color-fg-subtle)] shrink-0">
+              + 2,400 more
             </div>
           </div>
         </div>
