@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { AgentTicker } from "@/components/landing/agent-ticker";
+import { JobPrompt } from "@/components/landing/job-prompt";
 import { ArrowRight, Database, Layers, Workflow, Shield } from "lucide-react";
 
 const trustedBy = ["Anthropic", "Linear", "Vercel", "Perplexity", "Supabase", "Notion"];
@@ -70,28 +71,22 @@ export default function LandingPage() {
             </h1>
 
             <p className="mt-7 max-w-xl text-[17px] leading-relaxed text-[var(--color-fg-muted)]">
-              Recruit is an autonomous agent that sources roles, tailors your
-              resume, fills the form, and remembers what works — so the next
-              application is faster than the last.
+              An autonomous agent that sources roles, tailors your resume, fills
+              the form, and remembers what works. Tell it what you want — it
+              starts applying.
             </p>
 
-            <div className="mt-9 flex items-center gap-3">
-              <Link href="/onboarding">
-                <Button variant="primary" size="lg">
-                  Start your agent
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button variant="secondary" size="lg">
-                  See dashboard
-                </Button>
-              </Link>
+            <div className="mt-10 w-full flex justify-center">
+              <JobPrompt />
             </div>
 
-            <p className="mt-4 text-[12px] text-[var(--color-fg-subtle)] font-mono">
-              Free tier · No credit card · 5 applications on us
-            </p>
+            <Link
+              href="/dashboard"
+              className="mt-6 inline-flex items-center gap-1.5 text-[12px] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-muted)] font-mono transition-colors"
+            >
+              or browse the demo dashboard
+              <ArrowRight className="h-3 w-3" />
+            </Link>
 
             <div className="mt-12">
               <AgentTicker />

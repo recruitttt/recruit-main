@@ -49,7 +49,7 @@ export function Topnav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-56">
+          <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-80">
             <Search className="h-3.5 w-3.5" />
             <span>Search applications, jobs…</span>
             <kbd className="ml-auto rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
