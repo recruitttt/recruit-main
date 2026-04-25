@@ -30,7 +30,6 @@ import {
   mistColors,
   type StatusTone,
 } from "@/components/design-system";
-import { DevPipelineWorkspace } from "@/components/dashboard/dev-pipeline-workspace";
 import type { DashboardMetric, DashboardSeed } from "@/lib/dashboard-seed";
 
 const navItems = [
@@ -196,8 +195,6 @@ function DashboardMain({ seed }: { seed: DashboardSeed }) {
           </div>
         </Panel>
       </div>
-
-      <DevPipelineWorkspace />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <Panel title="Application Pipeline">
