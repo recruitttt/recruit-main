@@ -17,6 +17,13 @@ import { isMuted, setMuted, playSend, playReceive, playWake, playActivate } from
 import { cn } from "@/lib/utils";
 import { SceneTransition } from "@/components/room/scene-transition";
 import { preloadRoomScene } from "@/components/room/room-canvas-client";
+import { ProfileCard } from "@/components/onboarding/profile-card";
+import { mergeProfile, type UserProfile } from "@/lib/profile";
+import {
+  parseResume,
+  scrapeAndExtract,
+  scrapeLinkedIn,
+} from "@/lib/scrapers";
 
 type InputKind = "name" | "email" | "resume" | "links" | "prefs";
 
@@ -31,7 +38,7 @@ type Data = {
   name: string;
   email: string;
   resumeFilename: string;
-  links: { github: string; linkedin: string; twitter: string; devpost: string };
+  links: { github: string; linkedin: string; twitter: string; devpost: string; website: string };
   prefs: { roles: string[]; workAuth: string; location: string };
 };
 
@@ -39,7 +46,7 @@ const EMPTY: Data = {
   name: "",
   email: "",
   resumeFilename: "",
-  links: { github: "", linkedin: "", twitter: "", devpost: "" },
+  links: { github: "", linkedin: "", twitter: "", devpost: "", website: "" },
   prefs: { roles: [], workAuth: "", location: "" },
 };
 
@@ -65,7 +72,7 @@ const beats: Beat[] = [
 
   { k: "wake", who: "pip" },
   { k: "agent", from: "scout", text: "Pip just came online. Three of us ready." },
-  { k: "agent", from: "scout", text: "Any public links I should know about? GitHub, LinkedIn, skip anything you don't have." },
+  { k: "agent", from: "scout", text: "Any public links? GitHub, LinkedIn, your site. The squad will read each one and fill out your profile." },
   { k: "input", kind: "links", from: "scout" },
   { k: "pause", ms: 400 },
 
@@ -251,8 +258,59 @@ export default function OnboardingChatPage() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [rendered, typing, activating]);
 
-  const handleInputSubmit = (kind: InputKind, echo: string, updates: Partial<Data>) => {
-    setData((d) => ({ ...d, ...updates }));
+  const handleInputSubmit = (
+    kind: InputKind,
+    echo: string,
+    updates: Partial<Data>,
+    extras?: { resumeFile?: File | null },
+  ) => {
+    setData((d) => ({
+      ...d,
+      ...updates,
+      links: { ...d.links, ...(updates.links ?? {}) },
+      prefs: { ...d.prefs, ...(updates.prefs ?? {}) },
+    }));
+
+    // Mirror the chat answer into the canonical profile (outside setData
+    // so React's strict-mode double-invoke doesn't double-log).
+    if (kind === "name" && updates.name) {
+      mergeProfile({ name: updates.name }, "chat", `Got your name`);
+    } else if (kind === "email" && updates.email) {
+      mergeProfile({ email: updates.email }, "chat", `Got your email`);
+    } else if (kind === "resume" && extras?.resumeFile) {
+      mergeProfile(
+        {
+          resume: {
+            filename: extras.resumeFile.name,
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+        "resume",
+        `Got your resume`,
+      );
+    } else if (kind === "links" && updates.links) {
+      mergeProfile({ links: updates.links }, "chat", `Got your links`);
+    } else if (kind === "prefs" && updates.prefs) {
+      mergeProfile(
+        {
+          prefs: {
+            roles: updates.prefs.roles,
+            workAuth: updates.prefs.workAuth,
+            locations: updates.prefs.location ? [updates.prefs.location] : [],
+          },
+        },
+        "chat",
+        `Got your preferences`,
+      );
+    }
+
+    // Kick off enrichment async - don't block the chat.
+    if (kind === "resume" && extras?.resumeFile) {
+      enrichFromResume(extras.resumeFile);
+    } else if (kind === "links" && updates.links) {
+      enrichFromLinks(updates.links);
+    }
+
     playSend();
     // replace the input placeholder with a user-message echo
     setRendered((r) => {
@@ -266,6 +324,79 @@ export default function OnboardingChatPage() {
     pointer.current += 1;
     setBeatTick((t) => t + 1);
     setPhase("playing");
+  };
+
+  const enrichFromResume = async (file: File) => {
+    const result = await parseResume(file);
+    if (!result.ok) return;
+    const updates: Partial<UserProfile> = {
+      resume: {
+        filename: result.filename ?? file.name,
+        rawText: result.rawText,
+        uploadedAt: new Date().toISOString(),
+      },
+    };
+    if (result.structured) {
+      const s = result.structured;
+      Object.assign(updates, {
+        name: s.name,
+        email: s.email,
+        location: s.location,
+        headline: s.headline,
+        summary: s.summary,
+        skills: s.skills,
+        experience: s.experience,
+        education: s.education,
+      });
+    }
+    mergeProfile(
+      updates,
+      "resume",
+      result.structured ? `Read your resume` : `Saved your resume`,
+    );
+  };
+
+  const enrichFromLinks = async (links: Data["links"]) => {
+    const tasks: Promise<void>[] = [];
+
+    if (links.github?.trim()) {
+      tasks.push(
+        (async () => {
+          const r = await scrapeAndExtract(links.github, "github");
+          if (!r.ok) return;
+          mergeProfile(r.structured, "github", `Read your GitHub`);
+        })(),
+      );
+    }
+    if (links.linkedin?.trim()) {
+      tasks.push(
+        (async () => {
+          const r = await scrapeLinkedIn(links.linkedin);
+          if (!r.ok) return;
+          mergeProfile(r.structured, "linkedin", `Read your LinkedIn`);
+        })(),
+      );
+    }
+    if (links.devpost?.trim()) {
+      tasks.push(
+        (async () => {
+          const r = await scrapeAndExtract(links.devpost, "devpost");
+          if (!r.ok) return;
+          mergeProfile(r.structured, "devpost", `Read your DevPost`);
+        })(),
+      );
+    }
+    if (links.website?.trim()) {
+      tasks.push(
+        (async () => {
+          const r = await scrapeAndExtract(links.website, "website");
+          if (!r.ok) return;
+          mergeProfile(r.structured, "website", `Read your website`);
+        })(),
+      );
+    }
+
+    await Promise.allSettled(tasks);
   };
 
   const activeAgent = useMemo(() => {
@@ -314,9 +445,9 @@ export default function OnboardingChatPage() {
         </div>
       </header>
 
-      {/* body: rail + chat */}
+      {/* body: rail + chat + profile card */}
       <div className="flex-1">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-5 pb-10 md:px-8 lg:grid-cols-[180px_1fr] lg:gap-12">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-5 pb-10 md:px-8 lg:grid-cols-[140px_minmax(0,1fr)_320px] lg:gap-10">
           {/* rail (top strip on mobile, side on desktop) */}
           <div className="lg:sticky lg:top-24 lg:self-start">
             <AgentRail awake={awake} speaking={activeAgent} waking={wakingAgent} />
@@ -366,6 +497,11 @@ export default function OnboardingChatPage() {
               )}
             </div>
           </div>
+
+          {/* profile card */}
+          <div className="lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-110px)] lg:overflow-y-auto">
+            <ProfileCard />
+          </div>
         </div>
       </div>
     </motion.div>
@@ -389,6 +525,13 @@ function Caret() {
 
 // ---------------- inputs ----------------
 
+type SubmitFn = (
+  kind: InputKind,
+  echo: string,
+  updates: Partial<Data>,
+  extras?: { resumeFile?: File | null },
+) => void;
+
 function InputWell({
   kind,
   data,
@@ -396,7 +539,7 @@ function InputWell({
 }: {
   kind: InputKind;
   data: Data;
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   if (kind === "name") return <NameInput initial={data.name} onSubmit={onSubmit} />;
   if (kind === "email") return <EmailInput initial={data.email} onSubmit={onSubmit} />;
@@ -424,7 +567,7 @@ function NameInput({
   onSubmit,
 }: {
   initial: string;
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   const [v, setV] = useState(initial);
   const ref = useRef<HTMLInputElement>(null);
@@ -459,7 +602,7 @@ function EmailInput({
   onSubmit,
 }: {
   initial: string;
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   const [v, setV] = useState(initial);
   const ref = useRef<HTMLInputElement>(null);
@@ -515,19 +658,32 @@ function ResumeInput({
   onSubmit,
 }: {
   initial: string;
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   const [filename, setFilename] = useState(initial);
   const [parsing, setParsing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const parseTimerRef = useRef<number | null>(null);
 
-  const handleFile = (name: string) => {
+  const clearFile = () => {
+    if (parseTimerRef.current !== null) {
+      window.clearTimeout(parseTimerRef.current);
+      parseTimerRef.current = null;
+    }
+    setFilename("");
+    setParsing(false);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleFile = (file: File | null, nameOverride?: string) => {
+    const name = file?.name ?? nameOverride ?? "";
     setFilename(name);
     setParsing(true);
-    window.setTimeout(() => {
+    parseTimerRef.current = window.setTimeout(() => {
+      parseTimerRef.current = null;
       setParsing(false);
-      onSubmit("resume", `Uploaded ${name}`, { resumeFilename: name });
-    }, 1200);
+      onSubmit("resume", `Uploaded ${name}`, { resumeFilename: name }, { resumeFile: file });
+    }, 700);
   };
 
   return (
@@ -557,11 +713,21 @@ function ResumeInput({
               {parsing ? "Parsing resume…" : "Ready"}
             </div>
           </div>
-          {parsing ? (
-            <div className="h-3 w-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
-          ) : (
-            <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-          )}
+          <div className="flex items-center gap-2">
+            {parsing ? (
+              <div className="h-3 w-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+            ) : (
+              <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
+            )}
+            <button
+              type="button"
+              onClick={clearFile}
+              className="rounded p-0.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface-2)] transition-colors"
+              aria-label="Remove resume"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -572,7 +738,7 @@ function ResumeInput({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) handleFile(f.name);
+          if (f) handleFile(f);
         }}
       />
 
@@ -589,14 +755,6 @@ function ResumeInput({
           >
             I don't have one yet
           </button>
-          <span className="text-[var(--color-fg-subtle)]">or</span>
-          <button
-            type="button"
-            onClick={() => handleFile("mo-hoshir-resume.pdf")}
-            className="text-[var(--color-fg-subtle)] hover:text-[var(--color-accent)] transition-colors"
-          >
-            use a sample →
-          </button>
         </div>
       )}
     </Well>
@@ -608,14 +766,15 @@ function LinksInput({
   onSubmit,
 }: {
   initial: Data["links"];
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   const [links, setLinks] = useState(initial);
   const fields = [
     { k: "github" as const, label: "GitHub", placeholder: "github.com/yourhandle" },
     { k: "linkedin" as const, label: "LinkedIn", placeholder: "linkedin.com/in/you" },
-    { k: "twitter" as const, label: "X / Twitter", placeholder: "x.com/yourhandle" },
+    { k: "website" as const, label: "Website", placeholder: "yoursite.com" },
     { k: "devpost" as const, label: "DevPost", placeholder: "devpost.com/you" },
+    { k: "twitter" as const, label: "X / Twitter", placeholder: "x.com/yourhandle" },
   ];
   const count = Object.values(links).filter((v) => v.trim()).length;
   return (
@@ -685,7 +844,7 @@ function PrefsInput({
   onSubmit,
 }: {
   initial: Data["prefs"];
-  onSubmit: (kind: InputKind, echo: string, updates: Partial<Data>) => void;
+  onSubmit: SubmitFn;
 }) {
   const [roles, setRoles] = useState<string[]>(initial.roles);
   const [location, setLocation] = useState(initial.location);
