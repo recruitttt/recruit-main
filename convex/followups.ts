@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { mutationGeneric, queryGeneric } from "convex/server";
+import {
+  internalMutationGeneric,
+  internalQueryGeneric,
+  mutationGeneric,
+  queryGeneric,
+} from "convex/server";
 import { v } from "convex/values";
 
 import {
@@ -13,6 +18,8 @@ import {
 
 const query = queryGeneric;
 const mutation = mutationGeneric;
+const internalQuery = internalQueryGeneric;
+const internalMutation = internalMutationGeneric;
 
 const DEMO_USER_ID = "demo";
 
@@ -106,8 +113,11 @@ export const followUpSummary = query({
     );
     const dueTasks = openTasks.filter((task) => task.scheduledFor <= now);
 
+    const gmailConnection = await publicGmailConnection(ctx, demoUserId);
+
     return {
       applications,
+      gmailConnection,
       dueTasks: await enrichTasks(ctx, dueTasks.slice(0, 25)),
       scheduledTasks: await enrichTasks(ctx, openTasks.slice(0, 25)),
       counts: {
@@ -363,8 +373,35 @@ export const approveOutreachDraft = mutation({
   args: { draftId: v.id("outreachDrafts") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const draft = await ctx.db.get(args.draftId);
+    if (!draft) throw new Error("outreach_draft_not_found");
+    const now = new Date().toISOString();
     await ctx.db.patch(args.draftId, {
-      approvedAt: new Date().toISOString(),
+      approvedAt: now,
+      updatedAt: now,
+    });
+    if (draft.taskId && draft.channel === "email") {
+      await ctx.db.patch(draft.taskId, {
+        sendState: "approved",
+        sendApprovedAt: now,
+        updatedAt: now,
+      });
+    }
+    return null;
+  },
+});
+
+export const setFollowUpAutoSend = mutation({
+  args: {
+    taskId: v.id("followUpTasks"),
+    autoSendEnabled: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("follow_up_task_not_found");
+    await ctx.db.patch(args.taskId, {
+      autoSendEnabled: args.autoSendEnabled,
       updatedAt: new Date().toISOString(),
     });
     return null;
@@ -383,6 +420,7 @@ export const markManualSendComplete = mutation({
     const completedAt = args.completedAt ?? new Date().toISOString();
     await ctx.db.patch(args.taskId, {
       state: "sent_manually",
+      sendState: task.channel === "email" ? "sent" : task.sendState,
       completedAt,
       updatedAt: completedAt,
     });
@@ -408,6 +446,17 @@ export const recordResponse = mutation({
     const status = args.status ?? "responded";
     if (!isResponseStatus(status)) throw new Error("invalid_response_status");
     const responseAt = args.responseAt ?? new Date().toISOString();
+    const application = await ctx.db.get(args.applicationId);
+    if (!application) throw new Error("application_not_found");
+    await ctx.db.insert("applicationResponses", {
+      demoUserId: application.demoUserId,
+      applicationId: args.applicationId,
+      channel: "manual",
+      source: "manual",
+      snippet: args.responseSummary,
+      receivedAt: responseAt,
+      createdAt: responseAt,
+    });
     await ctx.db.patch(args.applicationId, {
       status,
       responseAt,
@@ -416,6 +465,314 @@ export const recordResponse = mutation({
       nextFollowUpAt: undefined,
       updatedAt: responseAt,
     });
+    return null;
+  },
+});
+
+export const upsertOAuthConnection = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    provider: v.literal("gmail"),
+    accountEmail: v.optional(v.string()),
+    scopes: v.array(v.string()),
+    encryptedRefreshToken: v.optional(v.string()),
+    status: v.union(
+      v.literal("connected"),
+      v.literal("reconnect_required"),
+      v.literal("error")
+    ),
+    lastError: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const now = new Date().toISOString();
+    const existing = await gmailConnection(ctx, demoUserId);
+    const patch = omitUndefined({
+      demoUserId,
+      provider: args.provider,
+      accountEmail: args.accountEmail,
+      scopes: args.scopes,
+      encryptedRefreshToken: args.encryptedRefreshToken,
+      status: args.status,
+      lastError: args.lastError,
+      connectedAt: args.status === "connected" ? now : existing?.connectedAt,
+      updatedAt: now,
+    });
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+    } else {
+      await ctx.db.insert("oauthConnections", {
+        ...patch,
+        createdAt: now,
+      });
+    }
+    return null;
+  },
+});
+
+export const getGmailSendBundle = internalQuery({
+  args: { taskId: v.id("followUpTasks") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) return null;
+    const [application, draft, connection, latestAttempt] = await Promise.all([
+      ctx.db.get(task.applicationId),
+      task.draftId ? ctx.db.get(task.draftId) : null,
+      gmailConnection(ctx, task.demoUserId),
+      ctx.db
+        .query("sendAttempts")
+        .withIndex("by_task", (q: any) => q.eq("taskId", args.taskId))
+        .order("desc")
+        .first(),
+    ]);
+    return { task, application, draft, connection, latestAttempt };
+  },
+});
+
+export const listDueApprovedGmailTasks = internalQuery({
+  args: {
+    demoUserId: v.optional(v.string()),
+    now: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const limit = boundedLimit(args.limit, 25);
+    const approved = await ctx.db
+      .query("followUpTasks")
+      .withIndex("by_demo_user_send_retry", (q: any) =>
+        q.eq("demoUserId", demoUserId).eq("sendState", "approved")
+      )
+      .take(limit);
+    const retry = await ctx.db
+      .query("followUpTasks")
+      .withIndex("by_demo_user_send_retry", (q: any) =>
+        q.eq("demoUserId", demoUserId).eq("sendState", "retry_scheduled").lte("nextRetryAt", args.now)
+      )
+      .take(limit);
+    return [...approved, ...retry]
+      .filter((task) => task.channel === "email" && task.autoSendEnabled)
+      .filter((task) => task.scheduledFor <= args.now || (task.nextRetryAt ?? "") <= args.now)
+      .slice(0, limit);
+  },
+});
+
+export const listGmailThreadsForSync = internalQuery({
+  args: { demoUserId: v.optional(v.string()), limit: v.optional(v.number()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const connection = await gmailConnection(ctx, demoUserId);
+    const tasks = await ctx.db
+      .query("followUpTasks")
+      .withIndex("by_demo_user_send_retry", (q: any) =>
+        q.eq("demoUserId", demoUserId).eq("sendState", "sent")
+      )
+      .take(boundedLimit(args.limit, 25));
+    const rows = await Promise.all(
+      tasks
+        .filter((task) => task.gmailThreadId)
+        .map(async (task) => ({
+          task,
+          application: await ctx.db.get(task.applicationId),
+          draft: task.draftId ? await ctx.db.get(task.draftId) : null,
+          connection,
+        }))
+    );
+    return rows.filter((row) => row.application && connection);
+  },
+});
+
+export const beginSendAttempt = internalMutation({
+  args: { taskId: v.id("followUpTasks") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("follow_up_task_not_found");
+    const existing = await ctx.db
+      .query("sendAttempts")
+      .withIndex("by_task", (q: any) => q.eq("taskId", args.taskId))
+      .collect();
+    const now = new Date().toISOString();
+    const attemptId = await ctx.db.insert("sendAttempts", {
+      demoUserId: task.demoUserId,
+      applicationId: task.applicationId,
+      taskId: task._id,
+      draftId: task.draftId,
+      provider: "gmail",
+      channel: "email",
+      state: "sending",
+      attemptNumber: existing.length + 1,
+      scheduledFor: task.nextRetryAt ?? now,
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.patch(task._id, {
+      sendState: "sending",
+      lastAttemptAt: now,
+      updatedAt: now,
+    });
+    return { attemptId, attemptNumber: existing.length + 1 };
+  },
+});
+
+export const markSendAttemptSent = internalMutation({
+  args: {
+    attemptId: v.id("sendAttempts"),
+    taskId: v.id("followUpTasks"),
+    draftId: v.optional(v.id("outreachDrafts")),
+    gmailDraftId: v.optional(v.string()),
+    gmailMessageId: v.optional(v.string()),
+    gmailThreadId: v.optional(v.string()),
+    gmailHistoryId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("follow_up_task_not_found");
+    const now = new Date().toISOString();
+    await ctx.db.patch(args.attemptId, omitUndefined({
+      state: "sent",
+      completedAt: now,
+      gmailDraftId: args.gmailDraftId,
+      gmailMessageId: args.gmailMessageId,
+      gmailThreadId: args.gmailThreadId,
+      gmailHistoryId: args.gmailHistoryId,
+      updatedAt: now,
+    }));
+    await ctx.db.patch(args.taskId, omitUndefined({
+      state: "sent_manually",
+      sendState: "sent",
+      completedAt: now,
+      gmailMessageId: args.gmailMessageId,
+      gmailThreadId: args.gmailThreadId,
+      gmailHistoryId: args.gmailHistoryId,
+      updatedAt: now,
+    }));
+    if (args.draftId) {
+      await ctx.db.patch(args.draftId, omitUndefined({
+        gmailDraftId: args.gmailDraftId,
+        syncedAt: now,
+        sentAt: now,
+        updatedAt: now,
+      }));
+    }
+    await ctx.db.patch(task.applicationId, {
+      status: "followed_up",
+      lastStatusAt: now,
+      updatedAt: now,
+    });
+    await refreshNextFollowUpAt(ctx, task.applicationId);
+    return null;
+  },
+});
+
+export const markSendAttemptFailed = internalMutation({
+  args: {
+    attemptId: v.id("sendAttempts"),
+    taskId: v.id("followUpTasks"),
+    state: v.union(v.literal("failed"), v.literal("blocked"), v.literal("unknown")),
+    errorCode: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    nextRetryAt: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+    const sendState =
+      args.state === "unknown"
+        ? "unknown"
+        : args.nextRetryAt
+          ? "retry_scheduled"
+          : "blocked";
+    await ctx.db.patch(args.attemptId, omitUndefined({
+      state: args.state,
+      completedAt: now,
+      errorCode: args.errorCode,
+      errorMessage: args.errorMessage,
+      nextRetryAt: args.nextRetryAt,
+      updatedAt: now,
+    }));
+    await ctx.db.patch(args.taskId, omitUndefined({
+      sendState,
+      nextRetryAt: args.nextRetryAt,
+      updatedAt: now,
+    }));
+    return null;
+  },
+});
+
+export const recordGmailResponse = internalMutation({
+  args: {
+    applicationId: v.id("applications"),
+    taskId: v.optional(v.id("followUpTasks")),
+    gmailMessageId: v.optional(v.string()),
+    gmailThreadId: v.optional(v.string()),
+    from: v.optional(v.string()),
+    subject: v.optional(v.string()),
+    snippet: v.optional(v.string()),
+    receivedAt: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const application = await ctx.db.get(args.applicationId);
+    if (!application) throw new Error("application_not_found");
+    if (args.gmailMessageId) {
+      const existing = await ctx.db
+        .query("applicationResponses")
+        .withIndex("by_gmail_message", (q: any) =>
+          q.eq("gmailMessageId", args.gmailMessageId)
+        )
+        .first();
+      if (existing) return false;
+    }
+    const now = new Date().toISOString();
+    await ctx.db.insert("applicationResponses", omitUndefined({
+      demoUserId: application.demoUserId,
+      applicationId: args.applicationId,
+      taskId: args.taskId,
+      channel: "email",
+      source: "gmail_thread_sync",
+      from: args.from,
+      subject: args.subject,
+      snippet: args.snippet,
+      gmailMessageId: args.gmailMessageId,
+      gmailThreadId: args.gmailThreadId,
+      receivedAt: args.receivedAt,
+      createdAt: now,
+    }));
+    await ctx.db.patch(args.applicationId, {
+      status: "responded",
+      responseAt: args.receivedAt,
+      responseSummary: args.snippet ?? "Gmail reply detected.",
+      lastStatusAt: args.receivedAt,
+      nextFollowUpAt: undefined,
+      updatedAt: now,
+    });
+    return true;
+  },
+});
+
+export const markGmailConnectionError = internalMutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    status: v.union(v.literal("reconnect_required"), v.literal("error")),
+    lastError: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = await gmailConnection(ctx, args.demoUserId ?? DEMO_USER_ID);
+    if (connection) {
+      await ctx.db.patch(connection._id, {
+        status: args.status,
+        lastError: args.lastError,
+        updatedAt: new Date().toISOString(),
+      });
+    }
     return null;
   },
 });
@@ -485,12 +842,55 @@ async function tasksByStateBefore(
 
 async function enrichTasks(ctx: any, tasks: any[]) {
   return await Promise.all(
-    tasks.map(async (task) => ({
-      ...task,
-      application: await ctx.db.get(task.applicationId),
-      draft: task.draftId ? await ctx.db.get(task.draftId) : null,
-    }))
+    tasks.map(async (task) => {
+      const [application, draft, latestAttempt, responses] = await Promise.all([
+        ctx.db.get(task.applicationId),
+        task.draftId ? ctx.db.get(task.draftId) : null,
+        ctx.db
+          .query("sendAttempts")
+          .withIndex("by_task", (q: any) => q.eq("taskId", task._id))
+          .order("desc")
+          .first(),
+        ctx.db
+          .query("applicationResponses")
+          .withIndex("by_application", (q: any) =>
+            q.eq("applicationId", task.applicationId)
+          )
+          .order("desc")
+          .take(3),
+      ]);
+      return {
+        ...task,
+        application,
+        draft,
+        latestAttempt,
+        responses,
+      };
+    })
   );
+}
+
+async function gmailConnection(ctx: any, demoUserId: string) {
+  return await ctx.db
+    .query("oauthConnections")
+    .withIndex("by_demo_provider", (q: any) =>
+      q.eq("demoUserId", demoUserId).eq("provider", "gmail")
+    )
+    .unique();
+}
+
+async function publicGmailConnection(ctx: any, demoUserId: string) {
+  const connection = await gmailConnection(ctx, demoUserId);
+  if (!connection) return null;
+  return {
+    provider: connection.provider,
+    accountEmail: connection.accountEmail,
+    scopes: connection.scopes,
+    status: connection.status,
+    lastError: connection.lastError,
+    connectedAt: connection.connectedAt,
+    lastSyncAt: connection.lastSyncAt,
+  };
 }
 
 function isResponseStatus(status: ApplicationStatus) {

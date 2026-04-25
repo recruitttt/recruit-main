@@ -48,6 +48,7 @@ type FollowUpAction =
       tone?: string;
     }
   | { action: "approve-draft"; draftId: string }
+  | { action: "toggle-auto-send"; taskId: string; autoSendEnabled: boolean }
   | { action: "manual-send"; taskId: string }
   | { action: "skip"; taskId: string }
   | { action: "reschedule"; taskId: string; scheduledFor: string }
@@ -143,6 +144,14 @@ export async function POST(req: Request) {
     if (body.action === "approve-draft") {
       await client.mutation(api.followups.approveOutreachDraft, {
         draftId: body.draftId as never,
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === "toggle-auto-send") {
+      await client.mutation(api.followups.setFollowUpAutoSend, {
+        taskId: body.taskId as never,
+        autoSendEnabled: body.autoSendEnabled,
       });
       return Response.json({ ok: true });
     }

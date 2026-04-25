@@ -22,6 +22,8 @@ import {
   Play,
   Power,
   Reply,
+  RefreshCw,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -129,6 +131,25 @@ type OutreachDraft = {
   recipient?: string;
   tone?: string;
   approvedAt?: string;
+  gmailDraftId?: string;
+  syncedAt?: string;
+  sentAt?: string;
+};
+
+type SendAttempt = {
+  state: "queued" | "sending" | "sent" | "failed" | "blocked" | "unknown";
+  attemptNumber: number;
+  nextRetryAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+type ApplicationResponse = {
+  _id?: string;
+  from?: string;
+  subject?: string;
+  snippet?: string;
+  receivedAt: string;
 };
 
 type FollowUpTask = {
@@ -140,12 +161,32 @@ type FollowUpTask = {
   completedAt?: string;
   draftId?: string;
   sequence?: number;
+  sendState?: "approved" | "sending" | "retry_scheduled" | "sent" | "blocked" | "unknown";
+  sendApprovedAt?: string;
+  autoSendEnabled?: boolean;
+  lastAttemptAt?: string;
+  nextRetryAt?: string;
+  gmailMessageId?: string;
+  gmailThreadId?: string;
   application?: FollowUpApplication | null;
   draft?: OutreachDraft | null;
+  latestAttempt?: SendAttempt | null;
+  responses?: ApplicationResponse[];
 };
+
+type GmailConnection = {
+  provider: "gmail";
+  accountEmail?: string;
+  scopes?: string[];
+  status: "connected" | "reconnect_required" | "error";
+  lastError?: string;
+  connectedAt?: string;
+  lastSyncAt?: string;
+} | null;
 
 type FollowUpSummary = {
   applications: FollowUpApplication[];
+  gmailConnection?: GmailConnection;
   dueTasks: FollowUpTask[];
   scheduledTasks: FollowUpTask[];
   counts: {
@@ -243,6 +284,9 @@ type FollowUpControls = {
   onGenerateDraft: (applicationId: string, channel: FollowUpTask["channel"], taskId?: string) => void;
   onUpdateDraft: (draftId: string, fields: Partial<Pick<OutreachDraft, "subject" | "body" | "recipient" | "tone">>) => void;
   onApproveDraft: (draftId: string) => void;
+  onSendGmail: (taskId: string) => void;
+  onToggleAutoSend: (taskId: string, autoSendEnabled: boolean) => void;
+  onSyncGmailReplies: () => void;
   onManualSend: (taskId: string) => void;
   onSkipTask: (taskId: string) => void;
   onRecordResponse: (applicationId: string, status: FollowUpApplication["status"], responseSummary: string) => void;
@@ -929,6 +973,8 @@ function FollowUpsPanel({ controls }: { controls?: FollowUpControls }) {
   }
 
   const rows = summary.dueTasks.length > 0 ? summary.dueTasks : summary.scheduledTasks.slice(0, 6);
+  const gmail = summary.gmailConnection;
+  const gmailConnected = gmail?.status === "connected";
 
   return (
     <Panel
@@ -942,9 +988,44 @@ function FollowUpsPanel({ controls }: { controls?: FollowUpControls }) {
             <FollowUpStat label="Responses" value={summary.counts.responses} />
             <FollowUpStat label="Interviews" value={summary.counts.interviews} />
           </div>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            Outreach is draft-only. Email and LinkedIn actions create editable copy and require a manual send confirmation.
-          </p>
+          <div className="mt-4 rounded-[14px] border border-white/45 bg-white/30 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-slate-950">Gmail</div>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {gmailConnected
+                    ? `Connected as ${gmail.accountEmail ?? "Gmail account"}`
+                    : gmail?.status === "reconnect_required"
+                      ? "Reconnect required before sending."
+                      : "Connect Gmail to send approved email drafts."}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  window.location.href = "/api/google/oauth/start";
+                }}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {gmailConnected ? "Reconnect" : "Connect"}
+              </Button>
+            </div>
+            {gmail?.lastError ? (
+              <div className="mt-2 text-xs text-rose-700">{gmail.lastError}</div>
+            ) : null}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={controls.onSyncGmailReplies}
+              disabled={controls.busy || !gmailConnected}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Sync replies
+            </Button>
+          </div>
         </GlassCard>
         <div className="space-y-3">
           {rows.length === 0 ? (
@@ -974,6 +1055,11 @@ function FollowUpTaskCard({ task, controls }: { task: FollowUpTask; controls: Fo
   const application = task.application;
   const draft = task.draft;
   const due = task.scheduledFor <= new Date().toISOString();
+  const gmailConnected = controls.summary?.gmailConnection?.status === "connected";
+  const isEmail = task.channel === "email";
+  const draftApproved = Boolean(draft?.approvedAt);
+  const canSendGmail = isEmail && draftApproved && gmailConnected && task.sendState !== "sent";
+  const sendLabel = task.sendState === "retry_scheduled" || task.sendState === "blocked" ? "Retry now" : "Send now";
   return (
     <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -981,6 +1067,7 @@ function FollowUpTaskCard({ task, controls }: { task: FollowUpTask; controls: Fo
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone={due ? "warning" : "neutral"}>{due ? "due" : "scheduled"}</Pill>
             <Pill tone={task.state === "draft_ready" ? "active" : "neutral"}>{task.channel}</Pill>
+            {task.sendState ? <Pill tone={sendTone(task.sendState)}>{sendLabelFor(task)}</Pill> : null}
           </div>
           <div className="mt-2 text-sm font-semibold text-slate-950">
             {application ? `${application.company} - ${application.title}` : "Application follow-up"}
@@ -1006,6 +1093,26 @@ function FollowUpTaskCard({ task, controls }: { task: FollowUpTask; controls: Fo
             <Check className="h-3.5 w-3.5" />
             Sent manually
           </Button>
+          {isEmail ? (
+            <>
+              <Button
+                size="sm"
+                onClick={() => controls.onSendGmail(task._id)}
+                disabled={controls.busy || !canSendGmail}
+              >
+                {task.sendState === "sending" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {sendLabel}
+              </Button>
+              <Button
+                size="sm"
+                variant={task.autoSendEnabled ? "primary" : "secondary"}
+                onClick={() => controls.onToggleAutoSend(task._id, !task.autoSendEnabled)}
+                disabled={controls.busy || !draftApproved}
+              >
+                Auto-send {task.autoSendEnabled ? "on" : "off"}
+              </Button>
+            </>
+          ) : null}
           <Button
             size="sm"
             variant="secondary"
@@ -1018,6 +1125,17 @@ function FollowUpTaskCard({ task, controls }: { task: FollowUpTask; controls: Fo
       </div>
       {draft ? (
         <DraftEditor draft={draft} controls={controls} />
+      ) : null}
+      {task.latestAttempt?.errorMessage ? (
+        <div className="mt-3 rounded-[12px] border border-rose-200 bg-rose-50/70 px-3 py-2 text-xs text-rose-800">
+          {task.latestAttempt.errorMessage}
+          {task.latestAttempt.nextRetryAt ? ` Retry ${formatDateShort(task.latestAttempt.nextRetryAt)}.` : ""}
+        </div>
+      ) : null}
+      {task.responses?.length ? (
+        <div className="mt-3 rounded-[12px] border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
+          Reply detected from {task.responses[0].from ?? "Gmail"}: {task.responses[0].snippet ?? "response captured"}
+        </div>
       ) : null}
     </div>
   );
@@ -1399,6 +1517,20 @@ function statusTone(status: FollowUpApplication["status"]): StatusTone {
   return "neutral";
 }
 
+function sendLabelFor(task: FollowUpTask) {
+  if (task.sendState === "retry_scheduled") return "retry scheduled";
+  if (task.sendState === "approved") return task.autoSendEnabled ? "auto approved" : "approved";
+  if (task.sendState === "unknown") return "needs reconcile";
+  return task.sendState?.replace(/_/g, " ") ?? "pending";
+}
+
+function sendTone(state: NonNullable<FollowUpTask["sendState"]>): StatusTone {
+  if (state === "sent") return "success";
+  if (state === "blocked" || state === "unknown") return "warning";
+  if (state === "sending" || state === "approved") return "active";
+  return "neutral";
+}
+
 function formatLogTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--:--:--";
@@ -1672,7 +1804,7 @@ function ConnectedRecruitDashboard() {
       taskId,
       channel,
       profile: readProfile(),
-    }, "Draft generated. Review it before sending manually.");
+    }, "Draft generated. Review and approve it before sending.");
   }
 
   function updateFollowUpDraft(
@@ -1690,7 +1822,53 @@ function ConnectedRecruitDashboard() {
     void postFollowUpAction({
       action: "approve-draft",
       draftId,
-    }, "Draft approved. It still requires manual sending.");
+    }, "Draft approved. Gmail send is now eligible when connected.");
+  }
+
+  async function postFollowUpEndpoint(endpoint: string, payload: Record<string, unknown>, successMessage: string) {
+    try {
+      setFollowUpBusy(true);
+      setFollowUpError(undefined);
+      setFollowUpMessage(successMessage);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => null) as { ok?: boolean; reason?: string } | null;
+      if (!response.ok || body?.ok === false) {
+        throw new Error(body?.reason ?? `followups_${response.status}`);
+      }
+      await refreshLiveData();
+    } catch (err) {
+      setFollowUpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFollowUpBusy(false);
+    }
+  }
+
+  function sendGmailFollowUp(taskId: string) {
+    void postFollowUpEndpoint(
+      "/api/dashboard/followups/send-gmail",
+      { taskId },
+      "Gmail send requested."
+    );
+  }
+
+  function toggleAutoSend(taskId: string, autoSendEnabled: boolean) {
+    void postFollowUpAction({
+      action: "toggle-auto-send",
+      taskId,
+      autoSendEnabled,
+    }, autoSendEnabled ? "Auto-send enabled for this approved draft." : "Auto-send disabled.");
+  }
+
+  function syncGmailReplies() {
+    void postFollowUpEndpoint(
+      "/api/dashboard/followups/sync-gmail-thread",
+      {},
+      "Checking Gmail threads for replies."
+    );
   }
 
   function markFollowUpSent(taskId: string) {
@@ -1737,6 +1915,9 @@ function ConnectedRecruitDashboard() {
           onGenerateDraft: generateFollowUpDraft,
           onUpdateDraft: updateFollowUpDraft,
           onApproveDraft: approveFollowUpDraft,
+          onSendGmail: sendGmailFollowUp,
+          onToggleAutoSend: toggleAutoSend,
+          onSyncGmailReplies: syncGmailReplies,
           onManualSend: markFollowUpSent,
           onSkipTask: skipFollowUpTask,
           onRecordResponse: recordApplicationResponse,

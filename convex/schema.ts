@@ -260,6 +260,21 @@ export default defineSchema({
     completedAt: v.optional(isoString),
     draftId: v.optional(v.id("outreachDrafts")),
     sequence: v.optional(v.number()),
+    sendState: v.optional(v.union(
+      v.literal("approved"),
+      v.literal("sending"),
+      v.literal("retry_scheduled"),
+      v.literal("sent"),
+      v.literal("blocked"),
+      v.literal("unknown")
+    )),
+    sendApprovedAt: v.optional(isoString),
+    autoSendEnabled: v.optional(v.boolean()),
+    lastAttemptAt: v.optional(isoString),
+    nextRetryAt: v.optional(isoString),
+    gmailMessageId: v.optional(v.string()),
+    gmailThreadId: v.optional(v.string()),
+    gmailHistoryId: v.optional(v.string()),
     createdAt: isoString,
     updatedAt: isoString,
   })
@@ -268,6 +283,11 @@ export default defineSchema({
       "demoUserId",
       "state",
       "scheduledFor",
+    ])
+    .index("by_demo_user_send_retry", [
+      "demoUserId",
+      "sendState",
+      "nextRetryAt",
     ]),
 
   outreachDrafts: defineTable({
@@ -285,11 +305,85 @@ export default defineSchema({
     tone: v.optional(v.string()),
     source: v.string(),
     approvedAt: v.optional(isoString),
+    gmailDraftId: v.optional(v.string()),
+    syncedAt: v.optional(isoString),
+    sentAt: v.optional(isoString),
     createdAt: isoString,
     updatedAt: isoString,
   })
     .index("by_application", ["applicationId"])
     .index("by_task", ["taskId"]),
+
+  sendAttempts: defineTable({
+    demoUserId: v.string(),
+    applicationId: v.id("applications"),
+    taskId: v.optional(v.id("followUpTasks")),
+    draftId: v.optional(v.id("outreachDrafts")),
+    provider: v.union(v.literal("gmail")),
+    channel: v.union(v.literal("email")),
+    state: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("blocked"),
+      v.literal("unknown")
+    ),
+    attemptNumber: v.number(),
+    scheduledFor: isoString,
+    startedAt: v.optional(isoString),
+    completedAt: v.optional(isoString),
+    nextRetryAt: v.optional(isoString),
+    errorCode: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    gmailDraftId: v.optional(v.string()),
+    gmailMessageId: v.optional(v.string()),
+    gmailThreadId: v.optional(v.string()),
+    gmailHistoryId: v.optional(v.string()),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_application", ["applicationId", "createdAt"])
+    .index("by_state_retry", ["state", "nextRetryAt"]),
+
+  oauthConnections: defineTable({
+    demoUserId: v.string(),
+    provider: v.union(v.literal("gmail")),
+    accountEmail: v.optional(v.string()),
+    scopes: v.array(v.string()),
+    encryptedRefreshToken: v.optional(v.string()),
+    status: v.union(
+      v.literal("connected"),
+      v.literal("reconnect_required"),
+      v.literal("error")
+    ),
+    lastError: v.optional(v.string()),
+    connectedAt: v.optional(isoString),
+    lastSyncAt: v.optional(isoString),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_demo_provider", ["demoUserId", "provider"])
+    .index("by_provider_status", ["provider", "status"]),
+
+  applicationResponses: defineTable({
+    demoUserId: v.string(),
+    applicationId: v.id("applications"),
+    taskId: v.optional(v.id("followUpTasks")),
+    sendAttemptId: v.optional(v.id("sendAttempts")),
+    channel: v.union(v.literal("email"), v.literal("manual")),
+    source: v.string(),
+    from: v.optional(v.string()),
+    subject: v.optional(v.string()),
+    snippet: v.optional(v.string()),
+    gmailMessageId: v.optional(v.string()),
+    gmailThreadId: v.optional(v.string()),
+    receivedAt: isoString,
+    createdAt: isoString,
+  })
+    .index("by_application", ["applicationId", "receivedAt"])
+    .index("by_gmail_message", ["gmailMessageId"]),
 
   jobPipelineArtifacts: defineTable({
     demoUserId: v.string(),

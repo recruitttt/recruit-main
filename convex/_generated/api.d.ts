@@ -10,6 +10,7 @@
 
 import type * as ashby from "../ashby.js";
 import type * as ashbyActions from "../ashbyActions.js";
+import type * as followupActions from "../followupActions.js";
 import type * as followups from "../followups.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ashby: typeof ashby;
   ashbyActions: typeof ashbyActions;
+  followupActions: typeof followupActions;
   followups: typeof followups;
 }>;
 
