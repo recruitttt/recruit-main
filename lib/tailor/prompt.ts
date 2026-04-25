@@ -77,15 +77,16 @@ CORE DOCTRINE: REFORMULATION ONLY, NEVER FABRICATION.
 You may reformulate the candidate's real experience using the exact vocabulary of the job description. You may never add skills, employers, projects, or metrics the candidate does not have.
 
 HARD RULES:
-1. Never fabricate experience, employers, dates, metrics, or skills not in the profile. If the JD asks for X and the candidate doesn't have X, do not add X.
+1. Never fabricate experience, employers, dates, metrics, skills, or projects not in the profile. If the JD asks for X and the candidate doesn't have X, do not add X.
 2. You may reorder, reshape, and rephrase existing bullets. You may merge two of the candidate's own bullets into one tighter line. You may not invent accomplishments, projects, or technologies.
 3. Skills array: only include skills the candidate actually has. Reorder so JD-relevant skills come first. Drop skills that are noise for this job. Max 12.
 4. Bullets: each one starts with a strong verb, fits at 11pt on one line (target 14-18 words), keeps any metrics that exist in the source bullet. If the source has no metric, do not invent one. 3-5 bullets per role.
-5. Headline + summary: rewrite through the lens of this job's responsibilities. Use the company's own vocabulary where it honestly maps to the candidate's real experience.
-6. KEYWORD PLACEMENT: extract the top 5 keywords from research.requirements + research.techStack. Place them in (a) the summary, (b) the FIRST bullet of EACH role where they honestly apply, and (c) the skills section.
-7. ANTI-CLICHE: never use "passionate about", "leveraged", "spearheaded", "synergy", "results-driven", "team player". Use active voice with concrete verbs ("Cut latency from 2.1s to 380ms", not "Improved performance").
-8. tailoringNotes.confidence: honest 0-100 self-assessment of fit. Calibrated 60 beats fake 90.
-9. tailoringNotes.gaps: list 0-3 hard JD requirements the candidate does NOT meet. Be honest. Empty array if the candidate fits cleanly.
+5. STRICT PDF STRUCTURE: the rendered resume will contain only Header, Experience, Education, Skills, Projects. Still return headline/summary for app compatibility, but do not rely on them for quality.
+6. Projects array: include 0-3 projects only from profile.github.topRepos. Use the exact repo/project name and URL. Do not invent project names, metrics, users, or technologies.
+7. KEYWORD PLACEMENT: extract the top 5 keywords from research.requirements + research.techStack. Place them in the FIRST bullet of EACH role where they honestly apply, in project bullets where supported, and in the skills section.
+8. ANTI-CLICHE: never use "passionate about", "leveraged", "spearheaded", "synergy", "results-driven", "team player". Use active voice with concrete verbs ("Cut latency from 2.1s to 380ms", not "Improved performance").
+9. tailoringNotes.confidence: honest 0-100 self-assessment of fit. Calibrated 60 beats fake 90.
+10. tailoringNotes.gaps: list 0-3 hard JD requirements the candidate does NOT meet. Be honest. Empty array if the candidate fits cleanly.
 
 Reformulation examples (this is what the move looks like):
 - JD says "RAG pipelines", profile says "LLM workflows with retrieval" → output "RAG pipeline design and LLM orchestration workflows."
@@ -115,12 +116,17 @@ Return strictly valid JSON matching this schema. No prose, no markdown, no code 
   "education": [
     { "school": string, "degree": string, "field": string, "endDate": string }
   ],
+  "projects": [
+    { "name": string, "url": string, "technologies": string[], "bullets": string[] }
+  ],
   "coverLetterBlurb": string,
   "tailoringNotes": {
     "matchedKeywords": string[],
     "emphasizedExperience": string[],
     "gaps": string[],
-    "confidence": number
+    "confidence": number,
+    "qualityIssues": string[],
+    "qualityChecks": { "passed": string[], "failed": string[] }
   }
 }`;
 
@@ -163,6 +169,7 @@ export function compactProfileForPrompt(profile: UserProfile) {
             description: r.description,
             language: r.language,
             stars: r.stars,
+            url: r.url,
           })),
         }
       : undefined,
