@@ -905,12 +905,15 @@ function DashboardMain({
     <>
       <DashboardTabBar tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
+        {tab === "today" && (
         <DashboardTabPanel id="today" active={tab} reducedMotion={reducedMotion}>
           <AsyncOnboardingBanner run={controls?.run} logs={controls?.logs} />
           <KpiGrid metrics={seed.metrics} reducedMotion={reducedMotion} />
           <ActiveRunPanel seed={seed} controls={controls} />
         </DashboardTabPanel>
+        )}
 
+        {tab === "applications" && (
         <DashboardTabPanel id="applications" active={tab} reducedMotion={reducedMotion}>
           <div id="applications" className="scroll-mt-24">
             <ApplicationPipelinePanel
@@ -923,7 +926,9 @@ function DashboardMain({
           <SelectedJobPanel tailoring={tailoring} />
           <FollowUpsPanel controls={tailoring?.followUps} />
         </DashboardTabPanel>
+        )}
 
+        {tab === "activity" && (
         <DashboardTabPanel id="activity" active={tab} reducedMotion={reducedMotion}>
           <Panel title="Provider Coverage">
             <div className="space-y-2">
@@ -994,6 +999,7 @@ function DashboardMain({
             </div>
           </div>
         </DashboardTabPanel>
+        )}
       </AnimatePresence>
     </>
   );
