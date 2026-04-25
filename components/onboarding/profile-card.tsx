@@ -133,6 +133,14 @@ export function ProfileCard() {
             </Section>
           )}
 
+          {profile.summary && (
+            <Section key="summary" title="Bio">
+              <p className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed line-clamp-4">
+                {profile.summary}
+              </p>
+            </Section>
+          )}
+
           {hasResume && profile.resume && (
             <Section key="resume" title="Resume">
               <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
@@ -165,6 +173,42 @@ export function ProfileCard() {
             </Section>
           )}
 
+          {profile.github?.topRepos && profile.github.topRepos.length > 0 && (
+            <Section key="github-repos" title="GitHub">
+              {profile.github.bio && (
+                <p className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed mb-1.5">
+                  {profile.github.bio}
+                </p>
+              )}
+              <div className="space-y-1">
+                {profile.github.topRepos.slice(0, 3).map((repo, i) => (
+                  <motion.div
+                    key={repo.name}
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.25 }}
+                    className="rounded-md bg-[var(--color-surface-1)]/60 px-2.5 py-1.5"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-mono text-[var(--color-fg)]">{repo.name}</span>
+                      {repo.language && (
+                        <span className="text-[10px] font-mono text-[var(--color-fg-subtle)] rounded-full border border-[var(--color-border)] px-1.5 py-0.5">
+                          {repo.language}
+                        </span>
+                      )}
+                      {repo.stars != null && repo.stars > 0 && (
+                        <span className="ml-auto text-[10px] font-mono text-[var(--color-fg-subtle)]">★ {repo.stars}</span>
+                      )}
+                    </div>
+                    {repo.description && (
+                      <div className="text-[11px] text-[var(--color-fg-subtle)] truncate mt-0.5">{repo.description}</div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            </Section>
+          )}
+
           {hasExperience && (
             <Section key="experience" title="Experience">
               <div className="space-y-1.5">
@@ -185,6 +229,11 @@ export function ProfileCard() {
                         {e.company}
                         {e.startDate && ` · ${e.startDate}${e.endDate ? ` – ${e.endDate}` : ""}`}
                       </div>
+                      {e.description && (
+                        <div className="text-[11px] text-[var(--color-fg-subtle)] line-clamp-2 mt-0.5 leading-relaxed">
+                          {e.description}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
