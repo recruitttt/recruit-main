@@ -10,6 +10,7 @@ export type Job = {
   role: string;
   jobUrl: string;
   location?: string;
+  descriptionPlain?: string;
   logoBg?: string;
   logoText?: string;
 };
@@ -27,7 +28,7 @@ export type JobResearch = {
   companyProducts: string[];
   cultureSignals: string[];
   recentNews?: string[];
-  source: "deep-research" | "firecrawl-fallback" | "title-only";
+  source: "ingested-description" | "deep-research" | "firecrawl-fallback" | "title-only";
   modelDurationMs: number;
 };
 
@@ -47,11 +48,23 @@ export type TailoredEducation = {
   endDate?: string;
 };
 
+export type TailoredProject = {
+  name: string;
+  url?: string;
+  technologies?: string[];
+  bullets: string[];
+};
+
 export type TailoringNotes = {
   matchedKeywords: string[];
   emphasizedExperience: string[];
   gaps: string[];
   confidence: number;
+  qualityIssues?: string[];
+  qualityChecks?: {
+    passed: string[];
+    failed: string[];
+  };
 };
 
 export type TailoredResume = {
@@ -64,6 +77,7 @@ export type TailoredResume = {
   skills: string[];
   experience: TailoredExperience[];
   education: TailoredEducation[];
+  projects: TailoredProject[];
   coverLetterBlurb?: string;
   tailoringNotes: TailoringNotes;
 };
