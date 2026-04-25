@@ -216,42 +216,71 @@ export function AgentFigure({
 }
 
 function BlinkingEyes({ agentId }: { agentId: AgentId }) {
-  const left = useRef<THREE.Mesh>(null);
-  const right = useRef<THREE.Mesh>(null);
+  const frontLeft = useRef<THREE.Mesh>(null);
+  const frontRight = useRef<THREE.Mesh>(null);
+  const rearLeft = useRef<THREE.Mesh>(null);
+  const rearRight = useRef<THREE.Mesh>(null);
   const timing = useMemo(() => blinkTiming(agentId), [agentId]);
 
   useFrame(({ clock }) => {
     const openness = blinkOpenness(clock.elapsedTime, timing.period, timing.offset);
     const scaleY = Math.max(0.08, openness);
-    if (left.current) left.current.scale.y = scaleY;
-    if (right.current) right.current.scale.y = scaleY;
+    for (const eye of [frontLeft, frontRight, rearLeft, rearRight]) {
+      if (eye.current) eye.current.scale.y = scaleY;
+    }
   });
 
   return (
-    <group position={[0, 0.035, 0.264]} renderOrder={4}>
-      <mesh ref={left} position={[-0.12, 0, 0]}>
-        <planeGeometry args={[0.074, 0.084]} />
-        <meshBasicMaterial
-          color="#050505"
-          toneMapped={false}
-          depthWrite={false}
-          polygonOffset
-          polygonOffsetFactor={-4}
-          polygonOffsetUnits={-4}
-        />
-      </mesh>
-      <mesh ref={right} position={[0.12, 0, 0]}>
-        <planeGeometry args={[0.074, 0.084]} />
-        <meshBasicMaterial
-          color="#050505"
-          toneMapped={false}
-          depthWrite={false}
-          polygonOffset
-          polygonOffsetFactor={-4}
-          polygonOffsetUnits={-4}
-        />
-      </mesh>
+    <>
+      <EyePair left={frontLeft} right={frontRight} position={[0, 0.035, 0.264]} />
+      <EyePair
+        left={rearLeft}
+        right={rearRight}
+        position={[0, 0.035, -0.264]}
+        rotation={[0, Math.PI, 0]}
+      />
+    </>
+  );
+}
+
+function EyePair({
+  left,
+  right,
+  position,
+  rotation,
+}: {
+  left: RefObject<THREE.Mesh | null>;
+  right: RefObject<THREE.Mesh | null>;
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
+  return (
+    <group position={position} rotation={rotation} renderOrder={4}>
+      <Eye eyeRef={left} x={-0.12} />
+      <Eye eyeRef={right} x={0.12} />
     </group>
+  );
+}
+
+function Eye({
+  eyeRef,
+  x,
+}: {
+  eyeRef: RefObject<THREE.Mesh | null>;
+  x: number;
+}) {
+  return (
+    <mesh ref={eyeRef} position={[x, 0, 0]} renderOrder={4}>
+      <planeGeometry args={[0.088, 0.096]} />
+      <meshBasicMaterial
+        color="#050505"
+        toneMapped={false}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-4}
+        polygonOffsetUnits={-4}
+      />
+    </mesh>
   );
 }
 
