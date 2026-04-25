@@ -2,15 +2,46 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Mark } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
 import { ArrowRight, Loader2, Lock, Mail, User } from "lucide-react";
 
 type AuthMode = "sign-in" | "sign-up";
 
+function authErrorMessage(mode: AuthMode, error: unknown) {
+  const fallback =
+    mode === "sign-in"
+      ? "Unable to sign in. Check your email and password, then try again."
+      : "Unable to create the account. Check the details and try again.";
+
+  if (!error || typeof error !== "object") return fallback;
+
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : "error" in error &&
+          error.error &&
+          typeof error.error === "object" &&
+          "message" in error.error &&
+          typeof error.error.message === "string"
+        ? error.error.message
+        : null;
+
+  if (!message) return fallback;
+  if (/fetch failed|network|failed to fetch/i.test(message)) {
+    return "Auth service is unavailable right now. Try again in a minute.";
+  }
+  if (/invalid|credential|password|user|not found|authentication failed/i.test(message)) {
+    return mode === "sign-in"
+      ? "No account matched that email and password. Create an account first or try again."
+      : "Unable to create the account with those details. Try a different email or password.";
+  }
+
+  return message;
+}
+
 export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -37,27 +68,31 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
     setError(null);
     setPendingAction("email");
 
-    const result = isSignUp
-      ? await authClient.signUp.email({
-          email,
-          password,
-          name: name || email.split("@")[0] || "Recruit user",
-          callbackURL,
-        })
-      : await authClient.signIn.email({
-          email,
-          password,
-          callbackURL,
-        });
+    try {
+      const result = isSignUp
+        ? await authClient.signUp.email({
+            email,
+            password,
+            name: name || email.split("@")[0] || "Recruit user",
+            callbackURL,
+          })
+        : await authClient.signIn.email({
+            email,
+            password,
+            callbackURL,
+          });
 
-    setPendingAction(null);
-    if (result.error) {
-      setError(result.error.message ?? "Authentication failed.");
-      return;
+      if (result.error) {
+        setError(authErrorMessage(mode, result.error));
+        return;
+      }
+
+      window.location.assign(callbackURL);
+    } catch (error) {
+      setError(authErrorMessage(mode, error));
+    } finally {
+      setPendingAction(null);
     }
-
-    router.push(callbackURL);
-    router.refresh();
   }
 
   return (
