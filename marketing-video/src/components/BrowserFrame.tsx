@@ -20,26 +20,26 @@ export const BrowserFrame: React.FC<Props> = ({
       style={{
         width,
         height,
-        background: theme.white,
-        borderRadius: 22,
-        boxShadow:
-          "0 30px 80px -20px rgba(34,32,28,0.35), 0 8px 22px -8px rgba(34,32,28,0.18)",
+        background: theme.surface,
+        borderRadius: theme.radiusPanel,
+        boxShadow: theme.shadow,
         overflow: "hidden",
-        border: `1px solid ${theme.outline}`,
+        border: `1px solid ${theme.borderStrong}`,
         display: "flex",
         flexDirection: "column",
+        backdropFilter: "blur(28px)",
         ...style,
       }}
     >
       <div
         style={{
-          height: 44,
-          background: theme.paperDeep,
+          height: 58,
+          background: "rgba(255,255,255,0.54)",
           display: "flex",
           alignItems: "center",
-          padding: "0 18px",
+          padding: "0 22px",
           gap: 8,
-          borderBottom: `1px solid ${theme.outline}`,
+          borderBottom: `1px solid ${theme.border}`,
         }}
       >
         <Dot color="#E27664" />
@@ -48,23 +48,49 @@ export const BrowserFrame: React.FC<Props> = ({
         <div
           style={{
             flex: 1,
-            margin: "0 24px",
-            height: 26,
-            background: theme.white,
-            borderRadius: 8,
+            margin: "0 34px",
+            height: 34,
+            background: "rgba(255,255,255,0.70)",
+            borderRadius: 999,
             display: "flex",
             alignItems: "center",
-            paddingLeft: 14,
-            color: theme.inkSoft,
+            paddingLeft: 18,
+            color: theme.textMuted,
             fontFamily: theme.fontUi,
             fontSize: 13,
-            border: `1px solid ${theme.outline}`,
+            border: `1px solid ${theme.borderStrong}`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
           }}
         >
-          <span style={{ marginRight: 8 }}>🔒</span>
+          <span style={{ marginRight: 8, color: theme.textSubtle }}>secure</span>
           {url}
         </div>
-        <div style={{ width: 60 }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            height: 32,
+            padding: "0 14px",
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.64)",
+            border: `1px solid ${theme.borderStrong}`,
+            color: theme.success,
+            fontFamily: theme.fontUi,
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: theme.success,
+            }}
+          />
+          live
+        </div>
       </div>
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {children}
