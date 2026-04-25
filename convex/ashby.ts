@@ -141,6 +141,61 @@ export const jobDetail = query({
   },
 });
 
+export const latestPipelineLogs = query({
+  args: {
+    demoUserId: v.optional(v.string()),
+    runId: v.optional(v.id("ingestionRuns")),
+    limit: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const limit = Math.min(Math.max(args.limit ?? 200, 1), 500);
+    const docs = args.runId
+      ? await ctx.db
+          .query("pipelineLogs")
+          .withIndex("by_run", (q) => q.eq("runId", args.runId))
+          .order("desc")
+          .take(limit)
+      : await ctx.db
+          .query("pipelineLogs")
+          .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+          .order("desc")
+          .take(limit);
+
+    return docs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  },
+});
+
+export const appendPipelineLog = internalMutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    runId: v.optional(v.id("ingestionRuns")),
+    stage: v.string(),
+    level: v.union(
+      v.literal("info"),
+      v.literal("success"),
+      v.literal("warning"),
+      v.literal("error")
+    ),
+    message: v.string(),
+    payload: v.optional(v.any()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("pipelineLogs", omitUndefined({
+      demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      runId: args.runId,
+      stage: args.stage,
+      level: args.level,
+      message: args.message,
+      payload: args.payload,
+      createdAt: new Date().toISOString(),
+    }));
+    return null;
+  },
+});
+
 export const upsertAshbySources = internalMutation({
   args: { sources: v.array(v.any()) },
   returns: v.object({ upserted: v.number() }),

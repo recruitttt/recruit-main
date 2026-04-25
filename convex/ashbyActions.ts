@@ -78,6 +78,12 @@ export const seedAshbySourcesFromCareerOps = action({
     const result = await ctx.runMutation(anyApi.ashby.upsertAshbySources, {
       sources,
     });
+    await appendPipelineLog(ctx, {
+      stage: "sources",
+      level: "success",
+      message: `Seeded ${result.upserted} Ashby sources from ${sources.length} candidates.`,
+      payload: { upserted: result.upserted, sourceCount: sources.length },
+    });
     return {
       upserted: result.upserted,
       sourceCount: sources.length,
@@ -109,6 +115,19 @@ export const runAshbyIngestion = action({
       demoUserId,
       sourceCount: sources.length,
     });
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId,
+      stage: "ingestion",
+      level: "info",
+      message: `Started Ashby ingestion for ${sources.length} sources.`,
+      payload: {
+        sources: sources.map((source) => ({
+          company: source.company,
+          slug: source.slug,
+        })),
+      },
+    });
 
     try {
       const errors: Array<{ source: string; message: string }> = [];
@@ -118,9 +137,25 @@ export const runAshbyIngestion = action({
 
       await parallelMap(sources, 5, async (source) => {
         try {
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "info",
+            message: `Fetching ${source.company} (${source.slug}).`,
+            payload: { company: source.company, slug: source.slug },
+          });
           const json = await fetchAshbyBoard(source.slug);
           const jobs = Array.isArray(json.jobs) ? (json.jobs as AshbyApiJob[]) : [];
           fetchedCount++;
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "success",
+            message: `Fetched ${jobs.length} jobs from ${source.company}.`,
+            payload: { company: source.company, slug: source.slug, jobCount: jobs.length },
+          });
 
           for (const job of jobs) {
             if (job.isListed === false) continue;
@@ -135,6 +170,18 @@ export const runAshbyIngestion = action({
             source: source.company,
             message: err instanceof Error ? err.message : String(err),
           });
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "error",
+            message: `Failed to fetch ${source.company}.`,
+            payload: {
+              company: source.company,
+              slug: source.slug,
+              error: err instanceof Error ? err.message : String(err),
+            },
+          });
         }
       });
 
@@ -145,6 +192,19 @@ export const runAshbyIngestion = action({
         fetchedCount,
         jobs: toConvexValue(normalizedJobs),
         errors,
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "storage",
+        level: stored.errorCount > 0 ? "warning" : "success",
+        message: `Stored ${stored.rawJobCount} scraped jobs with ${stored.errorCount} source errors.`,
+        payload: {
+          rawJobCount: stored.rawJobCount,
+          errorCount: stored.errorCount,
+          fetchedCount,
+          sourceCount: sources.length,
+        },
       });
 
       return {
@@ -160,6 +220,14 @@ export const runAshbyIngestion = action({
         source: "ingestion",
         message: err instanceof Error ? err.message : String(err),
       });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "ingestion",
+        level: "error",
+        message: "Ashby ingestion failed.",
+        payload: { error: err instanceof Error ? err.message : String(err) },
+      });
       throw err;
     }
   },
@@ -174,6 +242,13 @@ export const rankIngestionRun = action({
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
     await ctx.runMutation(anyApi.ashby.markRunRanking, { runId: args.runId });
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId: args.runId,
+      stage: "ranking",
+      level: "info",
+      message: "Started ranking ingested jobs.",
+    });
 
     try {
       const payload = await ctx.runQuery(anyApi.ashby.getRunForRanking, {
@@ -182,6 +257,14 @@ export const rankIngestionRun = action({
       });
       const profile = (payload.profile ?? {}) as RankingProfile;
       const jobs = (payload.jobs ?? []) as any[];
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "ranking",
+        level: "info",
+        message: `Loaded ${jobs.length} ingested jobs for ranking.`,
+        payload: { jobCount: jobs.length, profileKeys: Object.keys(profile).length },
+      });
 
       const decisions: any[] = [];
       const survivors: Array<RankingJob & { _id: string; rawDoc: any }> = [];
@@ -199,10 +282,35 @@ export const rankIngestionRun = action({
           survivors.push({ ...job, _id: doc._id, rawDoc: doc });
         }
       }
+      const rejectedCount = decisions.filter((decision) => decision.status === "rejected").length;
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "filter",
+        level: "info",
+        message: `Applied hard filters: ${survivors.length} kept, ${rejectedCount} rejected.`,
+        payload: { kept: survivors.length, rejected: rejectedCount },
+      });
 
       const candidates = rankWithMiniSearch(survivors, profile, decisions);
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "ranking",
+        level: "info",
+        message: `BM25 ranked ${candidates.length} candidates.`,
+        payload: { candidateCount: candidates.length },
+      });
       const topForLlm = candidates.slice(0, MAX_LLM_CANDIDATES);
       const llm = await scoreCandidatesWithLlm(profile, topForLlm);
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "scoring",
+        level: llm.mode === "heuristic_fallback" ? "warning" : "success",
+        message: `Scored ${llm.scores.length} candidates using ${llm.mode}.`,
+        payload: { mode: llm.mode, model: llm.model, scoredCount: llm.scores.length },
+      });
       const llmById = new Map(llm.scores.map((score) => [score.jobId, score]));
 
       const scores = candidates.map((candidate) => {
@@ -263,6 +371,14 @@ export const rankIngestionRun = action({
         model: llm.model,
         scoringMode: llm.mode,
       });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "recommendations",
+        level: "success",
+        message: `Wrote ${result.recommendedCount} recommendations.`,
+        payload: result,
+      });
 
       return {
         runId: args.runId,
@@ -275,6 +391,14 @@ export const rankIngestionRun = action({
         runId: args.runId,
         source: "ranker",
         message,
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "ranking",
+        level: "error",
+        message: "Ranking failed.",
+        payload: { error: message },
       });
       throw err;
     }
@@ -605,6 +729,24 @@ async function parallelMap<T>(
     }
   });
   await Promise.all(runners);
+}
+
+async function appendPipelineLog(
+  ctx: any,
+  args: {
+    demoUserId?: string;
+    runId?: string;
+    stage: string;
+    level: "info" | "success" | "warning" | "error";
+    message: string;
+    payload?: any;
+  }
+) {
+  try {
+    await ctx.runMutation(anyApi.ashby.appendPipelineLog, toConvexValue(args));
+  } catch {
+    // Logging should never break the product pipeline.
+  }
 }
 
 async function fetchWithTimeout(
