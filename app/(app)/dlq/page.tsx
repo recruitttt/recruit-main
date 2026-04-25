@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
   Check,
   Database,
-  ExternalLink,
   RotateCcw,
 } from "lucide-react";
 
@@ -258,15 +256,14 @@ function DLQCard({
             <Pill tone={tone}>{isQuestion ? "question" : "submission error"}</Pill>
             <span className="font-mono text-[11px] text-slate-500">{formatRelative(item.raisedAt)}</span>
           </div>
-          <Link
-            href={`/applications/${item.applicationId}`}
-            className="mt-3 inline-flex max-w-full items-center gap-2 text-base font-semibold tracking-[-0.01em] text-slate-950 hover:text-sky-600"
-          >
+          <div className="mt-3 inline-flex max-w-full items-center gap-2 text-base font-semibold tracking-[-0.01em] text-slate-950">
             <span className="truncate">
               {item.company} - {item.role}
             </span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          </Link>
+          </div>
+          <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
+            application detail deprecated
+          </div>
         </div>
         <Icon className={cx("h-5 w-5 shrink-0", isQuestion ? "text-amber-600" : "text-red-600")} />
       </div>
