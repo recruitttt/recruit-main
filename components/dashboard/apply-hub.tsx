@@ -11,14 +11,12 @@ import {
   CircleHelp,
   CirclePause,
   ExternalLink,
-  FileText,
   ListChecks,
   Loader2,
   Maximize2,
   MessageSquareText,
   MonitorUp,
   MousePointer2,
-  PanelsTopLeft,
   Play,
   ShieldCheck,
   X,
@@ -110,7 +108,11 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
   const customJobs = React.useMemo(() => parseCustomUrls(customUrls), [customUrls]);
   const plannedCount = selectedRows.length + customJobs.length;
   const selectedIncluded = Boolean(selectedJobId && selectedRows.some((row) => row.jobId === selectedJobId));
-  const profileReady = typeof window !== "undefined" ? isProfileUsable(readProfile()) : false;
+  const profileReady = React.useSyncExternalStore(
+    React.useCallback((cb: () => void) => { window.addEventListener("storage", cb); return () => window.removeEventListener("storage", cb); }, []),
+    () => isProfileUsable(readProfile()),
+    () => false,
+  );
   const pendingQuestions = run?.questionGroups.filter((group) => group.status === "pending") ?? [];
   const selectedLiveJob = liveJobs.find((job) => job.id === selectedLiveJobId) ?? liveJobs[0] ?? null;
   const metrics = applyHubMetrics(liveJobs);
@@ -815,9 +817,12 @@ function BrowserPreview({
           className="h-full w-full object-contain"
         />
       ) : (
-        <div className="flex flex-col items-center gap-2 text-center text-xs text-[var(--dashboard-panel-muted)]">
-          <PanelsTopLeft className="h-7 w-7 text-[var(--dashboard-panel-subtle)]" />
-          Waiting for live screenshot.
+        <div className="flex flex-col items-center gap-3 text-center text-xs text-[var(--dashboard-panel-muted)]">
+          <Loader2 className="h-6 w-6 animate-spin text-[var(--color-accent)]" />
+          <span className="inline-flex items-center gap-1">
+            Loading browser
+            <ThreeDotPulse />
+          </span>
         </div>
       )}
       {onExpand ? (
@@ -1142,8 +1147,18 @@ function StatusBadge({ status }: { status: LiveApplyJob["status"] }) {
         tone === "neutral" && "bg-[var(--dashboard-control-bg)] text-[var(--dashboard-panel-muted)]",
       )}
     >
-      {tone === "good" ? <CheckCircle2 className="h-3 w-3" /> : tone === "bad" ? <XCircle className="h-3 w-3" /> : tone === "warn" ? <AlertTriangle className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+      {tone === "good" ? <CheckCircle2 className="h-3 w-3" /> : tone === "bad" ? <XCircle className="h-3 w-3" /> : tone === "warn" ? <AlertTriangle className="h-3 w-3" /> : <ThreeDotPulse />}
       {statusLabel(status)}
+    </span>
+  );
+}
+
+function ThreeDotPulse() {
+  return (
+    <span className="inline-flex items-center gap-[2px]" aria-hidden>
+      <span className="h-[4px] w-[4px] rounded-full bg-current animate-pulse" />
+      <span className="h-[4px] w-[4px] rounded-full bg-current animate-pulse [animation-delay:150ms]" />
+      <span className="h-[4px] w-[4px] rounded-full bg-current animate-pulse [animation-delay:300ms]" />
     </span>
   );
 }
