@@ -1,0 +1,228 @@
+{
+  "_creationTime": 1777186945563.4338,
+  "_id": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+  "completedAt": "2026-04-26T07:03:12.852Z",
+  "demoUserId": "om-demo",
+  "errorCount": 0,
+  "errors": [],
+  "fetchedCount": 7,
+  "filteredCount": 86,
+  "hasCompletedTailoring": true,
+  "llmScoredCount": 40,
+  "model": "gpt-4o-mini",
+  "provider": "mixed",
+  "rawJobCount": 175,
+  "recommendations": [
+    {
+      "_creationTime": 1777186992852.1667,
+      "_id": "mh7ev19shmvp48b42hkm6qzcx585krvj",
+      "company": "Cohere",
+      "compensationSummary": "Estimated pay (not listed by source): $110k - $160k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+      "jobUrl": "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da",
+      "llmScore": 90,
+      "location": "London",
+      "rank": 1,
+      "rationale": "The candidate's experience in applied ML and AI research, along with their strong programming skills, makes them a great fit for this role focused on the UK public sector.",
+      "risks": [
+        "Potentially less experience in public sector specifics."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 90,
+      "strengths": [
+        "Relevant experience in applied ML.",
+        "Strong programming and analytical skills."
+      ],
+      "title": "Software Engineer - Applied ML - UK Public Sector"
+    },
+    {
+      "_creationTime": 1777186992852.167,
+      "_id": "mh778m6c19cb4jrj4y2b4k60vs85krxn",
+      "company": "Aleph Alpha",
+      "compensationSummary": "Estimated pay (not listed by source): $140k - $210k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+      "jobUrl": "https://jobs.ashbyhq.com/AlephAlpha/0628691f-7d3e-416d-9358-3b55859e1bbb",
+      "llmScore": 85,
+      "location": "Heidelberg",
+      "rank": 2,
+      "rationale": "The candidate has extensive experience in AI research and development, particularly in areas relevant to pre-training data and model capabilities, which aligns well with the responsibilities of this role.",
+      "risks": [
+        "May need to adapt to specific European regulatory requirements."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 87,
+      "strengths": [
+        "Strong background in AI and machine learning.",
+        "Experience with data sourcing and preparation for model training."
+      ],
+      "title": "Senior AI Researcher - Pre-training Data"
+    },
+    {
+      "_creationTime": 1777186992852.1672,
+      "_id": "mh73he0jffxpnv0tpr7ynm99cd85k3rx",
+      "company": "Aleph Alpha",
+      "compensationSummary": "Estimated pay (not listed by source): $140k - $210k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+      "jobUrl": "https://jobs.ashbyhq.com/AlephAlpha/af5ac8a9-31a7-4017-9cd9-0a8b360ad937",
+      "llmScore": 85,
+      "location": "Heidelberg",
+      "rank": 3,
+      "rationale": "The candidate's expertise in AI research and model training is highly relevant to the role's focus on advancing model architecture and training.",
+      "risks": [
+        "May need to adapt to specific team dynamics."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 84,
+      "strengths": [
+        "Strong theoretical understanding of AI methodologies.",
+        "Experience with large-scale model training."
+      ],
+      "title": "Senior AI Engineer – Pre-training Data (f/m/d)"
+    },
+    {
+      "_creationTime": 1777186992852.1675,
+      "_id": "mh767b9hdggpehdsz5xc8dwvnn85k14m",
+      "company": "Cohere",
+      "compensationSummary": "Estimated pay (not listed by source): $55k - $85k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+      "jobUrl": "https://jobs.ashbyhq.com/cohere/6e850172-a79d-4128-abd2-677731312857",
+      "llmScore": 83,
+      "location": "Canada · United Kingdom · Europe · United States · Toronto · San Francisco · London · Montreal",
+      "rank": 4,
+      "rationale": "Scored with the local rules and BM25 ranker because LLM scoring was unavailable.",
+      "risks": [],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 83,
+      "strengths": [],
+      "title": "Research Internship (Spring/Summer 2026)"
+    },
+    {
+      "_creationTime": 1777186992852.1677,
+      "_id": "mh718ytf84g18yd8v94txedr6d85k15t",
+      "company": "Aleph Alpha",
+      "compensationSummary": "Estimated pay (not listed by source): $140k - $210k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+      "jobUrl": "https://jobs.ashbyhq.com/AlephAlpha/80dc6ee6-dece-4d4b-9906-ea930338f245",
+      "llmScore": 80,
+      "location": "Heidelberg",
+      "rank": 5,
+      "rationale": "The candidate's research background and experience in AI align well with the internship's focus on novel research ideas and model implementation.",
+      "risks": [
+        "Internship may require more collaborative experience."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 81,
+      "strengths": [
+        "Research experience in AI and ML.",
+        "Hands-on experience with model training."
+      ],
+      "title": "Senior AI Researcher - Pre-training (f/m/d)"
+    },
+    {
+      "_creationTime": 1777186992852.168,
+      "_id": "mh70d9dsv9v62dr5r4hfv50cp185j77r",
+      "company": "Clay Labs",
+      "compensationSummary": "$130K – $160K",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m57fdnz7a7nky8jzp7h1p8bce985kxcr",
+      "jobUrl": "https://jobs.ashbyhq.com/claylabs/b17bd432-72e4-4f03-b8db-2fd677c2cfe8",
+      "llmScore": 75,
+      "location": "New York",
+      "rank": 6,
+      "rationale": "The candidate's technical skills are relevant, but the role's focus on growth and marketing may not fully leverage their strengths in AI research.",
+      "risks": [
+        "Less experience in marketing and growth strategies."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 75,
+      "strengths": [
+        "Strong technical background.",
+        "Experience in innovative environments."
+      ],
+      "title": "Web Developer (Growth & Conversion Optimization)"
+    },
+    {
+      "_creationTime": 1777186992852.1682,
+      "_id": "mh7dvmnydh0hnwwkjr4ygha30x85jtts",
+      "company": "Clay Labs",
+      "compensationSummary": "$130K – $300K • Offers Equity",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m573byfm0szapbb7x082rz0dq985ks1e",
+      "jobUrl": "https://jobs.ashbyhq.com/claylabs/9b008b26-189b-45cf-83d8-fee117d32874",
+      "llmScore": 70,
+      "location": "New York · San Francisco",
+      "rank": 7,
+      "rationale": "While the candidate has relevant skills, the focus on pre-sales and customer interaction may not align with their primarily research-oriented background.",
+      "risks": [
+        "Limited experience in customer-facing roles."
+      ],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 72,
+      "strengths": [
+        "Technical expertise in AI and ML.",
+        "Experience in collaborative environments."
+      ],
+      "title": "Software Engineer, Developer Experience (AI)"
+    },
+    {
+      "_creationTime": 1777186992852.1685,
+      "_id": "mh7cbpn3jtsam9hw221dtbw67985k3vr",
+      "company": "Causaly",
+      "compensationSummary": "Estimated pay (not listed by source): $140k - $210k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+      "jobUrl": "https://jobs.ashbyhq.com/causaly/0d240789-10ba-4a84-89fc-76f7e62079c0",
+      "llmScore": 72,
+      "location": "London",
+      "rank": 8,
+      "rationale": "Scored with the local rules and BM25 ranker because LLM scoring was unavailable.",
+      "risks": [],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 72,
+      "strengths": [],
+      "title": "Senior AI Engineer"
+    },
+    {
+      "_creationTime": 1777186992852.1687,
+      "_id": "mh7fr3201qe2t3vx0qdhf97kf585k350",
+      "company": "Aleph Alpha",
+      "compensationSummary": "Estimated pay (not listed by source): $140k - $210k",
+      "createdAt": "2026-04-26T07:03:12.852Z",
+      "demoUserId": "om-demo",
+      "jobId": "m57dmbpmd0qhe2q0tswmzt21ah85j9w1",
+      "jobUrl": "https://jobs.ashbyhq.com/AlephAlpha/ed326a0a-1cab-425a-b9c1-ae617d6d1cce",
+      "llmScore": 71,
+      "location": "Heidelberg",
+      "rank": 9,
+      "rationale": "Scored with the local rules and BM25 ranker because LLM scoring was unavailable.",
+      "risks": [],
+      "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+      "score": 71,
+      "strengths": [],
+      "title": "Senior AI Researcher- Reinforcement learning (f/m/d)"
+    }
+  ],
+  "recommendedCount": 9,
+  "scoringMode": "llm",
+  "sourceCount": 7,
+  "startedAt": "2026-04-26T07:02:25.563Z",
+  "status": "completed",
+  "survivorCount": 89,
+  "tailoredCount": 9,
+  "tailoringAttemptedCount": 9,
+  "tailoringInProgress": false,
+  "tailoringTargetCount": 3
+}

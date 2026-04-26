@@ -1,18 +1,27 @@
 import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex-http";
+import { omDemoJobDetail, shouldUseOmDemoData } from "@/lib/om-demo-data";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const client = await getConvexClient();
-  if (!client) {
-    return Response.json({ error: "missing_convex_url" }, { status: 503 });
-  }
-
   const url = new URL(req.url);
   const jobId = url.searchParams.get("jobId");
   if (!jobId) {
     return Response.json({ error: "missing_job_id" }, { status: 400 });
+  }
+
+  if (shouldUseOmDemoData()) {
+    const detail = omDemoJobDetail(jobId);
+    if (!detail) {
+      return Response.json({ error: "job_not_found" }, { status: 404 });
+    }
+    return Response.json({ detail });
+  }
+
+  const client = await getConvexClient();
+  if (!client) {
+    return Response.json({ error: "missing_convex_url" }, { status: 503 });
   }
 
   try {
