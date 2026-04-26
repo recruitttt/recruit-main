@@ -17,7 +17,7 @@ export async function GET(
   const run = getApplyRunStore().getRun(runId);
   if (!run) return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
 
-  if (run.remoteRunId) {
+  if (run.remoteRunId && run.source === "recruit2-api") {
     const baseUrl = recruit2ApplyApiBaseUrl();
     if (!baseUrl) return Response.json({ ok: false, reason: "missing_apply_engine_api_url" }, { status: 503 });
     try {

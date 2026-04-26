@@ -320,7 +320,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
 
   const approve = React.useCallback(async (jobId: string) => {
     if (!run) return;
-    const response = await fetch(`/api/applications/runs/${encodeURIComponent(run.id)}/jobs/${encodeURIComponent(jobId)}/approve`, {
+    const response = await fetch(jobActionUrl(run.id, "approve", jobId), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ devSkipRealSubmit: true }),
@@ -341,7 +341,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
   async function focusField(job: LiveApplyJob, field: Pick<LiveApplyField, "selector" | "label" | "value">) {
     setSelectedLiveJobId(job.id);
     if (!run || !field.selector) return;
-    const response = await fetch(`/api/applications/runs/${encodeURIComponent(run.id)}/jobs/${encodeURIComponent(job.id)}/focus`, {
+    const response = await fetch(jobActionUrl(run.id, "focus", job.id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -519,13 +519,21 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
 }
 
 function screenshotUrl(run: ApplyRun, job: LiveApplyJob): string {
-  const base = `/api/applications/runs/${encodeURIComponent(run.id)}/jobs/${encodeURIComponent(job.id)}/screenshot`;
+  const params = new URLSearchParams({
+    action: "screenshot",
+    jobId: job.id,
+  });
   // Always pass remoteSlug as convexJobId when available — the route uses
   // it to query Convex for the latest screenshot evidence. Don't gate on
   // run.source because it may still be "mock" if the first poll ran before
   // attachRemoteRun finished.
-  if (job.remoteSlug) return `${base}?convexJobId=${encodeURIComponent(job.remoteSlug)}`;
-  return base;
+  if (job.remoteSlug) params.set("convexJobId", job.remoteSlug);
+  return `/api/applications/runs/${encodeURIComponent(run.id)}/job?${params.toString()}`;
+}
+
+function jobActionUrl(runId: string, action: "approve" | "cancel" | "focus", jobId: string): string {
+  const params = new URLSearchParams({ action, jobId });
+  return `/api/applications/runs/${encodeURIComponent(runId)}/job?${params.toString()}`;
 }
 
 function ModeControl({ value, onChange }: { value: ApplyMode; onChange: (mode: ApplyMode) => void }) {

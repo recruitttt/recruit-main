@@ -18,6 +18,10 @@ import {
   GET as getScreenshot,
 } from "../app/api/applications/runs/[runId]/jobs/[jobId]/screenshot/route";
 import {
+  GET as getJobAction,
+  POST as postJobAction,
+} from "../app/api/applications/runs/[runId]/job/route";
+import {
   GET as proxyRecruit2Events,
 } from "../app/api/applications/runs/[runId]/recruit2/events/route";
 import { startConvexApplyRun } from "../lib/apply-service/convex-engine";
@@ -233,6 +237,20 @@ async function main() {
   assert.equal(convexFallbackScreenshotResponse.status, 503);
   assert.equal((await convexFallbackScreenshotResponse.json() as { reason: string }).reason, "missing_convex_url");
 
+  const missingRunFlatScreenshotResponse = await getJobAction(
+    new Request("http://test.local/api/applications/runs/missing/job?action=screenshot&jobId=job_1"),
+    { params: { runId: "missing" } } as never,
+  );
+  assert.equal(missingRunFlatScreenshotResponse.status, 404);
+  assert.equal((await missingRunFlatScreenshotResponse.json() as { reason: string }).reason, "run_not_found");
+
+  const convexFallbackFlatScreenshotResponse = await getJobAction(
+    new Request("http://test.local/api/applications/runs/missing/job?action=screenshot&jobId=job_1&convexJobId=convex_job_1"),
+    { params: { runId: "missing" } } as never,
+  );
+  assert.equal(convexFallbackFlatScreenshotResponse.status, 503);
+  assert.equal((await convexFallbackFlatScreenshotResponse.json() as { reason: string }).reason, "missing_convex_url");
+
   const eventsResponse = await getEvents(new Request(`http://test.local/api/applications/runs/${runId}/events`), {
     params: { runId },
   } as never);
@@ -345,6 +363,20 @@ async function main() {
     assert.equal((await focusResponse.json() as { screenshotPng: string }).screenshotPng, "focused");
     assert.equal(
       proxiedRequests[0]?.url,
+      "http://recruit2.test/api/apply-lab/runs/remote_run_1/jobs/remote_job_1/focus",
+    );
+
+    const flatFocusResponse = await postJobAction(jsonRequest({
+      stepIndex: 0,
+      selector: "#email",
+      label: "Email",
+    }, `http://test.local/api/applications/runs/${runId}/job?action=focus&jobId=${jobId}`), {
+      params: { runId },
+    } as never);
+    assert.equal(flatFocusResponse.status, 200);
+    assert.equal((await flatFocusResponse.json() as { screenshotPng: string }).screenshotPng, "focused");
+    assert.equal(
+      proxiedRequests[1]?.url,
       "http://recruit2.test/api/apply-lab/runs/remote_run_1/jobs/remote_job_1/focus",
     );
 

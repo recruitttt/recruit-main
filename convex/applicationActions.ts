@@ -38,18 +38,21 @@ export const runApplicationJob = action({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
+    console.log(`[runApplicationJob] START jobId=${args.jobId}`);
     const lockOwner = args.lockOwner ?? `application-worker:${Date.now()}`;
     const claim = await ctx.runMutation(anyApi.applicationJobs.claimApplicationJob, {
       jobId: args.jobId,
       lockOwner,
     });
     if (!claim?.claimed) {
+      console.log(`[runApplicationJob] claim failed: ${claim?.reason ?? "unknown"}`);
       return {
         jobId: args.jobId,
         claimed: false,
         reason: claim?.reason ?? "claim_failed",
       };
     }
+    console.log(`[runApplicationJob] claimed`);
 
     const job = await ctx.runQuery(anyApi.applicationJobs.getApplicationJobForAction, {
       jobId: args.jobId,
@@ -58,6 +61,7 @@ export const runApplicationJob = action({
       return { jobId: args.jobId, claimed: false, reason: "job_not_found_after_claim" };
     }
 
+    console.log(`[runApplicationJob] provider=${job.provider ?? job.providerHint ?? "auto"} url=${job.targetUrl}`);
     const provider = coerceProvider(job.provider ?? job.providerHint) ?? "generic";
     if (job.submitPolicy === "submit") {
       const duplicate = await ctx.runQuery(anyApi.applicationJobs.findConfirmedByIdempotency, {
@@ -180,9 +184,12 @@ export const runApplicationJob = action({
 
     let page: any = null;
     try {
+      console.log(`[runApplicationJob] launching browser (browserbase=${isBrowserbaseConfigured()})`);
       const browser = await launchBrowserForJob();
+      console.log(`[runApplicationJob] browser launched`);
       try {
         page = await browser.newPage();
+        console.log(`[runApplicationJob] new page created`);
       } catch (error) {
         throw new Error(`browser_page_failed: ${safeMessage(error)}`);
       }
@@ -195,12 +202,18 @@ export const runApplicationJob = action({
       try {
         await page.setViewport?.({ width: 1365, height: 900 });
       } catch { /* viewport may not be available */ }
+      console.log(`[runApplicationJob] navigating to ${normalizedUrl}`);
       try {
         await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30_000 });
-      } catch {
+        console.log(`[runApplicationJob] navigation complete`);
+      } catch (navErr) {
+        console.warn(`[runApplicationJob] networkidle2 failed: ${safeMessage(navErr)}`);
         try {
           await page.goto(normalizedUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-        } catch { /* form runner will retry navigation */ }
+          console.log(`[runApplicationJob] domcontentloaded fallback complete`);
+        } catch (navErr2) {
+          console.warn(`[runApplicationJob] domcontentloaded also failed: ${safeMessage(navErr2)}`);
+        }
       }
       await captureAndStoreScreenshot(ctx, page, args.jobId, "page_loaded");
 
@@ -273,6 +286,7 @@ export const runApplicationJob = action({
         confidence: automation.submission.confidence,
       };
     } catch (error) {
+      console.error(`[runApplicationJob] FATAL jobId=${args.jobId}:`, safeMessage(error));
       const status = statusForError(error);
       const message = safeMessage(error);
       await finalize(ctx, args.jobId, status, undefined, message);

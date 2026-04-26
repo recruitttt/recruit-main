@@ -9,7 +9,9 @@ export async function startApplyBatch(batch: NormalizedApplyBatch): Promise<
 > {
   const store = getApplyRunStore();
   const run = store.createRun(batch, { source: "mock" });
+  console.log(`[apply-runtime] run ${run.id} created with ${batch.jobs.length} jobs`);
   const recruit2 = await startRecruit2ApplyRun(batch);
+  console.log(`[apply-runtime] recruit2 result: ok=${recruit2.ok} ${recruit2.ok ? "" : `reason=${recruit2.reason}`}`);
   if (recruit2.ok) {
     store.attachRemoteRun(run.id, recruit2.runId, recruit2.jobs);
     return {
@@ -20,7 +22,9 @@ export async function startApplyBatch(batch: NormalizedApplyBatch): Promise<
   }
 
   if (recruit2.reason === "missing_apply_engine_api_url") {
+    console.log(`[apply-runtime] falling through to Convex engine`);
     const convex = await startConvexApplyRun(batch);
+    console.log(`[apply-runtime] convex result: ok=${convex.ok} ${convex.ok ? `jobs=${convex.jobs.length}` : `reason=${convex.reason}`}`);
     if (convex.ok) {
       store.attachRemoteRun(
         run.id,

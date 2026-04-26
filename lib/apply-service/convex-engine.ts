@@ -36,9 +36,11 @@ export async function startConvexApplyRun(
   }
 
   try {
+    console.log(`[convex-engine] creating ${batch.jobs.length} application jobs`);
     const jobs = await Promise.all(
       batch.jobs.map(async (job) => {
         const targetUrl = job.applicationUrl ?? job.url;
+        console.log(`[convex-engine] scheduling job: ${job.company} → ${targetUrl}`);
         const result = await client.mutation(convexRefs.applicationJobs.createAndScheduleApplicationJob, {
           targetUrl,
           providerHint: detectProviderFromUrl(targetUrl),
@@ -62,6 +64,7 @@ export async function startConvexApplyRun(
       }),
     );
 
+    console.log(`[convex-engine] all ${jobs.length} jobs scheduled: ${jobs.map((j) => j.jobId).join(", ")}`);
     return {
       ok: true,
       runId: `convex-${jobs.map((job) => job.jobId).join("-")}`,
@@ -69,6 +72,7 @@ export async function startConvexApplyRun(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error(`[convex-engine] FAILED:`, message);
     return {
       ok: false,
       reason: `convex_apply_engine_unavailable: ${message}`,
