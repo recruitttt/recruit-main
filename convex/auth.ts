@@ -68,6 +68,11 @@ async function findGithubAccounts(
   ctx: { runQuery: (...args: any[]) => Promise<any> },
   userId: string
 ): Promise<GithubAccountRow[]> {
+  // findMany takes args FLAT (no `input` envelope). Mutations (create, update*,
+  // delete*) wrap their payload in `input`; queries do not. Wrapping findMany
+  // in `input` made the args validator reject the call, so the React
+  // `useQuery(api.auth.connectedAccounts, ...)` returned undefined and the UI
+  // showed GitHub as "not linked" even after linkSocial wrote the row.
   const result = (await ctx.runQuery(
     (components.betterAuth.adapter as any).findMany,
     {
