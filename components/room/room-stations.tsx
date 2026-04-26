@@ -46,7 +46,7 @@ function JobBoard() {
   ], []);
 
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, station.rotation, 0]}>
       <InteractiveHotspot
         target={{ kind: "station", id: "jobboard" }}
         hotspotKey="station:jobboard"
@@ -97,7 +97,7 @@ function Workbench() {
   });
 
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, station.rotation, 0]}>
       <InteractiveHotspot
         target={{ kind: "station", id: "workbench" }}
         hotspotKey="station:workbench"
@@ -158,7 +158,7 @@ function ReviewPanel() {
     { x: 0.85, rot: -0.35, tint: "#EFF4F1" },
   ];
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, station.rotation, 0]}>
       <InteractiveHotspot
         target={{ kind: "station", id: "review" }}
         hotspotKey="station:review"
@@ -195,7 +195,7 @@ function SubmitTerminal() {
     glowRef.current.intensity = 0.6 + 0.3 * Math.sin(clock.elapsedTime * 2.1);
   });
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, station.rotation, 0]}>
       <InteractiveHotspot
         target={{ kind: "station", id: "submit" }}
         hotspotKey="station:submit"
@@ -232,7 +232,7 @@ function CalendarDesk() {
     return arr;
   }, []);
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, station.rotation, 0]}>
       <InteractiveHotspot
         target={{ kind: "station", id: "calendar" }}
         hotspotKey="station:calendar"

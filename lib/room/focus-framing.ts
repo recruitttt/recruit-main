@@ -1,5 +1,5 @@
 import { STATIONS } from "./stations";
-import { agentHomePosition } from "./app-agent-map";
+import { currentAgentPosition } from "./app-agent-map";
 import type { AgentId } from "@/lib/agents";
 import type { StationId } from "./stations";
 import type { FocusTarget, FurnitureId } from "@/components/room/room-store";
@@ -20,7 +20,7 @@ const FURNITURE_FRAMES: Record<FurnitureId, Framing> = {
 };
 
 function frameAgent(id: AgentId): Framing {
-  const t = agentHomePosition(id);
+  const t = currentAgentPosition(id);
   return {
     cam: [t.x - 2.8, 2.9, t.z + 5.6],
     look: [t.x + 1.6, 0.9, t.z + 0.3],

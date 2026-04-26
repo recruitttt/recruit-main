@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox, Outlines, Html } from "@react-three/drei";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
-import { agentHomePosition } from "@/lib/room/app-agent-map";
+import { currentAgentPosition } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
 import { BOUNDS, playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
 import { useRoomStore } from "./room-store";
@@ -202,8 +202,8 @@ function PlayerCharacterActive() {
     let bestId: AgentId | null = null;
     let bestDist = NEAREST_AGENT_RADIUS;
     for (const id of AGENT_ORDER) {
-      const home = agentHomePosition(id);
-      const dist = Math.hypot(home.x - pos.x, home.z - pos.z);
+      const agentPos = currentAgentPosition(id);
+      const dist = Math.hypot(agentPos.x - pos.x, agentPos.z - pos.z);
       if (dist < bestDist) {
         bestDist = dist;
         bestId = id;

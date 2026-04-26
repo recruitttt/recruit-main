@@ -5,11 +5,12 @@ import * as THREE from "three";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import {
-  agentHomePosition,
+  agentRoomPositions,
   frontStagePosition,
   FRONT_STAGE_FACING,
   pickWanderTarget,
-  stationForAgent,
+  stationForAgentCycle,
+  stationStandPosition,
 } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
 import { AgentFigure, useAgentRefs } from "./agent-figure";
@@ -21,6 +22,7 @@ type Props = {
 };
 
 const SELECTED_AGENT_FACING = -0.55;
+const SWAP_INTERVAL_SECONDS = 14;
 
 export function RoomAgent({ agentId }: Props) {
   const hue = AGENTS[agentId].hue;
@@ -37,11 +39,13 @@ export function RoomAgent({ agentId }: Props) {
   const isScout = agentId === "scout";
   const scoutInterlude = isScout && intakePhase !== "inactive";
 
-  const initialPos = useMemo(() => agentHomePosition(agentId), [agentId]);
+  const initialStation = useMemo(() => stationForAgentCycle(agentId, 0), [agentId]);
+  const initialPos = useMemo(() => stationStandPosition(initialStation), [initialStation]);
   const wanderState = useRef({
     target: initialPos.clone(),
     nextRollAt: Math.random() * 4 + 2,
     lastIdle: 0,
+    stationId: initialStation.id,
   });
   const waveStartRef = useRef<number | null>(null);
 
@@ -64,7 +68,8 @@ export function RoomAgent({ agentId }: Props) {
     const g = refs.group.current;
     if (!g) return;
     const t = clock.elapsedTime;
-    const station = stationForAgent(agentId);
+    const cycle = Math.floor(t / SWAP_INTERVAL_SECONDS);
+    const station = stationForAgentCycle(agentId, cycle);
 
     if (scoutInterlude) {
       const goingForward =
@@ -76,9 +81,14 @@ export function RoomAgent({ agentId }: Props) {
       const target = goingForward ? stagePos : homePos;
       wanderState.current.target = target.clone();
       wanderState.current.nextRollAt = t + 999;
+      wanderState.current.stationId = initialStation.id;
+    } else if (wanderState.current.stationId !== station.id) {
+      wanderState.current.target = stationStandPosition(station);
+      wanderState.current.nextRollAt = t + 2.4;
+      wanderState.current.stationId = station.id;
     } else if (t > wanderState.current.nextRollAt) {
       const bucket = Math.floor(t / 3);
-      wanderState.current.target = pickWanderTarget(agentId, bucket);
+      wanderState.current.target = pickWanderTarget(agentId, bucket, station);
       wanderState.current.nextRollAt = t + 3 + Math.random() * 3;
     }
 
@@ -103,7 +113,7 @@ export function RoomAgent({ agentId }: Props) {
     if (dist > 0.06) {
       toTarget.normalize().multiplyScalar(Math.min(WALK_SPEED * delta, dist));
       pos.add(toTarget);
-      const yawTarget = scoutInterlude ? Math.atan2(toTarget.x, toTarget.z) : station.facing;
+      const yawTarget = Math.atan2(toTarget.x, toTarget.z);
       g.rotation.y = dampYaw(g.rotation.y, yawTarget, delta);
 
       if (refs.body.current) {
@@ -164,6 +174,7 @@ export function RoomAgent({ agentId }: Props) {
         refs.head.current.rotation.x = THREE.MathUtils.damp(refs.head.current.rotation.x, stationIdle.headPitch, 3, delta);
       }
     }
+    agentRoomPositions[agentId].copy(pos);
   });
 
   const handleOver = (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHovered(agentId); document.body.style.cursor = "pointer"; };

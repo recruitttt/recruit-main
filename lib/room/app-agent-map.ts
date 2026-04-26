@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { mockApplications, type Application } from "@/lib/mock-data";
-import { stationForStage, type Station } from "./stations";
+import { STATIONS, stationForStage, type Station } from "./stations";
 
 export const FRONT_STAGE: readonly [number, number, number] = [0, 0, 0.9];
 export const FRONT_STAGE_FACING = Math.PI;
@@ -27,12 +27,35 @@ export function agentHomePosition(agentId: AgentId): THREE.Vector3 {
   return new THREE.Vector3(sx, sy, sz);
 }
 
+export const agentRoomPositions: Record<AgentId, THREE.Vector3> = {
+  scout: agentHomePosition("scout"),
+  mimi: agentHomePosition("mimi"),
+  pip: agentHomePosition("pip"),
+  juno: agentHomePosition("juno"),
+  bodhi: agentHomePosition("bodhi"),
+};
+
+export function currentAgentPosition(agentId: AgentId): THREE.Vector3 {
+  return agentRoomPositions[agentId] ?? agentHomePosition(agentId);
+}
+
+export function stationForAgentCycle(agentId: AgentId, cycle: number): Station {
+  const agentIndex = Math.max(0, AGENT_ORDER.indexOf(agentId));
+  return STATIONS[(agentIndex + cycle) % STATIONS.length];
+}
+
+export function stationStandPosition(station: Station): THREE.Vector3 {
+  const [sx, sy, sz] = station.stand;
+  return new THREE.Vector3(sx, sy, sz);
+}
+
 export function pickWanderTarget(
   agentId: AgentId,
-  timeBucket: number
+  timeBucket: number,
+  stationOverride?: Station
 ): THREE.Vector3 {
-  const station = stationForAgent(agentId);
-  const home = agentHomePosition(agentId);
+  const station = stationOverride ?? stationForAgent(agentId);
+  const home = stationStandPosition(station);
   const seed = hashStringNum(agentId + "_" + timeBucket);
   const angle = seed * Math.PI * 2;
   const r = (0.35 + (seed * 1.618) % 1 * 0.6) * station.wanderRadius;
