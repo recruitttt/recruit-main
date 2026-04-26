@@ -45,10 +45,11 @@ export async function POST(req: Request) {
       profile: body.profile,
       limitSources: limitSources.value ?? 3,
       tailorLimit: tailorLimit.value ?? 3,
-    }) as { runId: string; status: "started"; message: string };
+    }) as { demoUserId: string; runId: string; status: "started"; message: string };
 
     return Response.json({
       ok: true,
+      demoUserId: started.demoUserId,
       runId: started.runId,
       status: started.status,
       message: started.message,

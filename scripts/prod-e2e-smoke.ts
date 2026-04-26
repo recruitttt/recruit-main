@@ -48,6 +48,7 @@ type RunContext = {
     suggestedFix: string;
   }>;
   metrics: Record<string, string | number | null>;
+  demoUserId: string | null;
   runId: string | null;
   topJobId: string | null;
   topJobLabel: string | null;
@@ -147,6 +148,7 @@ async function main() {
       dlqCreatedCount: null,
       followupCount: null,
     },
+    demoUserId: null,
     runId: null,
     topJobId: null,
     topJobLabel: null,
@@ -256,6 +258,7 @@ async function runOnboardingPipeline(options: CliOptions, ctx: RunContext) {
   });
 
   ctx.runId = stringOrNull(launch.json?.runId);
+  ctx.demoUserId = stringOrNull(launch.json?.demoUserId);
   if (launch.status === 200 && launch.json?.ok === true && ctx.runId) {
     addStage(ctx, "Onboarding/profile", "PASS", "results/onboarding_launch.json", `runId=${ctx.runId}`);
   } else {
@@ -356,7 +359,7 @@ async function runDashboardIngestionFallback(options: CliOptions, ctx: RunContex
     addBug(ctx, "P0", "Filtering/ranking", "LLM ranking produces at least one recommendation.", JSON.stringify(rankingBody), "results/bounded_ingestion.json", "Verify OPENAI_API_KEY in Convex and ranking write results.");
   }
 
-  const live = await requestArtifact(ctx, "dashboard_live", options.baseUrl, "/api/dashboard/live");
+  const live = await requestArtifact(ctx, "dashboard_live", options.baseUrl, scopedPath(ctx, "/api/dashboard/live"));
   await continueWithTopRecommendation(options, ctx, live);
 }
 
@@ -387,7 +390,12 @@ async function continueWithTopRecommendation(
     return;
   }
 
-  const detail = await requestArtifact(ctx, "top_job_detail", options.baseUrl, `/api/dashboard/job-detail?jobId=${encodeURIComponent(ctx.topJobId)}`);
+  const detail = await requestArtifact(
+    ctx,
+    "top_job_detail",
+    options.baseUrl,
+    scopedPath(ctx, `/api/dashboard/job-detail?jobId=${encodeURIComponent(ctx.topJobId)}`)
+  );
   const research = detail.json?.detail?.tailoredApplication?.research ?? researchArtifact(detail.json?.detail?.artifacts);
   if (detail.status === 200 && research) {
     addStage(ctx, "Research", "PASS", "results/top_job_detail.json", `source=${String(research.source ?? "artifact")}`);
@@ -403,7 +411,10 @@ async function continueWithTopRecommendation(
   const tailor = await requestArtifact(ctx, "tailor_top_job", options.baseUrl, "/api/dashboard/tailor-job", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobId: ctx.topJobId }),
+    body: JSON.stringify({
+      jobId: ctx.topJobId,
+      ...(ctx.demoUserId ? { demoUserId: ctx.demoUserId } : {}),
+    }),
   });
 
   const application = tailor.json?.application ?? null;
@@ -414,7 +425,12 @@ async function continueWithTopRecommendation(
     ctx.metrics.tailoredCompletedCount = 1;
   }
 
-  const pdf = await requestPdfArtifact(ctx, "tailored_resume", options.baseUrl, `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(ctx.topJobId)}&inline=1`);
+  const pdf = await requestPdfArtifact(
+    ctx,
+    "tailored_resume",
+    options.baseUrl,
+    scopedPath(ctx, `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(ctx.topJobId)}&inline=1`)
+  );
   ctx.metrics.pdfByteLength = pdf.bytes.byteLength;
   const pdfText = await extractPdfTextForEvidence(pdf.bytes);
   await saveArtifact(ctx, "tailored_resume_text", `${pdfText}\n`, "txt");
@@ -446,7 +462,7 @@ async function pollDashboardLive(
     ctx,
     "dashboard_live",
     options.baseUrl,
-    `/api/dashboard/live?runId=${encodeURIComponent(runId)}`
+    scopedPath(ctx, `/api/dashboard/live?runId=${encodeURIComponent(runId)}`)
   );
 
   while (Date.now() - started < options.pollTimeoutMs) {
@@ -465,7 +481,7 @@ async function pollDashboardLive(
       ctx,
       attempt % 6 === 0 ? `dashboard_live_poll_${attempt}` : "dashboard_live",
       options.baseUrl,
-      `/api/dashboard/live?runId=${encodeURIComponent(runId)}`
+      scopedPath(ctx, `/api/dashboard/live?runId=${encodeURIComponent(runId)}`)
     );
   }
 
@@ -475,6 +491,10 @@ async function pollDashboardLive(
 async function runAtsStaging(ctx: RunContext) {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   const targetUrl = process.env.E2E_ASHBY_STAGING_URL;
+  if (!ctx.topJobId) {
+    addStage(ctx, "ATS staging", "SKIP", "No top recommendation", "Cannot run ATS staging without jobId.");
+    return;
+  }
   if (!convexUrl || !targetUrl) {
     addStage(ctx, "ATS staging", "SKIP", "Missing config", "Set NEXT_PUBLIC_CONVEX_URL and E2E_ASHBY_STAGING_URL.");
     return;
@@ -484,6 +504,7 @@ async function runAtsStaging(ctx: RunContext) {
     const client = new ConvexHttpClient(convexUrl.replace(/\/+$/, ""));
     const result = await client.action(convexRefs.ashbyActions.runAshbyFormFill, {
       targetUrl,
+      ...(ctx.demoUserId ? { demoUserId: ctx.demoUserId } : {}),
       jobId: ctx.topJobId as never,
       submitPolicy: "dry_run",
       submit: false,
@@ -976,6 +997,15 @@ function formatBugs(ctx: RunContext) {
 
 function urlFor(baseUrl: string, routePath: string) {
   return `${baseUrl}${routePath.startsWith("/") ? routePath : `/${routePath}`}`;
+}
+
+function scopedPath(ctx: RunContext, routePath: string) {
+  if (!ctx.demoUserId) return routePath;
+  const url = new URL(routePath, "http://recruit.local");
+  if (!url.searchParams.has("demoUserId")) {
+    url.searchParams.set("demoUserId", ctx.demoUserId);
+  }
+  return `${url.pathname}${url.search}`;
 }
 
 function valueAt(value: unknown, key: string) {

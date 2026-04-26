@@ -7,6 +7,7 @@ export const maxDuration = 60;
 
 type Body = {
   jobId?: string;
+  demoUserId?: string;
   profile?: UserProfile;
   pageSize?: "letter" | "a4";
 };
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
   const result = await tailorPersistedJob({
     client,
     jobId,
+    demoUserId: body.demoUserId,
     profile: body.profile,
     pageSize: body.pageSize,
   });
