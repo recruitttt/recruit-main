@@ -23,7 +23,13 @@ import {
   type ProfileSuggestion,
   type ProvenanceSource,
 } from "../lib/profile";
-import { linkedInExperienceDedupeKey } from "../lib/intake/linkedin/experience-dedupe";
+import {
+  linkedInExperienceDedupeKey,
+  normalizeCompany,
+  normalizeDegree,
+  normalizeInstitution,
+  normalizeTitle,
+} from "../lib/intake/linkedin/experience-dedupe";
 
 const query = queryGeneric;
 const mutation = mutationGeneric;
@@ -55,11 +61,11 @@ function inferSource(provenance: Record<string, string>): ProvenanceSource {
 }
 
 function expKey(item: { company?: string; title?: string }): string {
-  return `${(item.company ?? "").toLowerCase().trim()}::${(item.title ?? "").toLowerCase().trim()}`;
+  return `${normalizeCompany(item.company)}::${normalizeTitle(item.title)}`;
 }
 
 function eduKey(item: { school?: string; degree?: string; field?: string }): string {
-  return `${(item.school ?? "").toLowerCase().trim()}::${(item.degree ?? "").toLowerCase().trim()}::${(item.field ?? "").toLowerCase().trim()}`;
+  return `${normalizeInstitution(item.school)}::${normalizeDegree(item.degree)}::${normalizeDegree(item.field)}`;
 }
 
 function repoKey(item: { name?: string; url?: string }): string {

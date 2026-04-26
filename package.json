@@ -22,7 +22,7 @@
     "test:api": "npm run test:auth && npm run test:resume && npm run test:linkedin && tsx tests/source-connection.test.ts && tsx tests/dashboard-data-source.test.ts && tsx tests/api-contracts.test.ts && tsx tests/dashboard-command.test.ts && npm run test:apply-service-api",
     "test:auth": "tsx tests/auth-flow.test.ts",
     "test:resume": "tsx tests/resume-parse.test.ts",
-    "test:linkedin": "tsx tests/linkedin-experience-dedupe.test.ts",
+    "test:linkedin": "tsx tests/linkedin-experience-dedupe.test.ts && tsx tests/linkedin-dedupe-fields.test.ts",
     "test:ingestion": "tsx tests/ingestion-adapters.test.ts",
     "test:profile": "tsx tests/profile-merge.test.ts",
     "test:followups": "tsx tests/followups.test.ts",

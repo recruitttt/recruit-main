@@ -36,9 +36,15 @@ import {
 } from "./browserbase";
 import { scrapeProfile } from "./scrape";
 import {
+  dedupeLinkedInEducations,
   dedupeLinkedInExperiences,
-  dedupeLinkedInSnapshotExperiences,
+  dedupeLinkedInNamed,
+  dedupeLinkedInSnapshot,
 } from "./experience-dedupe";
+import {
+  applyReviewedFields,
+  reviewLinkedInDuplicates,
+} from "./duplicate-reviewer";
 import {
   resolveLinkedInBrowserbaseConfig,
   resolveLinkedInLoginConfig,
@@ -224,7 +230,7 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
           events.push({ stage: event.stage, level: "info", message: event.message });
         },
       });
-      const snapshot = dedupeLinkedInSnapshotExperiences(scrapedSnapshot);
+      const snapshot = dedupeLinkedInSnapshot(scrapedSnapshot);
       for (const e of events) yield e;
 
       // Persist snapshot.
@@ -239,7 +245,38 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
       for (const e of expEvents) yield e;
 
       // ---- Map snapshot → UserProfile patch ---------------------------
-      const { patch, provenance } = mapSnapshotToProfile(snapshot);
+      const mapped = mapSnapshotToProfile(snapshot);
+      let patch = mapped.patch;
+      const provenance = mapped.provenance;
+
+      // ---- LLM duplicate-reviewer pass --------------------------------
+      // Final safety net on top of the deterministic dedupe in
+      // `experience-dedupe.ts`. Powered by GPT-5.4 Mini; falls back to
+      // the deterministic patch if OpenAI is unavailable.
+      const review = await reviewLinkedInDuplicates({
+        experience: patch.experience,
+        education: patch.education,
+        skills: patch.skills,
+      });
+      if (review.status.ok) {
+        patch = applyReviewedFields(patch, review.patch);
+        const total =
+          review.removed.experience + review.removed.education + review.removed.skills;
+        if (total > 0) {
+          yield {
+            stage: "mapper",
+            level: "info",
+            message: `Reviewer removed ${total} duplicate entr${total === 1 ? "y" : "ies"} (${review.status.model})`,
+          };
+        }
+      } else if (review.status.reason !== "empty" && review.status.reason !== "no_api_key") {
+        yield {
+          stage: "mapper",
+          level: "warn",
+          message: `Duplicate reviewer skipped: ${review.status.reason}`,
+        };
+      }
+
       yield {
         stage: "mapper",
         level: "info",
@@ -388,7 +425,7 @@ function mapSnapshotToProfile(snapshot: LinkedInSnapshot): SnapshotMapping {
     }
   }
 
-  const educations = snapshot.educations
+  const educations = dedupeLinkedInEducations(snapshot.educations)
     .map(toUserProfileEducation)
     .filter((e): e is UserProfile["education"][number] => Boolean(e));
   if (educations.length > 0) {
@@ -398,7 +435,7 @@ function mapSnapshotToProfile(snapshot: LinkedInSnapshot): SnapshotMapping {
     }
   }
 
-  const skillNames = snapshot.skills
+  const skillNames = dedupeLinkedInNamed(snapshot.skills)
     .map((s) => (s.name ?? "").trim())
     .filter((s) => Boolean(s));
   if (skillNames.length > 0) {
