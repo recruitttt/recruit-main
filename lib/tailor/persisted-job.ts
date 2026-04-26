@@ -12,7 +12,7 @@ import { tailorResume } from "@/lib/tailor/tailor";
 import type { Job, TailoredApplication } from "@/lib/tailor/types";
 
 export type PersistedTailorResult =
-  | { ok: true; application: TailoredApplication; profileSource: "browser" | "demo" }
+  | { ok: true; application: TailoredApplication; profileSource: "browser" | "convex" | "demo" }
   | { ok: false; reason: string; status: number };
 
 type PersistedTailorInput = {
@@ -31,8 +31,22 @@ export async function tailorPersistedJob({
   pageSize: inputPageSize,
 }: PersistedTailorInput): Promise<PersistedTailorResult> {
   const startedAt = Date.now();
-  const profile = isProfileUsable(inputProfile) ? inputProfile : DEMO_PROFILE;
-  const profileSource = profile === DEMO_PROFILE ? "demo" : "browser";
+  const storedContext = isProfileUsable(inputProfile)
+    ? null
+    : await client.query(api.ashby.getAshbyRuntimeProfileContext, {
+      ...(demoUserId ? { demoUserId } : {}),
+    }).catch(() => null);
+  const storedProfile = isProfileUsable(storedContext?.profile)
+    ? storedContext.profile
+    : undefined;
+  const profile = isProfileUsable(inputProfile)
+    ? inputProfile
+    : storedProfile ?? DEMO_PROFILE;
+  const profileSource = isProfileUsable(inputProfile)
+    ? "browser"
+    : storedProfile
+      ? "convex"
+      : "demo";
 
   if (profileSource === "demo") {
     await client.mutation(api.ashby.upsertDemoProfileSnapshot, {

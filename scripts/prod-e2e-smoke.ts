@@ -432,12 +432,25 @@ async function continueWithTopRecommendation(
     scopedPath(ctx, `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(ctx.topJobId)}&inline=1`)
   );
   ctx.metrics.pdfByteLength = pdf.bytes.byteLength;
-  const pdfText = await extractPdfTextForEvidence(pdf.bytes);
+  const pdfHasHeader = startsWithPdfHeader(pdf.bytes);
+  const pdfIsNonzero = pdf.bytes.byteLength > 0;
+  const pdfText = await extractPdfTextForEvidence(Uint8Array.from(pdf.bytes)).catch((error) => {
+    addBug(
+      ctx,
+      "P1",
+      "Tailoring/PDF",
+      "PDF text extraction returns readable resume content.",
+      safeMessage(error),
+      "results/tailored_resume.pdf",
+      "Check local PDF text extraction dependencies and generated PDF structure."
+    );
+    return "";
+  });
   await saveArtifact(ctx, "tailored_resume_text", `${pdfText}\n`, "txt");
 
   const pdfChecks = {
-    header: startsWithPdfHeader(pdf.bytes),
-    nonzero: pdf.bytes.byteLength > 0,
+    header: pdfHasHeader,
+    nonzero: pdfIsNonzero,
     name: expectedName ? containsText(pdfText, expectedName) : true,
     email: expectedEmail ? containsText(pdfText, expectedEmail) : true,
     keyword: roleKeywordPresent(pdfText, application),
