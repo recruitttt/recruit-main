@@ -1,5 +1,16 @@
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
+export type OrganizationLogo = {
+  company: string;
+  domain: string;
+  logoUrl: string;
+  logoAlt?: string;
+  brandColor?: string;
+  backgroundColor?: string;
+  prestigeTag?: string;
+  prestigeLine?: string;
+};
+
 export type LiveRunSummary = {
   _id: string;
   provider?: string;
@@ -40,12 +51,14 @@ export type LiveRecommendation = {
   title: string;
   location?: string;
   score: number;
+  llmScore?: number;
   rank: number;
   jobUrl: string;
   compensationSummary?: string;
   rationale?: string;
   strengths?: string[];
   risks?: string[];
+  organization?: OrganizationLogo;
   job?: {
     _id?: string;
     company?: string;
@@ -55,6 +68,7 @@ export type LiveRecommendation = {
     sourceSlug?: string;
     descriptionPlain?: string;
     compensationSummary?: string;
+    organization?: OrganizationLogo;
   } | null;
 };
 
@@ -71,6 +85,7 @@ export type JobDetail = {
     compensationSummary?: string;
     department?: string;
     team?: string;
+    organization?: OrganizationLogo;
   };
   decision?: {
     status: "kept" | "rejected";
@@ -131,9 +146,19 @@ export type DashboardRunControls = {
   onRunFirst3?: () => void;
 };
 
+export type LivePipelineLog = {
+  _id?: string;
+  createdAt: string;
+  stage: string;
+  level: "info" | "success" | "warning" | "error";
+  message: string;
+  payload?: unknown;
+};
+
 export type LiveDashboardPayload = {
   run: LiveRunSummary | null;
   recommendations: LiveRecommendation[];
+  logs?: LivePipelineLog[];
 };
 
 export type LeaderboardRow = {

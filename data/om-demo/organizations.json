@@ -1,0 +1,254 @@
+[
+  {
+    "company": "Google DeepMind",
+    "domain": "google.com",
+    "logoUrl": "https://logo.clearbit.com/google.com",
+    "logoAlt": "Google logo",
+    "brandColor": "#4285F4",
+    "backgroundColor": "#EAF2FF",
+    "prestigeTag": "AI Lab",
+    "prestigeLine": "Alphabet research lab building Gemini-scale model systems.",
+    "title": "Staff Software Engineer, Gemini Agent Infrastructure",
+    "location": "Mountain View, CA",
+    "jobUrl": "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure",
+    "sourceSlug": "google-deepmind",
+    "compensationSummary": "$210K - $312K + equity",
+    "score": 97,
+    "rationale": "OM's agent orchestration and ML systems background maps cleanly to model-serving infrastructure, evaluation tooling, and product-quality AI workflows.",
+    "strengths": [
+      "Strong fit for agent infrastructure and applied ML evaluation.",
+      "Evidence of full-stack ownership across AI product surfaces.",
+      "Prestige-weighted role with high leverage on Gemini systems."
+    ],
+    "risks": [
+      "Interview loop will likely probe distributed systems depth and production ML reliability."
+    ],
+    "mission": "Google DeepMind turns frontier AI research into reliable products used across Google and by external developers.",
+    "products": ["Gemini", "Vertex AI", "AlphaCode", "AI Studio"],
+    "techStack": ["JAX", "Python", "Kubernetes", "Model serving", "Evaluation pipelines"]
+  },
+  {
+    "company": "Apple",
+    "domain": "apple.com",
+    "logoUrl": "https://logo.clearbit.com/apple.com",
+    "logoAlt": "Apple logo",
+    "brandColor": "#111827",
+    "backgroundColor": "#F2F4F7",
+    "prestigeTag": "Platform",
+    "prestigeLine": "Device-scale intelligence across iOS, macOS, and private cloud compute.",
+    "title": "Machine Learning Engineer, Apple Intelligence",
+    "location": "Cupertino, CA",
+    "jobUrl": "https://jobs.apple.com/en-us/details/om-demo-apple-intelligence",
+    "sourceSlug": "apple",
+    "compensationSummary": "$198K - $295K + RSU",
+    "score": 96,
+    "rationale": "The profile shows product-minded ML engineering, privacy-aware architecture, and enough frontend polish to contribute to user-facing Apple Intelligence features.",
+    "strengths": [
+      "Good alignment with private, user-facing ML workflows.",
+      "Strong product engineering signal for polished AI experiences.",
+      "Experience translating model behavior into usable interfaces."
+    ],
+    "risks": [
+      "Apple-specific platform APIs and on-device optimization may need ramp-up."
+    ],
+    "mission": "Apple Intelligence brings personal, private AI assistance into the core operating systems people use every day.",
+    "products": ["Apple Intelligence", "Siri", "Private Cloud Compute", "Core ML"],
+    "techStack": ["Swift", "Core ML", "Python", "Privacy-preserving ML", "On-device inference"]
+  },
+  {
+    "company": "NVIDIA",
+    "domain": "nvidia.com",
+    "logoUrl": "https://logo.clearbit.com/nvidia.com",
+    "logoAlt": "NVIDIA logo",
+    "brandColor": "#76B900",
+    "backgroundColor": "#EDF8DF",
+    "prestigeTag": "AI Compute",
+    "prestigeLine": "The infrastructure layer behind modern accelerated AI.",
+    "title": "Senior Software Engineer, AI Inference Platform",
+    "location": "Santa Clara, CA",
+    "jobUrl": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/om-demo-ai-inference-platform",
+    "sourceSlug": "nvidia",
+    "compensationSummary": "$190K - $285K + equity",
+    "score": 94,
+    "rationale": "The role rewards systems thinking, ML fluency, and performance-minded backend work, all visible in OM's profile and demo projects.",
+    "strengths": [
+      "Strong match for inference infrastructure and production ML systems.",
+      "Can bridge model-serving workflows and developer-facing tooling.",
+      "Prestigious infrastructure brand with broad AI ecosystem reach."
+    ],
+    "risks": [
+      "CUDA-level performance work may require targeted preparation."
+    ],
+    "mission": "NVIDIA builds accelerated computing platforms powering AI training, inference, simulation, and robotics.",
+    "products": ["CUDA", "TensorRT", "DGX Cloud", "NIM"],
+    "techStack": ["C++", "CUDA", "Python", "TensorRT", "Distributed inference"]
+  },
+  {
+    "company": "OpenAI",
+    "domain": "openai.com",
+    "logoUrl": "https://logo.clearbit.com/openai.com",
+    "logoAlt": "OpenAI logo",
+    "brandColor": "#111827",
+    "backgroundColor": "#ECEFED",
+    "prestigeTag": "Frontier AI",
+    "prestigeLine": "Research and product lab behind ChatGPT and API platform agents.",
+    "title": "Product Engineer, Agent Workflows",
+    "location": "San Francisco, CA",
+    "jobUrl": "https://openai.com/careers/om-demo-product-engineer-agent-workflows",
+    "sourceSlug": "openai",
+    "compensationSummary": "$245K - $335K + equity",
+    "score": 93,
+    "rationale": "OM's work on recruiting agents, workflow automation, and UX-rich AI surfaces is directly relevant to agent product engineering.",
+    "strengths": [
+      "Excellent match for agent workflow product surfaces.",
+      "Demonstrated ability to ship full-stack AI applications quickly.",
+      "High-prestige company and high-impact product area."
+    ],
+    "risks": [
+      "Bar for taste, product judgment, and AI safety tradeoffs will be high."
+    ],
+    "mission": "OpenAI builds useful, safe AI systems and turns frontier model capability into products people can use.",
+    "products": ["ChatGPT", "OpenAI API", "Agents SDK", "Sora"],
+    "techStack": ["TypeScript", "React", "Python", "LLM evals", "Agent orchestration"]
+  },
+  {
+    "company": "Meta",
+    "domain": "meta.com",
+    "logoUrl": "https://logo.clearbit.com/meta.com",
+    "logoAlt": "Meta logo",
+    "brandColor": "#0668E1",
+    "backgroundColor": "#E8F1FF",
+    "prestigeTag": "AI Platform",
+    "prestigeLine": "Open model ecosystem and global-scale ranking infrastructure.",
+    "title": "Software Engineer, Llama Platform",
+    "location": "Menlo Park, CA",
+    "jobUrl": "https://www.metacareers.com/jobs/om-demo-llama-platform",
+    "sourceSlug": "meta",
+    "compensationSummary": "$205K - $302K + equity",
+    "score": 92,
+    "rationale": "The profile combines AI application engineering, ranking workflows, and developer-tool orientation, which fits Llama platform product infrastructure.",
+    "strengths": [
+      "Strong bridge between open model tooling and product engineering.",
+      "Relevant ranking and recommendation-system project context.",
+      "High-scale infrastructure and developer ecosystem exposure."
+    ],
+    "risks": [
+      "Large-system design and cross-functional execution examples should be sharpened."
+    ],
+    "mission": "Meta advances social products, open AI models, and large-scale infrastructure for billions of users.",
+    "products": ["Llama", "Meta AI", "PyTorch", "FAIR tooling"],
+    "techStack": ["Hack", "Python", "PyTorch", "Recommendation systems", "Model serving"]
+  },
+  {
+    "company": "Microsoft AI",
+    "domain": "microsoft.com",
+    "logoUrl": "https://logo.clearbit.com/microsoft.com",
+    "logoAlt": "Microsoft logo",
+    "brandColor": "#5E5E5E",
+    "backgroundColor": "#EEF2F6",
+    "prestigeTag": "Copilot",
+    "prestigeLine": "Enterprise AI products spanning GitHub, Office, Azure, and Windows.",
+    "title": "Senior Software Engineer, Copilot Applications",
+    "location": "Redmond, WA",
+    "jobUrl": "https://jobs.careers.microsoft.com/global/en/job/om-demo-copilot-applications",
+    "sourceSlug": "microsoft-ai",
+    "compensationSummary": "$184K - $276K + stock",
+    "score": 90,
+    "rationale": "The candidate's agentic workflow and application-building experience is highly relevant to Copilot features that need reliable product integration.",
+    "strengths": [
+      "Strong applied AI and workflow automation fit.",
+      "Experience with developer-facing tools and enterprise-style flows.",
+      "Prestigious AI product surface with broad distribution."
+    ],
+    "risks": [
+      "Enterprise scale and accessibility examples should be made explicit."
+    ],
+    "mission": "Microsoft AI brings copilots into work, software development, operating systems, and cloud platforms.",
+    "products": ["Microsoft Copilot", "GitHub Copilot", "Azure AI", "Semantic Kernel"],
+    "techStack": ["TypeScript", "React", "C#", "Azure", "LLM orchestration"]
+  },
+  {
+    "company": "Amazon AGI",
+    "domain": "amazon.com",
+    "logoUrl": "https://logo.clearbit.com/amazon.com",
+    "logoAlt": "Amazon logo",
+    "brandColor": "#FF9900",
+    "backgroundColor": "#FFF4DF",
+    "prestigeTag": "AGI",
+    "prestigeLine": "Large-scale assistant and commerce intelligence systems.",
+    "title": "Applied Scientist, Agentic Shopping Systems",
+    "location": "Seattle, WA",
+    "jobUrl": "https://www.amazon.jobs/en/jobs/om-demo-agentic-shopping-systems",
+    "sourceSlug": "amazon-agi",
+    "compensationSummary": "$176K - $261K + equity",
+    "score": 89,
+    "rationale": "OM's ranking, job-agent, and applied ML experience maps to agentic retrieval, personalization, and commerce-assistant experimentation.",
+    "strengths": [
+      "Good fit for retrieval-backed agents and marketplace ranking.",
+      "Strong evidence of fast prototyping and applied AI product thinking.",
+      "Prestigious applied science track with massive product surface."
+    ],
+    "risks": [
+      "Applied scientist loop may require stronger experimental-methods framing."
+    ],
+    "mission": "Amazon AGI develops assistant systems and model capabilities for shopping, logistics, cloud, and consumer experiences.",
+    "products": ["Alexa", "Amazon Q", "Rufus", "Bedrock"],
+    "techStack": ["Python", "Retrieval", "Ranking", "Experimentation", "Distributed systems"]
+  },
+  {
+    "company": "Anthropic",
+    "domain": "anthropic.com",
+    "logoUrl": "https://logo.clearbit.com/anthropic.com",
+    "logoAlt": "Anthropic logo",
+    "brandColor": "#CC785C",
+    "backgroundColor": "#F5E9E2",
+    "prestigeTag": "Safety Lab",
+    "prestigeLine": "Frontier model company focused on reliable, steerable AI systems.",
+    "title": "Software Engineer, Claude Workflows",
+    "location": "San Francisco, CA",
+    "jobUrl": "https://www.anthropic.com/careers/om-demo-claude-workflows",
+    "sourceSlug": "anthropic",
+    "compensationSummary": "$230K - $330K + equity",
+    "score": 88,
+    "rationale": "The candidate's work on agent flows and thoughtful UX maps to Claude workflow features, especially if they foreground reliability and evaluation.",
+    "strengths": [
+      "Strong alignment with reliable agentic product workflows.",
+      "Evidence of taste in calm, usable AI interfaces.",
+      "Prestige signal from a frontier model lab."
+    ],
+    "risks": [
+      "Safety and eval examples should be brought to the front of the resume."
+    ],
+    "mission": "Anthropic builds helpful, honest, harmless AI systems and developer products around Claude.",
+    "products": ["Claude", "Claude Code", "MCP", "Artifacts"],
+    "techStack": ["TypeScript", "React", "Python", "LLM evaluation", "Agent tools"]
+  },
+  {
+    "company": "Tesla",
+    "domain": "tesla.com",
+    "logoUrl": "https://logo.clearbit.com/tesla.com",
+    "logoAlt": "Tesla logo",
+    "brandColor": "#E82127",
+    "backgroundColor": "#FCEBEC",
+    "prestigeTag": "Autonomy",
+    "prestigeLine": "Real-world AI systems across vehicles, robotics, and energy.",
+    "title": "Autonomy Software Engineer, Data Engine",
+    "location": "Palo Alto, CA",
+    "jobUrl": "https://www.tesla.com/careers/search/job/om-demo-autonomy-data-engine",
+    "sourceSlug": "tesla",
+    "compensationSummary": "$168K - $252K + equity",
+    "score": 87,
+    "rationale": "OM's data pipeline and AI workflow experience fits the data-engine side of autonomy, especially around labeling, retrieval, and evaluation feedback loops.",
+    "strengths": [
+      "Good fit for data feedback loops and AI infrastructure.",
+      "Strong systems-building signal from full-stack agent projects.",
+      "Prestigious hard-tech brand with concrete real-world deployment."
+    ],
+    "risks": [
+      "Autonomy-specific perception and robotics depth may require focused prep."
+    ],
+    "mission": "Tesla builds autonomy, robotics, energy, and vehicle software deployed into physical products at global scale.",
+    "products": ["FSD", "Optimus", "Dojo", "Energy platform"],
+    "techStack": ["Python", "C++", "Data pipelines", "Computer vision", "Evaluation systems"]
+  }
+]
