@@ -228,6 +228,11 @@ export type SubmissionResult = {
   failureCategory?: ApplicationJobStatus;
 };
 
+export type BrainstormedAnswer = {
+  questionType: string;
+  answer: string;
+};
+
 export type ApplicationJobInput = {
   id?: string;
   demoUserId: string;
@@ -243,6 +248,7 @@ export type ApplicationJobInput = {
   llmMode: LlmMode;
   repairLimit: number;
   idempotencyKey: string;
+  brainstormedAnswers?: BrainstormedAnswer[];
 };
 
 export type ProviderAdapter<TPage = unknown> = {
