@@ -45,4 +45,45 @@ export const convexRefs = {
       "ashbyActions:rankIngestionRun"
     ),
   },
+  followups: {
+    listApplications: makeFunctionReference<"query">(
+      "followups:listApplications"
+    ),
+    listDueFollowUps: makeFunctionReference<"query">(
+      "followups:listDueFollowUps"
+    ),
+    followUpSummary: makeFunctionReference<"query">(
+      "followups:followUpSummary"
+    ),
+    upsertApplication: makeFunctionReference<"mutation">(
+      "followups:upsertApplication"
+    ),
+    transitionApplicationStatus: makeFunctionReference<"mutation">(
+      "followups:transitionApplicationStatus"
+    ),
+    scheduleFollowUp: makeFunctionReference<"mutation">(
+      "followups:scheduleFollowUp"
+    ),
+    rescheduleFollowUp: makeFunctionReference<"mutation">(
+      "followups:rescheduleFollowUp"
+    ),
+    skipFollowUp: makeFunctionReference<"mutation">(
+      "followups:skipFollowUp"
+    ),
+    createOutreachDraft: makeFunctionReference<"mutation">(
+      "followups:createOutreachDraft"
+    ),
+    updateOutreachDraft: makeFunctionReference<"mutation">(
+      "followups:updateOutreachDraft"
+    ),
+    approveOutreachDraft: makeFunctionReference<"mutation">(
+      "followups:approveOutreachDraft"
+    ),
+    markManualSendComplete: makeFunctionReference<"mutation">(
+      "followups:markManualSendComplete"
+    ),
+    recordResponse: makeFunctionReference<"mutation">(
+      "followups:recordResponse"
+    ),
+  },
 };
