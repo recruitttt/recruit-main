@@ -18,13 +18,24 @@ type ProviderResult = {
   error?: string;
 };
 
+type ProviderSelection =
+  | { ok: true; value: Provider[] }
+  | { ok: false };
+
 export async function POST(request: Request) {
   const body = await readBody(request);
   if (!body.ok) {
     return Response.json({ ok: false, reason: "bad_request" }, { status: 400 });
   }
 
-  const providers = parseProviders(body.value.providers);
+  if ("provider" in body.value) {
+    return Response.json(
+      { ok: false, reason: "invalid_provider", providers: PROVIDERS },
+      { status: 400 }
+    );
+  }
+
+  const providers = parseProviderSelection(body.value.providers);
   if (!providers.ok) {
     return Response.json(
       { ok: false, reason: "invalid_provider", providers: PROVIDERS },
@@ -132,14 +143,15 @@ async function readBody(request: Request) {
   }
 }
 
-function parseProviders(value: unknown) {
-  if (value === undefined) return { ok: true as const, value: [...PROVIDERS] };
+export function parseProviderSelection(value: unknown): ProviderSelection {
+  if (value === undefined) return { ok: true, value: ["ashby"] };
   if (!Array.isArray(value)) return { ok: false as const };
   const providers = new Set<Provider>();
   for (const item of value) {
     if (!isProvider(item)) return { ok: false as const };
     providers.add(item);
   }
+  if (providers.size === 0) return { ok: false as const };
   return { ok: true as const, value: Array.from(providers) };
 }
 

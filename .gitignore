@@ -42,6 +42,8 @@ next-env.d.ts
 .gstack/
 *.local.json
 manual-runs/**/results/
+evals/ats-benchmark/.data/
+evals/ats-benchmark/runs/
 
 # local dev tooling
 .claude/

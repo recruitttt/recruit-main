@@ -5,18 +5,20 @@ import { DEMO_PROFILE, isProfileUsable } from "@/lib/demo-profile";
 import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, textToPdf, toBase64 } from "@/lib/pdf";
 import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
+import { resumeFallbackText } from "@/lib/tailor/resume-fallback-text";
 import { researchJob } from "@/lib/tailor/research";
 import { computeTailoringScore } from "@/lib/tailor/score";
 import { tailorResume } from "@/lib/tailor/tailor";
 import type { Job, TailoredApplication } from "@/lib/tailor/types";
 
 export type PersistedTailorResult =
-  | { ok: true; application: TailoredApplication; profileSource: "browser" | "demo" }
+  | { ok: true; application: TailoredApplication; profileSource: "browser" | "convex" | "demo" }
   | { ok: false; reason: string; status: number };
 
 type PersistedTailorInput = {
   client: ConvexHttpClient;
   jobId: string;
+  demoUserId?: string;
   profile?: UserProfile;
   pageSize?: "letter" | "a4";
 };
@@ -24,15 +26,31 @@ type PersistedTailorInput = {
 export async function tailorPersistedJob({
   client,
   jobId,
+  demoUserId,
   profile: inputProfile,
   pageSize: inputPageSize,
 }: PersistedTailorInput): Promise<PersistedTailorResult> {
   const startedAt = Date.now();
-  const profile = isProfileUsable(inputProfile) ? inputProfile : DEMO_PROFILE;
-  const profileSource = profile === DEMO_PROFILE ? "demo" : "browser";
+  const storedContext = isProfileUsable(inputProfile)
+    ? null
+    : await client.query(api.ashby.getAshbyRuntimeProfileContext, {
+      ...(demoUserId ? { demoUserId } : {}),
+    }).catch(() => null);
+  const storedProfile = isProfileUsable(storedContext?.profile)
+    ? storedContext.profile
+    : undefined;
+  const profile = isProfileUsable(inputProfile)
+    ? inputProfile
+    : storedProfile ?? DEMO_PROFILE;
+  const profileSource = isProfileUsable(inputProfile)
+    ? "browser"
+    : storedProfile
+      ? "convex"
+      : "demo";
 
   if (profileSource === "demo") {
     await client.mutation(api.ashby.upsertDemoProfileSnapshot, {
+      ...(demoUserId ? { demoUserId } : {}),
       profile: DEMO_PROFILE,
     });
   }
@@ -42,7 +60,10 @@ export async function tailorPersistedJob({
     return { ok: false, reason: "no_api_key", status: 503 };
   }
 
-  const detail = await client.query(api.ashby.jobDetail, { jobId: jobId as never });
+  const detail = await client.query(api.ashby.jobDetail, {
+    jobId: jobId as never,
+    ...(demoUserId ? { demoUserId } : {}),
+  });
   const sourceJob = detail?.job;
   if (!sourceJob) {
     return { ok: false, reason: "job_not_found", status: 404 };
@@ -58,6 +79,7 @@ export async function tailorPersistedJob({
   };
 
   await client.mutation(api.ashby.upsertTailoredApplication, {
+    ...(demoUserId ? { demoUserId } : {}),
     jobId: jobId as never,
     status: "tailoring",
     job,
@@ -67,13 +89,13 @@ export async function tailorPersistedJob({
   try {
     const researched = await researchJob(job, apiKey);
     if (!researched.ok) {
-      await markFailed(client, jobId, job, researched.reason);
+      await markFailed(client, jobId, job, researched.reason, demoUserId);
       return { ok: false, reason: researched.reason, status: 502 };
     }
 
     const tailored = await tailorResume(profile, researched.research, apiKey);
     if (!tailored.ok) {
-      await markFailed(client, jobId, job, tailored.reason);
+      await markFailed(client, jobId, job, tailored.reason, demoUserId);
       return { ok: false, reason: tailored.reason, status: 502 };
     }
 
@@ -103,6 +125,7 @@ export async function tailorPersistedJob({
     };
 
     await client.mutation(api.ashby.upsertTailoredApplication, {
+      ...(demoUserId ? { demoUserId } : {}),
       jobId: jobId as never,
       status: "completed",
       job,
@@ -120,13 +143,20 @@ export async function tailorPersistedJob({
     return { ok: true, application, profileSource };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    await markFailed(client, jobId, job, reason);
+    await markFailed(client, jobId, job, reason, demoUserId);
     return { ok: false, reason, status: 502 };
   }
 }
 
-async function markFailed(client: ConvexHttpClient, jobId: string, job: Job, error: string) {
+async function markFailed(
+  client: ConvexHttpClient,
+  jobId: string,
+  job: Job,
+  error: string,
+  demoUserId?: string
+) {
   await client.mutation(api.ashby.upsertTailoredApplication, {
+    ...(demoUserId ? { demoUserId } : {}),
     jobId: jobId as never,
     status: "failed",
     job,
@@ -138,37 +168,4 @@ async function markFailed(client: ConvexHttpClient, jobId: string, job: Job, err
 function pdfName(company: string): string {
   const safeCompany = company.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
   return `Resume_${safeCompany || "Tailored"}.pdf`;
-}
-
-function resumeFallbackText(resume: {
-  summary?: string;
-  skills?: string[];
-  experience?: Array<{
-    company?: string;
-    title?: string;
-    bullets?: string[];
-  }>;
-  projects?: Array<{
-    name?: string;
-    bullets?: string[];
-  }>;
-}): string {
-  return [
-    "Tailored Resume",
-    "",
-    resume.summary,
-    "",
-    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : undefined,
-    "",
-    ...(resume.experience ?? []).flatMap((item) => [
-      [item.title, item.company].filter(Boolean).join(" - "),
-      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
-      "",
-    ]),
-    ...(resume.projects ?? []).flatMap((item) => [
-      item.name,
-      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
-      "",
-    ]),
-  ].filter((line): line is string => typeof line === "string").join("\n");
 }
