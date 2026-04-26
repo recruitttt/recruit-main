@@ -18,6 +18,9 @@ export const convexRefs = {
     upsertDemoProfileSnapshot: makeFunctionReference<"mutation">(
       "ashby:upsertDemoProfileSnapshot"
     ),
+    startOnboardingPipeline: makeFunctionReference<"mutation">(
+      "ashby:startOnboardingPipeline"
+    ),
     upsertTailoredApplication: makeFunctionReference<"mutation">(
       "ashby:upsertTailoredApplication"
     ),
@@ -58,6 +61,9 @@ export const convexRefs = {
     ),
     runAtsIngestion: makeFunctionReference<"action">(
       "ashbyActions:runAtsIngestion"
+    ),
+    runMixedProviderIngestion: makeFunctionReference<"action">(
+      "ashbyActions:runMixedProviderIngestion"
     ),
     rankIngestionRun: makeFunctionReference<"action">(
       "ashbyActions:rankIngestionRun"
