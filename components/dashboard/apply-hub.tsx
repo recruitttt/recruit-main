@@ -138,7 +138,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
         if (cancelled) return;
         if (runResponse.ok) {
           const body = await runResponse.json() as { run?: ApplyRun };
-          if (body.run) {
+          if (body.run && body.run.jobs.length > 0) {
             setRun(body.run);
             setLiveJobs((current) => current.length === 0 ? seedLiveApplyJobs(body.run!) : mergeRunJobState(current, body.run!));
             setSelectedLiveJobId((current) => current ?? body.run!.jobs[0]?.id ?? null);

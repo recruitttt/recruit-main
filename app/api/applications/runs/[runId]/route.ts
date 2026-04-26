@@ -24,31 +24,10 @@ export async function GET(
   }
 
   // Store miss — Vercel serverless cold-start or different instance.
-  // If this is a Convex-engine run (id starts with "run_"), try to
-  // reconstruct minimal status from Convex so the frontend doesn't 404.
-  const client = await getConvexClient().catch(() => null);
-  if (!client) {
-    return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
-  }
-
-  // The remoteRunId for Convex runs is "convex-<jobId1>-<jobId2>-...".
-  // We don't have the mapping, but the frontend also polls /job?action=screenshot
-  // which works via convexJobId. Return a thin shell so the frontend doesn't
-  // break its polling loop.
-  return Response.json({
-    ok: true,
-    run: {
-      id: runId,
-      status: "filling",
-      source: "convex-application-actions",
-      jobs: [],
-      settings: { mode: "auto-strict", maxApplicationsPerRun: 20, maxConcurrentApplications: 10, maxConcurrentPerDomain: 20, computerUseModel: "gpt-5.4-nano", devSkipRealSubmit: true },
-      questionGroups: [],
-      events: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  });
+  // Return 200 with ok:true but no run payload so the frontend keeps its
+  // existing state. The screenshot poller uses convexJobId and doesn't
+  // depend on the store, so live updates still flow.
+  return Response.json({ ok: true, run: null });
 }
 
 async function syncConvexJobStatuses(
