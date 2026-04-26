@@ -109,11 +109,11 @@ Recruit2 app into this repo.
   application state.
 - `POST /api/applications/batch/start` accepts shortlisted jobs, the candidate
   profile, tailored resume metadata, model/mode settings, and consent. If
-  `APPLY_ENGINE_API_URL` or legacy `RECRUIT2_APPLY_API_URL` is configured, it
-  forwards the batch to the application engine's `/api/apply-lab/v4/runs`
-  endpoint. Recruit Main does not use the old public Apply Lab URL or a
-  hard-coded `localhost:9000` service; deployments should point this setting at
-  the real backend engine only when one is available.
+  `APPLY_ENGINE_API_URL`, legacy `RECRUIT2_APPLY_API_URL`, or a deployed
+  `APPLY_LAB_PUBLIC_BASE_URL` alias is configured, it forwards the batch to the
+  application engine's `/api/apply-lab/v4/runs` endpoint. Recruit Main refuses
+  the hard-coded local `localhost:9000` Apply Lab service as an engine URL;
+  deployments should point this setting at the real backend engine only.
 - The dashboard Apply Hub supports top-N jobs plus pasted external URLs, Nano /
   Mini / Sonnet computer-use selection, up to 20 active applications, grouped
   deferred questions, review items, and development-mode approval that marks a
@@ -180,7 +180,7 @@ Useful optional environment variables:
 | GitHub intake | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_OWNER` |
 | AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `TAILOR_PROVIDER`, `TAILOR_MODEL`, `GEMMA_TAILOR_MODEL`, `RESEARCH_PROVIDER`, `RESEARCH_MODEL`, `GEMMA_RESEARCH_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL` |
 | LinkedIn/browser intake | `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `COOKIE_ENCRYPTION_KEY` |
-| Application engine | `APPLY_ENGINE_API_URL` or legacy `RECRUIT2_APPLY_API_URL`, `MAX_APPLICATIONS_PER_RUN`, `MAX_CONCURRENT_APPLICATIONS`, `MAX_CONCURRENT_PER_DOMAIN`, `DEV_SKIP_REAL_SUBMIT` |
+| Application engine | `APPLY_ENGINE_API_URL`, legacy `RECRUIT2_APPLY_API_URL`, or deployed `APPLY_LAB_PUBLIC_BASE_URL` aliases; `MAX_APPLICATIONS_PER_RUN`, `MAX_CONCURRENT_APPLICATIONS`, `MAX_CONCURRENT_PER_DOMAIN`, `DEV_SKIP_REAL_SUBMIT` |
 | Scraping fallbacks | `FIRECRAWL_API_KEY`, `PROXYCURL_API_KEY` |
 | Checkout | `STRIPE_SECRET_KEY`, `STRIPE_CHECKOUT_MOCK`, `NEXT_PUBLIC_APP_URL` |
 | Browser/PDF runtime | `LOCAL_CHROME_PATH`, `LOCAL_CHROME_HEADLESS`, `LOCAL_CHROME_USER_DATA_DIR`, `CHROMIUM_PACK_URL` |

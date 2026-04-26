@@ -252,5 +252,9 @@ assert.equal(recruit2ApplyApiBaseUrl({ APPLY_LAB_PUBLIC_BASE_URL: "http://localh
 assert.equal(recruit2ApplyApiBaseUrl({ NEXT_PUBLIC_APPLY_LAB_PUBLIC_BASE_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");
 assert.equal(recruit2ApplyApiBaseUrl({ RECRUIT2_APPLY_API_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");
 assert.equal(recruit2ApplyApiBaseUrl({ APPLY_ENGINE_API_URL: "https://apply-engine.example.com/" } as unknown as NodeJS.ProcessEnv), "https://apply-engine.example.com");
+assert.equal(recruit2ApplyApiBaseUrl({ APPLY_LAB_PUBLIC_BASE_URL: " https://apply-lab.example.com/ " } as unknown as NodeJS.ProcessEnv), "https://apply-lab.example.com");
+assert.equal(recruit2ApplyApiBaseUrl({ NEXT_PUBLIC_APPLY_ENGINE_API_URL: "https://next-apply-engine.example.com/" } as unknown as NodeJS.ProcessEnv), "https://next-apply-engine.example.com");
+assert.equal(recruit2ApplyApiBaseUrl({ NEXT_PUBLIC_RECRUIT2_APPLY_API_URL: "https://recruit2.example.com/" } as unknown as NodeJS.ProcessEnv), "https://recruit2.example.com");
+assert.equal(recruit2ApplyApiBaseUrl({ NEXT_PUBLIC_APPLY_LAB_PUBLIC_BASE_URL: "https://next-apply-lab.example.com/" } as unknown as NodeJS.ProcessEnv), "https://next-apply-lab.example.com");
 
 console.log("Apply service tests passed");

@@ -15,8 +15,15 @@ export type Recruit2ApiStartResult =
     };
 
 export function recruit2ApplyApiBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const raw = env.APPLY_ENGINE_API_URL ?? env.RECRUIT2_APPLY_API_URL ?? "";
-  const baseUrl = raw.replace(/\/+$/, "");
+  const raw = [
+    env.APPLY_ENGINE_API_URL,
+    env.RECRUIT2_APPLY_API_URL,
+    env.APPLY_LAB_PUBLIC_BASE_URL,
+    env.NEXT_PUBLIC_APPLY_ENGINE_API_URL,
+    env.NEXT_PUBLIC_RECRUIT2_APPLY_API_URL,
+    env.NEXT_PUBLIC_APPLY_LAB_PUBLIC_BASE_URL,
+  ].find((value) => typeof value === "string" && value.trim().length > 0) ?? "";
+  const baseUrl = raw.trim().replace(/\/+$/, "");
   if (isDisallowedApplyLabDevBaseUrl(baseUrl)) return "";
   return baseUrl;
 }
