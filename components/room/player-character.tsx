@@ -235,10 +235,16 @@ function PlayerCharacterActive() {
             <cylinderGeometry args={[0.34, 0.36, 0.16, 24]} />
             <meshStandardMaterial color={PLAYER_CAP_HUE} roughness={0.55} />
           </mesh>
-          <mesh position={[0, 0.32, 0.36]} rotation={[Math.PI / 2.6, 0, 0]}>
-            <cylinderGeometry args={[0.18, 0.22, 0.04, 24, 1, false, -Math.PI / 2, Math.PI]} />
+          <RoundedBox
+            args={[0.54, 0.045, 0.3]}
+            radius={0.035}
+            smoothness={4}
+            position={[0, 0.27, 0.38]}
+            rotation={[0.03, 0, 0]}
+            castShadow
+          >
             <meshStandardMaterial color={PLAYER_CAP_HUE} roughness={0.55} />
-          </mesh>
+          </RoundedBox>
           <mesh position={[-0.13, 0.05, 0.27]}>
             <sphereGeometry args={[0.04, 12, 12]} />
             <meshStandardMaterial color="#101827" roughness={0.4} />

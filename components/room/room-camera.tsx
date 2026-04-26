@@ -23,7 +23,7 @@ const FIRST_PERSON_DESK = {
   look: [0, 1.4, -0.2] as const,
 };
 
-const FIXED_AZIMUTH = 0;
+const AZIMUTH_LIMIT = Math.PI * 0.42;
 const FOLLOW_DAMP = 3;
 const FOLLOW_X_LIMIT = 6;
 const FOLLOW_EPSILON = 0.0008;
@@ -93,12 +93,11 @@ export function RoomCamera() {
       maxDistance={22}
       minPolarAngle={Math.PI * 0.32}
       maxPolarAngle={Math.PI * 0.42}
-      minAzimuthAngle={FIXED_AZIMUTH}
-      maxAzimuthAngle={FIXED_AZIMUTH}
-      azimuthRotateSpeed={0}
+      minAzimuthAngle={-AZIMUTH_LIMIT}
+      maxAzimuthAngle={AZIMUTH_LIMIT}
+      azimuthRotateSpeed={0.75}
       dollySpeed={0}
       truckSpeed={1.4}
-      verticalDragToForward={false}
     />
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAction, useQuery } from "convex/react";
-import { Footprints, Maximize2, MessageSquare, Minimize2 } from "lucide-react";
+import { Maximize2, MessageSquare, Minimize2 } from "lucide-react";
 import { FocusPanel } from "./focus-panel";
 import { FlatChatOverlay } from "./flat-chat-overlay";
 import { RecruiterDialogue } from "./recruiter-dialogue";
@@ -44,7 +44,6 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
   const intakePhase = useRoomStore((s) => s.intakePhase);
   const intakeActive = intakePhase !== "inactive";
   const playerMode = useRoomStore((s) => s.playerMode);
-  const togglePlayerMode = useRoomStore((s) => s.togglePlayerMode);
   const chatMode = useRoomStore((s) => s.chatMode);
   const setChatMode = useRoomStore((s) => s.setChatMode);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -125,24 +124,6 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
             </span>
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={togglePlayerMode}
-          aria-pressed={playerMode === "walking"}
-          aria-label={playerMode === "walking" ? "Disable walk mode" : "Enable walk mode"}
-          title={playerMode === "walking" ? "Walking · click to disable" : "Walk around (W A S D)"}
-          className={
-            (playerMode === "walking"
-              ? "border-[#F97316]/65 bg-[#FFF6EE] text-[#9A3412]"
-              : "border-white/55 bg-[#F8FBFF]/82 text-[#101827]") +
-            " pointer-events-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
-          }
-        >
-          <Footprints className="h-4 w-4" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
-            {playerMode === "walking" ? "walking" : "walk"}
-          </span>
-        </button>
         <button
           type="button"
           onClick={toggleFullscreen}

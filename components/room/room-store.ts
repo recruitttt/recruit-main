@@ -166,7 +166,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
       cameraMode: "overview",
       selectedAgentId: null,
     }),
-  playerMode: "off",
+  playerMode: "walking",
   playerNearestAgentId: null,
   chatMode: "flat",
   deskState: "collapsed",

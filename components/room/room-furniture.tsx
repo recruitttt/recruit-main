@@ -18,15 +18,15 @@ export function RoomFurniture() {
   return (
     <group>
       <DeskAnchor />
-      <RugArea />
-      <Sofa position={[0, 0, 3.0]} />
-      <CoffeeTable position={[0, 0, 4.6]} />
+      <RugArea position={[-6.55, 0.008, 3.0]} rotation={[0, Math.PI / 2, 0]} />
+      <Sofa position={[-7.45, 0, 3.0]} rotation={[0, Math.PI / 2, 0]} />
+      <CoffeeTable position={[-5.85, 0, 3.0]} rotation={[0, Math.PI / 2, 0]} />
       <WallTV position={[-9.9, 2.1, 1.5]} />
       <Bookshelf position={[9.9, 0, 1.8]} />
       <PlantInPot position={[-8.4, 0, 4.4]} variant="fern" />
       <PlantInPot position={[8.6, 0, 4.6]} variant="palm" />
       <PlantInPot position={[2.4, 0, -4.4]} variant="succulent" />
-      <FloorLamp position={[-1.7, 0, 4.2]} />
+      <FloorLamp position={[-8.55, 0, 1.15]} />
       <BackWallWindows />
       <CeilingBeams />
       <CeilingFan position={[0, 7.28, 1.6]} />
@@ -209,14 +209,14 @@ function FurnitureHotspots() {
       <InteractiveHotspot
         target={{ kind: "furniture", id: "sofa" }}
         hotspotKey="furniture:sofa"
-        size={[3.4, 1.4, 1.6]}
-        position={[0, 0.7, 3.0]}
+        size={[1.6, 1.4, 3.4]}
+        position={[-7.45, 0.7, 3.0]}
       />
       <InteractiveHotspot
         target={{ kind: "furniture", id: "coffee-table" }}
         hotspotKey="furniture:coffee-table"
-        size={[1.6, 0.8, 1.0]}
-        position={[0, 0.4, 4.6]}
+        size={[1.0, 0.8, 1.6]}
+        position={[-5.85, 0.4, 3.0]}
       />
       <InteractiveHotspot
         target={{ kind: "furniture", id: "tv" }}
@@ -252,9 +252,15 @@ function FurnitureHotspots() {
   );
 }
 
-function RugArea() {
+function RugArea({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={[0, 0.008, 3.5]}>
+    <group position={position} rotation={rotation}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[5.4, 3.6]} />
         <meshStandardMaterial color="#8F3E36" roughness={1} metalness={0} />
@@ -311,9 +317,15 @@ function RugArea() {
   );
 }
 
-function Sofa({ position }: { position: [number, number, number] }) {
+function Sofa({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Base */}
       <RoundedBox args={[3.6, 0.42, 1.3]} radius={0.12} smoothness={4} position={[0, 0.26, 0]}>
         <meshStandardMaterial color="#C9B89A" roughness={0.95} />
@@ -368,9 +380,15 @@ function Sofa({ position }: { position: [number, number, number] }) {
   );
 }
 
-function CoffeeTable({ position }: { position: [number, number, number] }) {
+function CoffeeTable({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Top */}
       <RoundedBox args={[1.5, 0.06, 0.85]} radius={0.04} smoothness={4} position={[0, 0.42, 0]}>
         <meshStandardMaterial color="#B6905C" roughness={0.55} metalness={0.08} />
@@ -659,8 +677,7 @@ function BackWallWindows() {
   const WIN_W = 17.6;
   const WIN_H = 2.2;
   const FRAME_D = 0.12;
-  // 3 vertical muntins split the view into 4 visual panes, 1 horizontal muntin across the middle
-  const paneCenters = [-6.6, -2.2, 2.2, 6.6];
+  const lightCenters = [-6.6, -2.2, 2.2, 6.6];
 
   return (
     <group position={[0, 2.55, -5.07]}>
@@ -708,29 +725,13 @@ function BackWallWindows() {
           <meshBasicMaterial color="#FFFFFF" transparent opacity={0.1} toneMapped={false} />
         </mesh>
       ))}
-      {/* 3 vertical muntins between the 4 panes */}
-      {paneCenters.slice(0, -1).map((c, i) => {
-        const next = paneCenters[i + 1];
-        const x = (c + next) / 2;
-        return (
-          <mesh key={`v-${i}`} position={[x, 0, 0.065]}>
-            <planeGeometry args={[0.06, WIN_H]} />
-            <meshStandardMaterial color="#A89475" roughness={0.7} />
-          </mesh>
-        );
-      })}
-      {/* Horizontal muntin across the middle */}
-      <mesh position={[0, 0, 0.065]}>
-        <planeGeometry args={[WIN_W, 0.05]} />
-        <meshStandardMaterial color="#A89475" roughness={0.7} />
-      </mesh>
       {/* Outer frame sill */}
       <mesh position={[0, -WIN_H / 2 - 0.12, 0.02]}>
         <boxGeometry args={[WIN_W + 0.6, 0.16, 0.25]} />
         <meshStandardMaterial color="#D7C8A8" roughness={0.8} />
       </mesh>
       {/* Warm daylight spilling into the room, distributed along the window */}
-      {paneCenters.map((x, i) => (
+      {lightCenters.map((x, i) => (
         <pointLight
           key={`L-${i}`}
           position={[x, 0, 2.2]}

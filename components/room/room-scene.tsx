@@ -17,6 +17,7 @@ import { PersonalizationCompanion } from "./personalization-companion";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
+import { useRoomStore } from "./room-store";
 
 export type RoomSceneProps = {
   userId?: string | null;
@@ -26,6 +27,7 @@ export type RoomSceneProps = {
 
 export default function RoomScene({ userId = null, introPhase, onReady }: RoomSceneProps) {
   const activeIntroPhase = introPhase && introPhase !== "done" ? introPhase : null;
+  const clearFocus = useRoomStore((s) => s.clearFocus);
 
   useEffect(() => {
     onReady?.();
@@ -33,7 +35,7 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
 
   return (
     <Canvas
-      shadows="soft"
+      shadows
       frameloop="always"
       dpr={[1, 2]}
       gl={{
@@ -42,6 +44,7 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
         outputColorSpace: THREE.SRGBColorSpace,
       }}
       camera={{ position: [0, 6.8, 12.4], fov: 46, near: 0.1, far: 80 }}
+      onPointerMissed={clearFocus}
       style={{
         position: "absolute",
         top: 0,
@@ -58,7 +61,7 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
       </Suspense>
       <RoomLighting />
       <IntroRevealGroup phase={introPhase}>
-        <RoomFloor />
+        <RoomFloor onOpenSpaceClick={clearFocus} />
         <RoomFurniture />
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
