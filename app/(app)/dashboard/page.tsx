@@ -1,3 +1,4 @@
+import { DashboardEntryGate } from "@/components/dashboard/dashboard-entry-gate";
 import { RecruitDashboard } from "@/components/recruit-dashboard";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function DashboardPage() {
-  return <RecruitDashboard />;
+  return (
+    <DashboardEntryGate>
+      <RecruitDashboard />
+    </DashboardEntryGate>
+  );
 }

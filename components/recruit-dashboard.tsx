@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";
 import {
   BarChart3,
@@ -22,14 +22,30 @@ import { readProfile } from "@/lib/profile";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
-import { mistClasses } from "@/components/design-system";
 import {
   normalizeLeaderboardRecommendations,
   preserveLeaderboardSelection,
 } from "@/components/dashboard/leaderboard-helpers";
 import { IntakeProgressBanner } from "@/components/dashboard/intake-progress-banner";
 import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
+import { AnimatedNumber, AnimatedProgressBar } from "@/components/dashboard/metric-animation";
+import { useRankedListMotion } from "@/components/dashboard/ranked-list-motion";
+import {
+  DashboardCommandBar,
+  type DashboardCommandResult,
+  type DashboardCommandStatus,
+} from "@/components/dashboard/dashboard-command-bar";
+import {
+  DashboardLoadingGlobe,
+  type DashboardLoadingPhase,
+} from "@/components/dashboard/dashboard-loading-globe";
+import { StarClusterField } from "@/components/visual/star-cluster-field";
+import { ThemeParticleFall } from "@/components/visual/theme-particle-fall";
 import { cn } from "@/lib/utils";
+import type {
+  DashboardCommandJob,
+  DashboardCommandResponse,
+} from "@/lib/dashboard-command/types";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -46,6 +62,33 @@ type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | 
 
 const FAST_INTERVAL_MS = 2500;
 const SLOW_INTERVAL_MS = 8000;
+const AUTO_SCORE_SORT_DELAY_MS = 2800;
+
+type DashboardCommandApiResponse =
+  | {
+      ok: true;
+      command: DashboardCommandResponse;
+      model: { provider: string; modelId: string; fallbackUsed: boolean };
+      sponsor: { name: string; provider: string; placement: string; active: boolean };
+    }
+  | {
+      ok: false;
+      reason: string;
+    };
+
+type DashboardCommandHistory = {
+  past: Array<DashboardCommandResponse | null>;
+  present: DashboardCommandResponse | null;
+  future: Array<DashboardCommandResponse | null>;
+};
+
+const EMPTY_COMMAND_HISTORY: DashboardCommandHistory = {
+  past: [],
+  present: null,
+  future: [],
+};
+
+const MAX_COMMAND_HISTORY = 30;
 
 function ConnectedRecruitDashboard() {
   const reduceMotion = useReducedMotion();
@@ -59,30 +102,51 @@ function ConnectedRecruitDashboard() {
   const [detailError, setDetailError] = useState<string>();
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [commandStatus, setCommandStatus] = useState<DashboardCommandStatus>("idle");
+  const [commandError, setCommandError] = useState<string | null>(null);
+  const [commandResult, setCommandResult] = useState<DashboardCommandResult | null>(null);
+  const [commandHistory, setCommandHistory] = useState<DashboardCommandHistory>(EMPTY_COMMAND_HISTORY);
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
     message: "Select an application to inspect and tailor.",
   });
+  const commandPatch = commandHistory.present;
 
   const normalizedRecommendations = useMemo(
     () => normalizeLeaderboardRecommendations(liveData?.recommendations ?? []),
     [liveData?.recommendations],
   );
+  const scoreSortedRecommendations = useMemo(
+    () => [...normalizedRecommendations].sort(compareRecommendationsByScore),
+    [normalizedRecommendations],
+  );
+  const sourceOrderedJobIds = useMemo(
+    () => normalizedRecommendations.map((recommendation) => recommendation.jobId),
+    [normalizedRecommendations],
+  );
   const boardRows: LeaderboardRow[] = useMemo(
-    () => normalizedRecommendations.map((recommendation) => ({
-      key: recommendation.jobId,
-      jobId: recommendation.jobId,
-      rank: recommendation.trueRank,
-      title: recommendation.title,
-      company: recommendation.company,
-      locationLabel: recommendation.location?.trim() || "Location pending",
-      providerLabel: providerLabel(recommendation),
-      score: recommendation.score,
-      secondaryLine: secondaryLine(recommendation),
-      ...applicationStatus(recommendation, liveData?.run),
-      recommendation,
-    })),
-    [liveData?.run, normalizedRecommendations],
+    () => scoreSortedRecommendations.map((recommendation, index) => {
+      const scoreRank = index + 1;
+      const scoreRankedRecommendation = {
+        ...recommendation,
+        rank: scoreRank,
+        trueRank: scoreRank,
+      };
+      return {
+        key: recommendation.jobId,
+        jobId: recommendation.jobId,
+        rank: scoreRank,
+        title: recommendation.title,
+        company: recommendation.company,
+        locationLabel: recommendation.location?.trim() || "Location pending",
+        providerLabel: providerLabel(recommendation),
+        score: recommendation.score,
+        secondaryLine: secondaryLine(recommendation),
+        ...applicationStatus(scoreRankedRecommendation, liveData?.run),
+        recommendation: scoreRankedRecommendation,
+      };
+    }),
+    [liveData?.run, scoreSortedRecommendations],
   );
   const selection = preserveLeaderboardSelection(boardRows, selectedJobId, {
     fallbackToFirst: false,
@@ -95,6 +159,51 @@ function ConnectedRecruitDashboard() {
     runState === "ranking" ||
     Boolean(liveData?.run?.tailoringInProgress) ||
     Boolean(liveData?.run && ["fetching", "fetched", "ranking"].includes(liveData.run.status));
+
+  const applyCommandPatch = useCallback((next: DashboardCommandResponse | null) => {
+    setCommandHistory((current) => {
+      if (dashboardCommandsEqual(current.present, next)) return current;
+      return {
+        past: [...current.past, current.present].slice(-MAX_COMMAND_HISTORY),
+        present: next,
+        future: [],
+      };
+    });
+  }, []);
+
+  const announceCommandHistory = useCallback((title: string, patch: DashboardCommandResponse | null) => {
+    setCommandStatus("success");
+    setCommandError(null);
+    setCommandResult({
+      title,
+      body: patch ? <CommandResultBody command={patch} /> : "Restored the unfiltered board.",
+      meta: "Keyboard shortcut",
+    });
+  }, []);
+
+  const undoCommandPatch = useCallback(() => {
+    if (commandHistory.past.length === 0) return;
+
+    const previous = commandHistory.past[commandHistory.past.length - 1] ?? null;
+    setCommandHistory({
+      past: commandHistory.past.slice(0, -1),
+      present: previous,
+      future: [commandHistory.present, ...commandHistory.future].slice(0, MAX_COMMAND_HISTORY),
+    });
+    announceCommandHistory(previous ? "Restored previous K2 command" : "Undid K2 command", previous);
+  }, [announceCommandHistory, commandHistory]);
+
+  const redoCommandPatch = useCallback(() => {
+    if (commandHistory.future.length === 0) return;
+
+    const next = commandHistory.future[0] ?? null;
+    setCommandHistory({
+      past: [...commandHistory.past, commandHistory.present].slice(-MAX_COMMAND_HISTORY),
+      present: next,
+      future: commandHistory.future.slice(1),
+    });
+    announceCommandHistory(next ? "Redid K2 command" : "Redid cleared board", next);
+  }, [announceCommandHistory, commandHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +237,27 @@ function ConnectedRecruitDashboard() {
       window.clearInterval(interval);
     };
   }, [busy]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      const modifier = event.metaKey || event.ctrlKey;
+      const redo = modifier && (event.shiftKey && key === "z");
+      const undo = modifier && !event.shiftKey && key === "z";
+      if ((!undo && !redo) || isEditableShortcutTarget(event.target)) return;
+
+      if (undo && commandHistory.past.length > 0) {
+        event.preventDefault();
+        undoCommandPatch();
+      } else if (redo && commandHistory.future.length > 0) {
+        event.preventDefault();
+        redoCommandPatch();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [commandHistory.future.length, commandHistory.past.length, redoCommandPatch, undoCommandPatch]);
 
   useEffect(() => {
     const activeJobId = selected?.jobId;
@@ -222,6 +352,114 @@ function ConnectedRecruitDashboard() {
       setRunState("error");
       setRunError(error instanceof Error ? error.message : String(error));
       setRunMessage(undefined);
+    }
+  }
+
+  async function runDashboardCommand(command: string) {
+    const normalized = command.toLowerCase();
+    setCommandStatus("loading");
+    setCommandError(null);
+    setCommandResult(null);
+
+    try {
+      if (normalized.includes("search") || normalized.includes("source") || normalized.includes("ingest")) {
+        if (!controls.canRun || controls.busy) {
+          throw new Error(controls.message ?? "A dashboard run is already active.");
+        }
+
+        await runFirstThreeSources();
+        applyCommandPatch(null);
+        setCommandResult({
+          title: "Search started",
+          body: "Recruit is fetching the first three sources and will refresh the board as live results arrive.",
+          meta: "Dashboard action",
+        });
+        setCommandStatus("success");
+        return;
+      }
+
+      if (normalized.includes("top") || normalized.includes("best") || normalized.includes("first")) {
+        const topRow = boardRows[0];
+        if (!topRow) {
+          throw new Error("No ranked jobs are available yet.");
+        }
+
+        selectRecommendation(topRow.recommendation);
+        applyCommandPatch({
+          intent: "explain",
+          answer: `${topRow.company} / ${topRow.title} is selected with a fit score of ${Math.round(topRow.score)}.`,
+          filters: [],
+          reorder: {
+            jobIds: boardRows.map((row) => row.jobId),
+            reason: "Opened the current top-ranked role.",
+          },
+          explanations: [{
+            jobId: topRow.jobId,
+            summary: topRow.recommendation.rationale ?? "Top-ranked role by current fit score.",
+            evidence: [`Fit score ${Math.round(topRow.score)}`],
+          }],
+          suggestedChips: ["Explain top fit", "Compare risk", "Tailor selected"],
+        });
+        setCommandResult({
+          title: "Opened top match",
+          body: `${topRow.company} / ${topRow.title} is selected with a fit score of ${Math.round(topRow.score)}.`,
+          meta: "Board navigation",
+        });
+        setCommandStatus("success");
+        return;
+      }
+
+      if (normalized.includes("tailor") || normalized.includes("pdf") || normalized.includes("resume")) {
+        if (!selected) {
+          throw new Error("Select an application before tailoring.");
+        }
+        if (tailorState.running) {
+          throw new Error("Tailoring is already running for the selected application.");
+        }
+
+        await tailorSelectedJob();
+        setCommandResult({
+          title: "Tailoring requested",
+          body: `Recruit is preparing the tailored package for ${selected.company}.`,
+          meta: "Application workflow",
+        });
+        setCommandStatus("success");
+        return;
+      }
+
+      const response = await fetch("/api/dashboard/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: command,
+          context: {
+            jobs: commandJobs(boardRows),
+            selectedJobId: selection.selectedJobId,
+            visibleJobIds: displayRows.map((row) => row.jobId),
+            run: liveData?.run ?? null,
+          },
+        }),
+      });
+      const json = await response.json().catch(() => null) as DashboardCommandApiResponse | null;
+      if (!response.ok || !json?.ok) {
+        throw new Error(json && !json.ok ? json.reason : `dashboard_command_${response.status}`);
+      }
+
+      if (json.command.intent === "clear") {
+        applyCommandPatch(null);
+      } else {
+        applyCommandPatch(json.command);
+      }
+
+      setCommandResult({
+        title: commandResultTitle(json.command),
+        body: <CommandResultBody command={json.command} />,
+        meta: commandModelMeta(json),
+      });
+      setCommandStatus("success");
+    } catch (error) {
+      setCommandError(error instanceof Error ? error.message : String(error));
+      setCommandStatus("error");
     }
   }
 
@@ -338,36 +576,53 @@ function ConnectedRecruitDashboard() {
   const topCompanies = companyBreakdown(boardRows);
   const latestLogs = liveData?.logs ?? [];
   const listSorting = isListSorting(liveData?.run, runState);
-  const displayRows = useMemo(
+  const baseDisplayRows = useMemo(
     () => listSorting && !reduceMotion
       ? sortingPreviewRows(boardRows, liveData?.run, refreshedAt)
       : boardRows,
     [boardRows, listSorting, liveData?.run, reduceMotion, refreshedAt],
   );
+  const displayRows = promoteViableRows(applyDashboardCommandRows(baseDisplayRows, commandPatch));
+  const scoreSortPreviewRows = orderRowsByJobIds(displayRows, sourceOrderedJobIds);
+  const {
+    displayRows: animatedDisplayRows,
+    isSettling: listSettling,
+  } = useRankedListMotion(displayRows, {
+    enabled: !listSorting && !commandPatch,
+    preRankRows: scoreSortPreviewRows,
+    settleDelayMs: AUTO_SCORE_SORT_DELAY_MS,
+    seed: liveData?.run?._id ?? refreshedAt ?? "ranked-jobs",
+  });
+  const highlightedJobIds = useMemo(
+    () => new Set(commandPatch?.explanations.map((item) => item.jobId) ?? []),
+    [commandPatch],
+  );
+  const loadingPhase = dashboardLoadingPhase(liveData?.run, runState);
+  const showLoadingGlobe = isListSorting(liveData?.run, runState);
   const calmTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.72, ease: [0.22, 1, 0.36, 1] as const };
-
   return (
-    <main className={cn("min-h-screen", mistClasses.appSurface)}>
-      <div className="mx-auto flex min-h-screen max-w-[1460px] flex-col px-4 py-5 md:px-7 md:py-7">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[var(--dashboard-bg)] text-[var(--color-fg)] [background-image:var(--dashboard-bg-gradient)]">
+      <DashboardAtmosphere reduceMotion={Boolean(reduceMotion)} />
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-[1480px] flex-col px-4 pb-28 pt-4 sm:pb-28 md:px-7 md:pb-32 md:pt-6 lg:pb-28">
         <motion.header
           initial={reduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={calmTransition}
-          className="mb-5 flex flex-col gap-4 border-b border-[#BFD3B5]/70 pb-5 lg:flex-row lg:items-end lg:justify-between"
+          className="mb-4 flex flex-col gap-4 border-b border-[var(--dashboard-border)] pb-4 lg:flex-row lg:items-end lg:justify-between"
         >
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#57715E]">
-              <Radio className="h-3.5 w-3.5 text-[#3F7A56]" />
+            <div className="mb-3 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--dashboard-kicker)]">
+              <Radio className="h-3.5 w-3.5 text-[var(--dashboard-kicker-icon)]" />
               {liveData?.run ? statusLabel(liveData.run) : "Idle"} run
-              <span className="text-[#8A9A86]">/</span>
+              <span className="text-[var(--color-fg-subtle)]">/</span>
               {refreshedAt ? `Updated ${formatTime(refreshedAt)}` : "Awaiting sync"}
             </div>
-            <h1 className="text-4xl font-semibold text-[#102016] md:text-5xl">
+            <h1 className="text-4xl font-semibold text-[var(--dashboard-header-fg)] md:text-5xl">
               Applications
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#526854]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--dashboard-header-muted)]">
               {dashboardSummary(boardRows.length, readyCount, needsReviewCount, ruledOutCount, refreshedAt)}
             </p>
           </div>
@@ -375,33 +630,47 @@ function ConnectedRecruitDashboard() {
           <ThinAction
             disabled={!controls.canRun || controls.busy}
             onClick={controls.onRunFirst3}
-            className="self-start lg:self-end"
+            className="self-start border-[var(--dashboard-action-border)] text-[var(--dashboard-action-fg)] hover:border-[var(--color-fg)] hover:text-[var(--color-fg)] lg:self-end"
           >
             {controls.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             {controls.busy ? "Running" : "Start search"}
           </ThinAction>
         </motion.header>
 
-        <div className="mb-4">
+        <div className="mb-3">
           <IntakeProgressBanner />
         </div>
 
-        <div className="mb-5">
-          <DashboardStatusStrip
-            run={liveData?.run}
-            recommendationCount={boardRows.length}
-            refreshedAt={refreshedAt}
-            controls={controls}
-          />
+        <div className="mb-6 flex flex-col gap-6">
+          <div className="order-2 md:order-1">
+            <DashboardStatusStrip
+              run={liveData?.run}
+              recommendationCount={boardRows.length}
+              refreshedAt={refreshedAt}
+              controls={controls}
+            />
+          </div>
+
+          <AnimatePresence initial={false}>
+            {showLoadingGlobe ? (
+              <DashboardLoadingGlobe
+                key="dashboard-loading-globe"
+                phase={loadingPhase}
+                className="order-1 md:order-2"
+              />
+            ) : null}
+          </AnimatePresence>
         </div>
 
-        <div className="grid flex-1 gap-5 lg:grid-cols-2 lg:items-start">
+        <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:items-start">
           <JobList
-            rows={displayRows}
+            rows={animatedDisplayRows}
             selectedJobId={selection.selectedJobId}
             loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
             reduceMotion={Boolean(reduceMotion)}
-            sorting={listSorting}
+            sorting={listSorting || listSettling}
+            commandLabel={commandPatch ? commandResultTitle(commandPatch) : undefined}
+            highlightedJobIds={highlightedJobIds}
             onSelect={selectRecommendation}
           />
 
@@ -447,7 +716,58 @@ function ConnectedRecruitDashboard() {
         sizeKb={pdfState.sizeKb}
         pdfBase64={viewerPdfBase64}
       />
+      <DashboardCommandBar
+        status={commandStatus}
+        error={commandError}
+        result={commandResult}
+        pinned
+        onSubmit={runDashboardCommand}
+        onClearResult={() => {
+          setCommandStatus("idle");
+          setCommandError(null);
+          setCommandResult(null);
+          applyCommandPatch(null);
+        }}
+      />
     </main>
+  );
+}
+
+function DashboardAtmosphere({ reduceMotion }: { reduceMotion: boolean }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{ backgroundImage: "var(--dashboard-atmosphere-overlay)" }}
+      />
+      <motion.div
+        className="theme-light-glow absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.10) 22%, rgba(232,244,226,0.16) 38%, transparent 58%), linear-gradient(245deg, transparent 4%, rgba(244,194,107,0.045) 30%, transparent 54%)",
+          backgroundSize: "220% 220%, 180% 180%",
+          backgroundPosition: "0% 24%, 100% 12%",
+        }}
+        animate={reduceMotion ? undefined : {
+          backgroundPosition: ["0% 24%, 100% 12%", "90% 58%, 20% 42%", "0% 24%, 100% 12%"],
+        }}
+        transition={reduceMotion ? undefined : { duration: 82, ease: "easeInOut", repeat: Infinity }}
+      />
+      <motion.div
+        className="absolute inset-0"
+        style={{
+          opacity: "var(--dashboard-grid-opacity)",
+          backgroundImage:
+            "linear-gradient(var(--dashboard-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--dashboard-grid-cross-line) 1px, transparent 1px)",
+          backgroundPosition: "0 0",
+          backgroundSize: "72px 72px",
+        }}
+        animate={reduceMotion ? undefined : { backgroundPosition: ["0px 0px", "72px 144px"] }}
+        transition={reduceMotion ? undefined : { duration: 150, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
+      />
+      <StarClusterField variant="dashboard" />
+      <ThemeParticleFall />
+    </div>
   );
 }
 
@@ -457,6 +777,8 @@ function JobList({
   loadingJobId,
   reduceMotion,
   sorting,
+  commandLabel,
+  highlightedJobIds,
   onSelect,
 }: {
   rows: LeaderboardRow[];
@@ -464,6 +786,8 @@ function JobList({
   loadingJobId: string | null;
   reduceMotion: boolean;
   sorting: boolean;
+  commandLabel?: string;
+  highlightedJobIds: Set<string>;
   onSelect: (recommendation: LiveRecommendation) => void;
 }) {
   return (
@@ -471,38 +795,39 @@ function JobList({
       initial={reduceMotion ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-[620px] overflow-hidden rounded-lg bg-white/32 backdrop-blur"
+      className="min-h-[620px] text-[var(--dashboard-panel-fg)] lg:pr-1"
     >
-      <div className="flex items-end justify-between gap-3 border-b border-[#C9DCC0]/72 px-3 pb-3 pt-2">
+      <div className="flex items-end justify-between gap-3 border-b border-[var(--dashboard-panel-divider)] pb-4">
         <div>
-          <h2 className="text-xl font-semibold text-[#102016]">Ranked jobs</h2>
-          <p className="mt-1 text-sm text-[#5B705D]">
-            {rows.length} roles from frontier AI and automation teams.
+          <h2 className="text-xl font-semibold text-[var(--dashboard-panel-fg)]">Ranked jobs</h2>
+          <p className="mt-1 text-sm text-[var(--dashboard-panel-muted)]">
+            {commandLabel ? `${rows.length} roles in ${commandLabel.toLowerCase()}.` : `${rows.length} roles from frontier AI and automation teams.`}
           </p>
         </div>
-        <div className="hidden text-right text-xs font-semibold uppercase tracking-[0.14em] text-[#6D806D] sm:block">
-          {sorting ? "Sorting" : "Fit score"}
+        <div className="hidden text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)] sm:block">
+          {sorting ? "Sorting by score" : "Fit score"}
         </div>
       </div>
 
       {rows.length === 0 ? (
         <div className="flex min-h-[360px] items-center justify-center p-8 text-center">
           <div>
-            <BriefcaseBusiness className="mx-auto h-8 w-8 text-[#6D806D]" />
-            <div className="mt-3 text-lg font-semibold text-[#102016]">No jobs yet</div>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-[#5B705D]">
+            <BriefcaseBusiness className="mx-auto h-8 w-8 text-[var(--dashboard-panel-subtle)]" />
+            <div className="mt-3 text-lg font-semibold text-[var(--dashboard-panel-fg)]">No jobs yet</div>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--dashboard-panel-muted)]">
               Start a search to populate the ranked list.
             </p>
           </div>
         </div>
       ) : (
-        <div className="divide-y divide-[#D5E4CD]/78">
+        <div className="divide-y divide-[var(--dashboard-panel-divider)] border-b border-[var(--dashboard-panel-divider)]">
           {rows.map((row, index) => (
             <JobListRow
               key={row.jobId}
               row={row}
               active={selectedJobId === row.jobId}
               loading={loadingJobId === row.jobId}
+              highlighted={highlightedJobIds.has(row.jobId)}
               index={index}
               reduceMotion={reduceMotion}
               sorting={sorting}
@@ -519,6 +844,7 @@ function JobListRow({
   row,
   active,
   loading,
+  highlighted,
   index,
   reduceMotion,
   sorting,
@@ -527,6 +853,7 @@ function JobListRow({
   row: LeaderboardRow;
   active: boolean;
   loading: boolean;
+  highlighted: boolean;
   index: number;
   reduceMotion: boolean;
   sorting: boolean;
@@ -536,7 +863,7 @@ function JobListRow({
   const brand = companyBrand(row.company, organization);
   const ruledOut = isRuledOutRow(row);
   const float = rowMotion(row, index);
-  const rowAnimate = reduceMotion
+  const rowAnimate = reduceMotion || sorting
     ? { opacity: ruledOut ? 0.56 : 1, x: 0, y: 0 }
     : {
         opacity: ruledOut ? 0.54 : 1,
@@ -547,14 +874,21 @@ function JobListRow({
   return (
     <motion.button
       type="button"
-      layout
+      layout="position"
       initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={rowAnimate}
       transition={
         reduceMotion
           ? { duration: 0 }
+          : sorting
+          ? {
+              layout: { type: "spring", stiffness: 360, damping: 34, mass: 0.9 },
+              opacity: { duration: 0.46, ease: [0.22, 1, 0.36, 1] },
+              x: { duration: 0.38 },
+              y: { duration: 0.38 },
+            }
           : {
-              layout: { duration: 0.82, ease: [0.22, 1, 0.36, 1] },
+              layout: { type: "spring", stiffness: 520, damping: 32, mass: 0.72 },
               opacity: { duration: 0.6, delay: Math.min(index, 10) * 0.035, ease: [0.22, 1, 0.36, 1] },
               x: { duration: float.duration, delay: float.delay, ease: "easeInOut", repeat: Infinity },
               y: { duration: float.duration + 1.8, delay: float.delay * 0.8, ease: "easeInOut", repeat: Infinity },
@@ -562,20 +896,22 @@ function JobListRow({
       }
       onClick={() => onSelect(row.recommendation)}
       className={cn(
-        "group relative grid w-full grid-cols-[36px_32px_minmax(0,1fr)_62px] items-center gap-2.5 px-3 py-2.5 text-left transition duration-500 ease-out",
-        active
-          ? "bg-[#E8F4E2]/84"
-          : "bg-transparent hover:bg-white/36",
-        ruledOut && "text-[#7B8B79]",
+        "group relative grid w-full grid-cols-[40px_36px_minmax(0,1fr)_68px] items-center gap-3 px-1 py-3.5 text-left transition duration-500 ease-out sm:grid-cols-[42px_40px_minmax(0,1fr)_74px] sm:px-3",
+        highlighted
+          ? "bg-[var(--dashboard-row-highlight)] ring-1 ring-[var(--dashboard-row-highlight-border)]"
+          : active
+          ? "bg-[var(--dashboard-row-active)]"
+          : "bg-transparent hover:bg-[var(--dashboard-row-hover)]",
+        ruledOut && "text-[var(--dashboard-panel-subtle)]",
       )}
     >
       {ruledOut ? (
-        <span className="pointer-events-none absolute inset-x-3 top-1/2 h-px bg-[#A7B8A2]/58" aria-hidden="true" />
+        <span className="pointer-events-none absolute inset-x-3 top-1/2 h-px bg-[var(--dashboard-panel-divider)]" aria-hidden="true" />
       ) : null}
       <span
         className={cn(
           "font-mono text-[11px] font-semibold tabular-nums tracking-[0.14em]",
-          sorting ? "text-[#234B32]" : "text-[#738470]",
+          sorting ? "text-[var(--dashboard-score-fg)]" : "text-[var(--dashboard-panel-subtle)]",
         )}
       >
         {formatListIndex(index)}
@@ -584,13 +920,13 @@ function JobListRow({
 
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-sm font-semibold text-[#102016]">{row.company}</span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5A735D]">
+          <span className="truncate text-sm font-semibold text-[var(--dashboard-panel-fg)]">{row.company}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--dashboard-panel-kicker)]">
             {brand.tag}
           </span>
         </div>
-        <div className={cn("mt-0.5 truncate text-[14px] font-medium text-[#243828]", ruledOut && "text-[#62745F]")}>{row.title}</div>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#667865]">
+        <div className={cn("mt-0.5 truncate text-[14px] font-medium text-[var(--dashboard-panel-fg)]", ruledOut && "text-[var(--dashboard-panel-subtle)]")}>{row.title}</div>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--dashboard-panel-subtle)]">
           <span className="inline-flex min-w-0 items-center gap-1">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{row.locationLabel}</span>
@@ -600,7 +936,7 @@ function JobListRow({
       </div>
 
       <div className="flex min-h-11 flex-col items-end justify-between">
-        <span className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[#71806F]" : "text-[#234B32]")}>{row.score}</span>
+        <span className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[var(--dashboard-panel-subtle)]" : "text-[var(--dashboard-score-fg)]")}>{row.score}</span>
         <span className={cn("text-[11px] font-semibold", statusClasses(row.statusTone, active))}>
           {loading ? "Loading" : row.statusLabel}
         </span>
@@ -638,32 +974,32 @@ function OverviewPanel({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={transition}
-      className="overflow-hidden rounded-lg bg-white/30 backdrop-blur"
+      className="overflow-hidden rounded-[24px] border border-[var(--dashboard-panel-border)] bg-[var(--dashboard-panel-bg)] text-[var(--dashboard-panel-fg)] shadow-[var(--dashboard-panel-shadow)] backdrop-blur-2xl"
     >
-      <div className="border-b border-[#C9DCC0]/72 px-4 py-3">
+      <div className="border-b border-[var(--dashboard-panel-divider)] px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F4E2]/72 text-[#2F6242]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--dashboard-row-active)] text-[var(--dashboard-score-fg)]">
             <BarChart3 className="h-4 w-4" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-[#102016]">Portfolio view</h2>
-            <p className="mt-0.5 text-sm text-[#5B705D]">Current OM demo run.</p>
+            <h2 className="text-xl font-semibold text-[var(--dashboard-panel-fg)]">Portfolio view</h2>
+            <p className="mt-0.5 text-sm text-[var(--dashboard-panel-muted)]">Current OM demo run.</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-4 p-4">
         <div className="grid grid-cols-2 gap-x-5 gap-y-1">
-          <StatTile icon={BriefcaseBusiness} label="Jobs scanned" value={formatCount(scanned)} detail={`${run?.fetchedCount ?? 0}/${run?.sourceCount ?? 0} sources`} />
-          <StatTile icon={Target} label="Matches" value={formatCount(ranked)} detail={`${topScore} top score`} />
-          <StatTile icon={Gauge} label="Average fit" value={`${Math.round(averageScore)}`} detail="Across ranked roles" />
-          <StatTile icon={CheckCircle2} label="Tailored" value={`${tailored}`} detail={`${readyCount} ready now`} />
+          <StatTile icon={BriefcaseBusiness} label="Jobs scanned" value={<CountUpValue value={scanned} />} detail={`${run?.fetchedCount ?? 0}/${run?.sourceCount ?? 0} sources`} />
+          <StatTile icon={Target} label="Matches" value={<CountUpValue value={ranked} />} detail={`${topScore} top score`} />
+          <StatTile icon={Gauge} label="Average fit" value={<CountUpValue value={Math.round(averageScore)} />} detail="Across ranked roles" />
+          <StatTile icon={CheckCircle2} label="Tailored" value={<CountUpValue value={tailored} />} detail={`${readyCount} ready now`} />
         </div>
 
-        <section className="border-t border-[#C9DCC0]/72 pt-3">
+        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#61735F]">Company mix</h3>
-            <span className="text-sm font-semibold text-[#234B32]">{topCompanies.length} companies</span>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Company mix</h3>
+            <span className="text-sm font-semibold text-[var(--dashboard-score-fg)]">{topCompanies.length} companies</span>
           </div>
           <div className="space-y-2.5">
             {topCompanies.map((company) => (
@@ -671,29 +1007,29 @@ function OverviewPanel({
                 <CompanyLogo company={company.company} organization={company.organization} size="sm" />
                 <div className="min-w-0">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="truncate text-sm font-semibold text-[#102016]">{company.company}</span>
-                    <span className="text-xs text-[#637764]">{company.count} roles</span>
+                    <span className="truncate text-sm font-semibold text-[var(--dashboard-panel-fg)]">{company.company}</span>
+                    <span className="text-xs text-[var(--dashboard-panel-subtle)]">{company.count} roles</span>
                   </div>
                   <Meter value={company.averageScore} />
                 </div>
-                <div className="text-right text-sm font-semibold text-[#234B32]">{Math.round(company.averageScore)}</div>
+                <div className="text-right text-sm font-semibold text-[var(--dashboard-score-fg)]">{Math.round(company.averageScore)}</div>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="border-t border-[#C9DCC0]/72 pt-3">
+        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-[#3F7A56]" />
-            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#61735F]">Recent run signals</h3>
+            <TrendingUp className="h-4 w-4 text-[var(--color-accent)]" />
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Recent run signals</h3>
           </div>
           <div className="space-y-2.5">
             {logs.slice(-5).reverse().map((log) => (
               <div key={log._id ?? `${log.createdAt}-${log.message}`} className="grid grid-cols-[8px_minmax(0,1fr)] gap-3">
                 <span className={cn("mt-2 h-2 w-2 rounded-full", logDotClass(log.level))} />
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-[#243828]">{log.message}</div>
-                  <div className="mt-0.5 text-xs uppercase tracking-[0.12em] text-[#738470]">
+                  <div className="truncate text-sm font-medium text-[var(--dashboard-panel-fg)]">{log.message}</div>
+                  <div className="mt-0.5 text-xs uppercase tracking-[0.12em] text-[var(--dashboard-panel-subtle)]">
                     {log.stage} / {formatTime(Date.parse(log.createdAt))}
                   </div>
                 </div>
@@ -752,27 +1088,27 @@ function JobStatsPanel({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={transition}
-      className="overflow-hidden rounded-lg bg-white/30 backdrop-blur"
+      className="overflow-hidden rounded-[24px] border border-[var(--dashboard-panel-border)] bg-[var(--dashboard-panel-bg)] text-[var(--dashboard-panel-fg)] shadow-[var(--dashboard-panel-shadow)] backdrop-blur-2xl"
     >
-      <div className="border-b border-[#C9DCC0]/72 px-4 py-3">
+      <div className="border-b border-[var(--dashboard-panel-divider)] px-4 py-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
             <CompanyLogo company={resolvedCompany} organization={resolvedOrganization} size="lg" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5D745F]">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">
                   Rank {selected.rank}
                 </span>
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#3F7A56]" /> : null}
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-accent)]" /> : null}
               </div>
-              <h2 className="mt-1.5 text-xl font-semibold text-[#102016]">{resolvedCompany}</h2>
-              <p className="mt-1 text-sm leading-6 text-[#526854]">{resolvedTitle}</p>
+              <h2 className="mt-1.5 text-xl font-semibold text-[var(--dashboard-panel-fg)]">{resolvedCompany}</h2>
+              <p className="mt-1 text-sm leading-6 text-[var(--dashboard-panel-muted)]">{resolvedTitle}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClear}
-            className="rounded-md bg-white/42 px-3 py-2 text-xs font-semibold text-[#526854] transition hover:bg-white/70 hover:text-[#102016]"
+            className="rounded-md bg-[var(--dashboard-control-bg)] px-3 py-2 text-xs font-semibold text-[var(--dashboard-panel-muted)] transition hover:bg-[var(--dashboard-control-hover)] hover:text-[var(--dashboard-panel-fg)]"
           >
             All jobs
           </button>
@@ -781,19 +1117,19 @@ function JobStatsPanel({
 
       <div className="space-y-4 p-4">
         {detailError ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
             {detailError}
           </div>
         ) : null}
 
         <div className="grid grid-cols-2 gap-x-5 gap-y-1">
-          <StatTile icon={Gauge} label="Fit" value={`${Math.round(fitScore)}`} detail={score?.scoringMode ?? "ranked"} />
-          <StatTile icon={Sparkles} label="Model score" value={`${Math.round(llmScore)}`} detail="Fit read" />
-          <StatTile icon={Target} label="Tailoring" value={tailoringScore ? `${Math.round(tailoringScore)}` : "Ready"} detail={tailored?.status ?? "open"} />
-          <StatTile icon={CheckCircle2} label="Keywords" value={keywordCoverage ? `${Math.round(keywordCoverage)}%` : "n/a"} detail={pdf.ready ? "PDF-ready metadata" : "Awaiting PDF"} />
+          <StatTile icon={Gauge} label="Fit" value={<CountUpValue value={Math.round(fitScore)} />} detail={score?.scoringMode ?? "ranked"} />
+          <StatTile icon={Sparkles} label="Model score" value={<CountUpValue value={Math.round(llmScore)} />} detail="Fit read" />
+          <StatTile icon={Target} label="Tailoring" value={tailoringScore ? <CountUpValue value={Math.round(tailoringScore)} /> : "Ready"} detail={tailored?.status ?? "open"} />
+          <StatTile icon={CheckCircle2} label="Keywords" value={keywordCoverage ? <><CountUpValue value={Math.round(keywordCoverage)} />%</> : "n/a"} detail={pdf.ready ? "PDF-ready metadata" : "Awaiting PDF"} />
         </div>
 
-        <section className="border-t border-[#C9DCC0]/72 pt-3">
+        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 grid gap-3 sm:grid-cols-2">
             <Fact label="Location" value={resolvedLocation} />
             <Fact label="Compensation" value={job?.compensationSummary ?? selected.compensationSummary} />
@@ -809,9 +1145,9 @@ function JobStatsPanel({
           </div>
         </section>
 
-        <section className="border-t border-[#C9DCC0]/72 pt-3">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#61735F]">Fit read</h3>
-          <p className="mt-3 text-sm leading-7 text-[#526854]">
+        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Fit read</h3>
+          <p className="mt-3 text-sm leading-7 text-[var(--dashboard-panel-muted)]">
             {score?.rationale ?? selected.rationale ?? "No rationale captured yet."}
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -821,12 +1157,12 @@ function JobStatsPanel({
         </section>
 
         {research ? (
-          <section className="border-t border-[#C9DCC0]/72 pt-3">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#61735F]">Research notes</h3>
-            <p className="mt-3 text-sm leading-7 text-[#526854]">{research.jdSummary}</p>
+          <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Research notes</h3>
+            <p className="mt-3 text-sm leading-7 text-[var(--dashboard-panel-muted)]">{research.jdSummary}</p>
             <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5">
               {research.techStack.slice(0, 8).map((item) => (
-                <span key={item} className="border-b border-[#AFC6A6]/72 pb-0.5 text-xs font-semibold text-[#49664E]">
+                <span key={item} className="border-b border-[var(--dashboard-panel-divider)] pb-0.5 text-xs font-semibold text-[var(--dashboard-score-fg)]">
                   {item}
                 </span>
               ))}
@@ -834,7 +1170,7 @@ function JobStatsPanel({
           </section>
         ) : null}
 
-        <section className="border-t border-[#C9DCC0]/72 pt-3">
+        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <ThinAction onClick={onTailor} disabled={loading || tailorState.running}>
               {tailorState.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -859,13 +1195,13 @@ function JobStatsPanel({
             className={cn(
               "mt-4 rounded-lg px-4 py-3 text-sm leading-6",
               tailorState.error
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "bg-[#F1F8ED]/76 text-[#526854]",
+                ? "border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+                : "bg-[var(--dashboard-card-bg)] text-[var(--dashboard-panel-muted)]",
             )}
           >
             {tailorState.error ?? tailorState.message}
             {pdf.filename ? (
-              <div className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#72846F]">
+              <div className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--dashboard-panel-subtle)]">
                 {pdf.filename}
                 {pdf.sizeKb ? ` / ${pdf.sizeKb} KB` : ""}
               </div>
@@ -899,9 +1235,9 @@ function ThinAction({
   const classes = cn(
     "inline-flex h-8 items-center gap-1.5 border-b pb-0.5 text-sm font-semibold transition duration-300",
     tone === "primary"
-      ? "border-[#5E8F59] text-[#234B32] hover:border-[#234B32] hover:text-[#102016]"
-      : "border-[#AFC6A6] text-[#526854] hover:border-[#5E8F59] hover:text-[#102016]",
-    disabled && "pointer-events-none border-[#D0DDCB] text-[#99A696] opacity-60",
+      ? "border-[var(--dashboard-action-border)] text-[var(--dashboard-score-fg)] hover:border-[var(--dashboard-score-fg)] hover:text-[var(--dashboard-panel-fg)]"
+      : "border-[var(--dashboard-panel-divider)] text-[var(--dashboard-panel-muted)] hover:border-[var(--dashboard-action-border)] hover:text-[var(--dashboard-panel-fg)]",
+    disabled && "pointer-events-none border-[var(--dashboard-panel-divider)] text-[var(--dashboard-panel-subtle)] opacity-60",
     className,
   );
 
@@ -942,25 +1278,29 @@ function StatTile({
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
-  value: string;
+  value: ReactNode;
   detail: string;
 }) {
   return (
     <div className="py-2">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7D68]">{label}</div>
-        <Icon className="h-4 w-4 text-[#3F7A56]" />
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">{label}</div>
+        <Icon className="h-4 w-4 text-[var(--color-accent)]" />
       </div>
-      <div className="mt-1.5 text-2xl font-semibold text-[#102016]">{value}</div>
-      <div className="mt-1 text-xs text-[#667865]">{detail}</div>
+      <div className="mt-1.5 text-2xl font-semibold text-[var(--dashboard-panel-fg)]">{value}</div>
+      <div className="mt-1 text-xs text-[var(--dashboard-panel-subtle)]">{detail}</div>
     </div>
   );
+}
+
+function CountUpValue({ value }: { value: number }) {
+  return <AnimatedNumber value={value} format={(next) => formatCount(Math.round(next))} />;
 }
 
 function ScoreLine({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#637764]">
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--dashboard-panel-subtle)]">
         <span>{label}</span>
         <span>{Math.round(value)}</span>
       </div>
@@ -970,16 +1310,12 @@ function ScoreLine({ label, value }: { label: string; value: number }) {
 }
 
 function Meter({ value }: { value: number }) {
-  const width = `${Math.max(0, Math.min(100, Math.round(value)))}%`;
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-[#DCE9D5]">
-      <motion.div
-        className="h-full rounded-full bg-[#3F7A56]"
-        initial={{ width: 0 }}
-        animate={{ width }}
-        transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-      />
-    </div>
+    <AnimatedProgressBar
+      value={value}
+      trackClassName="bg-[var(--dashboard-card-bg)]"
+      fillClassName="bg-[var(--color-accent)]"
+    />
   );
 }
 
@@ -987,8 +1323,8 @@ function Fact({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#72846F]">{label}</div>
-      <div className="mt-1 text-sm font-medium leading-5 text-[#243828]">{value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-subtle)]">{label}</div>
+      <div className="mt-1 text-sm font-medium leading-5 text-[var(--dashboard-panel-fg)]">{value}</div>
     </div>
   );
 }
@@ -996,18 +1332,18 @@ function Fact({ label, value }: { label: string; value?: string | null }) {
 function SignalList({ title, items, tone }: { title: string; items: string[]; tone: "good" | "warn" }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-[#102016]">{title}</div>
+      <div className="text-xs font-semibold text-[var(--dashboard-panel-fg)]">{title}</div>
       {items.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {items.slice(0, 4).map((item) => (
-            <li key={item} className="flex gap-2 text-sm leading-6 text-[#526854]">
-              <span className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", tone === "good" ? "bg-[#2F8F57]" : "bg-[#B86D12]")} />
+            <li key={item} className="flex gap-2 text-sm leading-6 text-[var(--dashboard-panel-muted)]">
+              <span className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", tone === "good" ? "bg-[var(--color-success)]" : "bg-[var(--color-warn)]")} />
               <span>{item}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-sm text-[#72846F]">No signals captured.</p>
+        <p className="mt-3 text-sm text-[var(--dashboard-panel-subtle)]">No signals captured.</p>
       )}
     </div>
   );
@@ -1033,7 +1369,7 @@ function CompanyLogo({
 
   return (
     <div
-      className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/72 ring-1 ring-[#D4E3CC]/72", boxClass)}
+      className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--dashboard-card-bg)] ring-1 ring-[var(--dashboard-card-border)]", boxClass)}
       style={{ backgroundColor: failed ? brand.bg : undefined }}
     >
       {!failed ? (
@@ -1073,9 +1409,26 @@ function secondaryLine(recommendation: LiveRecommendation) {
   return providerLabel(recommendation);
 }
 
+function compareRecommendationsByScore(
+  left: { score: number; trueRank: number; originalIndex: number },
+  right: { score: number; trueRank: number; originalIndex: number },
+) {
+  return right.score - left.score || left.trueRank - right.trueRank || left.originalIndex - right.originalIndex;
+}
+
 function isListSorting(run: LiveRunSummary | null | undefined, runState: PipelineRunState) {
   if (runState === "syncing" || runState === "ingesting" || runState === "ranking") return true;
   return Boolean(run && ["fetching", "fetched", "ranking"].includes(run.status));
+}
+
+function dashboardLoadingPhase(
+  run: LiveRunSummary | null | undefined,
+  runState: PipelineRunState,
+): DashboardLoadingPhase {
+  if (!run && runState === "idle") return "loading";
+  if (runState === "ranking" || run?.status === "ranking") return "scoring";
+  if (runState === "ingesting" || run?.status === "fetching" || run?.status === "fetched") return "loading";
+  return "ranking";
 }
 
 function sortingPreviewRows(
@@ -1217,15 +1570,15 @@ function formatCount(value: number) {
 
 function statusClasses(tone: LeaderboardRow["statusTone"], active: boolean) {
   if (active) {
-    return "text-[#234B32]";
+    return "text-[var(--dashboard-score-fg)]";
   }
 
   const toneClass = {
-    neutral: "text-[#637764]",
-    active: "text-[#234B32]",
-    success: "text-[#2F8F57]",
-    warning: "text-amber-700",
-    danger: "text-red-700",
+    neutral: "text-[var(--dashboard-panel-subtle)]",
+    active: "text-[var(--dashboard-score-fg)]",
+    success: "text-[var(--color-success)]",
+    warning: "text-[var(--color-warn)]",
+    danger: "text-[var(--color-danger)]",
   }[tone];
 
   return toneClass;
@@ -1233,6 +1586,30 @@ function statusClasses(tone: LeaderboardRow["statusTone"], active: boolean) {
 
 function isRuledOutRow(row: LeaderboardRow) {
   return row.statusLabel === "Ruled out" || row.statusTone === "danger";
+}
+
+function promoteViableRows(rows: LeaderboardRow[]) {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const statusOrder = Number(isRuledOutRow(left.row)) - Number(isRuledOutRow(right.row));
+      return statusOrder || left.index - right.index;
+    })
+    .map(({ row }) => row);
+}
+
+function orderRowsByJobIds(rows: LeaderboardRow[], jobIds: readonly string[]) {
+  const rowById = new Map(rows.map((row) => [row.jobId, row]));
+  const ordered: LeaderboardRow[] = [];
+
+  for (const jobId of jobIds) {
+    const row = rowById.get(jobId);
+    if (!row) continue;
+    ordered.push(row);
+    rowById.delete(jobId);
+  }
+
+  return [...ordered, ...rowById.values()];
 }
 
 function motionSeed(input: string) {
@@ -1249,16 +1626,16 @@ function rowMotion(row: LeaderboardRow, index: number) {
   return {
     floatX: direction * (2.4 + seed * 3.6),
     floatY: -1.5 - ((index % 5) * 0.55) - seed,
-    duration: 10.5 + seed * 7,
+    duration: 18 + seed * 11,
     delay: (index % 9) * 0.24 + seed,
   };
 }
 
 function logDotClass(level: LivePipelineLog["level"]) {
-  if (level === "success") return "bg-[#2F8F57]";
-  if (level === "warning") return "bg-[#B86D12]";
-  if (level === "error") return "bg-red-500";
-  return "bg-[#3F7A56]";
+  if (level === "success") return "bg-[var(--color-success)]";
+  if (level === "warning") return "bg-[var(--color-warn)]";
+  if (level === "error") return "bg-[var(--color-danger)]";
+  return "bg-[var(--color-accent)]";
 }
 
 function readResearch(detail: JobDetail | null | undefined): JobResearch | null {
@@ -1488,6 +1865,156 @@ function runGuardMessage(run: LiveRunSummary | null | undefined) {
     return "Latest run failed. Review the board state before starting another ingestion.";
   }
   return undefined;
+}
+
+function commandJobs(rows: LeaderboardRow[]): DashboardCommandJob[] {
+  return rows.map((row) => ({
+    jobId: row.jobId,
+    title: row.title,
+    company: row.company,
+    location: row.locationLabel,
+    score: row.score,
+    rank: row.rank,
+    statusLabel: row.statusLabel,
+    providerLabel: row.providerLabel,
+    compensationSummary: row.recommendation.compensationSummary ?? row.secondaryLine,
+    rationale: row.recommendation.rationale,
+    strengths: row.recommendation.strengths,
+    risks: row.recommendation.risks,
+    tags: [
+      row.recommendation.organization?.prestigeTag,
+      row.recommendation.job?.organization?.prestigeTag,
+      row.recommendation.job?.sourceSlug,
+      row.providerLabel,
+    ].filter((item): item is string => Boolean(item)),
+  }));
+}
+
+function applyDashboardCommandRows(
+  rows: LeaderboardRow[],
+  command: DashboardCommandResponse | null,
+) {
+  if (!command) return rows;
+  if (command.intent === "clear") return rows;
+
+  const filtered = command.filters.reduce(
+    (current, filter) => current.filter((row) => rowPassesCommandFilter(row, filter)),
+    rows,
+  );
+
+  if (!command.reorder?.jobIds.length) return filtered;
+
+  const rowById = new Map(filtered.map((row) => [row.jobId, row]));
+  const ordered: LeaderboardRow[] = [];
+  for (const jobId of command.reorder.jobIds) {
+    const row = rowById.get(jobId);
+    if (!row) continue;
+    ordered.push(row);
+    rowById.delete(jobId);
+  }
+  return [...ordered, ...rowById.values()];
+}
+
+function rowPassesCommandFilter(
+  row: LeaderboardRow,
+  filter: DashboardCommandResponse["filters"][number],
+) {
+  const value = commandFieldValue(row, filter.field);
+  const filterValue = filter.value;
+  if (filter.op === "gte") return Number(value ?? 0) >= Number(filterValue);
+  if (filter.op === "lte") return Number(value ?? 0) <= Number(filterValue);
+  if (filter.op === "equals") return String(value ?? "").toLowerCase() === String(filterValue).toLowerCase();
+  if (filter.op === "contains") return String(value ?? "").toLowerCase().includes(String(filterValue).toLowerCase());
+  if (filter.op === "not_contains") return !String(value ?? "").toLowerCase().includes(String(filterValue).toLowerCase());
+  if (filter.op === "in" && Array.isArray(filterValue)) {
+    return filterValue.map((item) => item.toLowerCase()).includes(String(value ?? "").toLowerCase());
+  }
+  return true;
+}
+
+function commandFieldValue(row: LeaderboardRow, field: string) {
+  const haystack = [
+    row.title,
+    row.company,
+    row.locationLabel,
+    row.providerLabel,
+    row.secondaryLine,
+    row.statusLabel,
+    row.recommendation.rationale,
+    ...(row.recommendation.strengths ?? []),
+    ...(row.recommendation.risks ?? []),
+  ].join(" ");
+
+  if (field === "score") return row.score;
+  if (field === "location") return row.locationLabel;
+  if (field === "statusLabel") return row.statusLabel;
+  if (field === "company") return row.company;
+  if (field === "title") return `${row.title} ${haystack}`;
+  return haystack;
+}
+
+function commandResultTitle(command: DashboardCommandResponse) {
+  if (command.intent === "filter") return "Filtered shortlist";
+  if (command.intent === "reorder") return "Reordered board";
+  if (command.intent === "explain") return "Fit explanation";
+  if (command.intent === "clear") return "Filters cleared";
+  if (command.intent === "summarize") return "Board summary";
+  return "Command result";
+}
+
+function commandModelMeta(response: Extract<DashboardCommandApiResponse, { ok: true }>) {
+  const provider = response.model.provider === "k2"
+    ? response.sponsor.name
+    : response.model.provider === "demo"
+      ? "Demo fallback"
+      : `${response.model.provider} fallback`;
+  return `${provider} / ${response.model.modelId}${response.model.fallbackUsed ? " / fallback" : ""}`;
+}
+
+function dashboardCommandsEqual(
+  left: DashboardCommandResponse | null,
+  right: DashboardCommandResponse | null,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return target.isContentEditable ||
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "select";
+}
+
+function CommandResultBody({ command }: { command: DashboardCommandResponse }) {
+  return (
+    <div>
+      <p>{command.answer}</p>
+      {command.filters.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {command.filters.map((filter) => (
+            <span
+              key={`${filter.field}-${filter.op}-${String(filter.value)}`}
+              className="rounded-full border border-[var(--dashboard-command-border)] bg-[var(--dashboard-control-bg)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ai)]"
+            >
+              {filter.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {command.explanations.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {command.explanations.slice(0, 3).map((item) => (
+            <li key={item.jobId} className="text-xs leading-5 text-[var(--dashboard-panel-muted)]">
+              <span className="font-semibold text-[var(--dashboard-panel-fg)]">{item.summary}</span>
+              {item.evidence.length > 0 ? ` / ${item.evidence[0]}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 export function RecruitDashboard({ seed }: { seed?: DashboardSeed }) {

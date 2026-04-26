@@ -10,6 +10,11 @@ interface PageTransitionProps {
 
 export function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
+
+  if (pathname === "/dashboard/loading") {
+    return <>{children}</>;
+  }
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div

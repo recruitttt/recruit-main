@@ -19,7 +19,7 @@
     "test:e2e:report": "playwright show-report",
     "ci:quality": "npm run lint && npm run test:core && npm run test:api && npm run build",
     "test:core": "npm run test:profile && npm run test:ranking && npm run test:ats && npm run test:tailor && npm run test:followups && npm run test:ingestion && npm run test:ashby && npm run test:lever && npm run test:form-engine",
-    "test:api": "npm run test:auth && npm run test:resume && tsx tests/source-connection.test.ts && tsx tests/api-contracts.test.ts",
+    "test:api": "npm run test:auth && npm run test:resume && tsx tests/source-connection.test.ts && tsx tests/api-contracts.test.ts && tsx tests/dashboard-command.test.ts",
     "test:auth": "tsx tests/auth-flow.test.ts",
     "test:resume": "tsx tests/resume-parse.test.ts",
     "test:ingestion": "tsx tests/ingestion-adapters.test.ts",

@@ -21,10 +21,10 @@ export function GlassCard({
         "min-w-0",
         mistClasses.card,
         density === "compact" ? "p-3" : density === "spacious" ? "p-5" : "p-4",
-        variant === "selected" && "border-[var(--color-accent)] bg-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent-glow)] shadow-[inset_3px_0_0_rgba(63,122,86,0.42),inset_0_1px_0_rgba(255,255,255,0.6)]",
-        variant === "critical" && "border-red-500/30 bg-red-500/10",
-        variant === "muted" && "bg-white/28",
-        interactive && "transition hover:bg-white/50",
+        variant === "selected" && "border-[var(--color-accent)] bg-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent-glow)] shadow-[inset_3px_0_0_var(--color-accent-glow),var(--theme-card-inset-shadow)]",
+        variant === "critical" && "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)]",
+        variant === "muted" && "bg-[var(--theme-compat-bg-soft)]",
+        interactive && "transition hover:bg-[var(--glass-control-hover)]",
         className,
       )}
     >

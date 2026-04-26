@@ -15,11 +15,11 @@ const ICONS: Record<ToastVariant, typeof CheckCircle2> = {
 };
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  default: "border-[var(--color-border)] bg-white/95 text-[var(--color-fg)]",
-  success: "border-emerald-200 bg-emerald-50/95 text-emerald-900",
-  error: "border-rose-200 bg-rose-50/95 text-rose-900",
+  default: "border-[var(--color-border)] bg-[var(--glass-panel-bg)] text-[var(--color-fg)]",
+  success: "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  error: "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
   info: "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
-  warning: "border-amber-200 bg-amber-50/95 text-amber-900",
+  warning: "border-[var(--color-warn-border)] bg-[var(--color-warn-soft)] text-[var(--color-warn)]",
 };
 
 function ToastItem({ id, variant, title, description, duration }: ToastModel) {

@@ -102,8 +102,7 @@ function ViewToggle({ current }: { current: ViewMode }): React.ReactElement {
     <div className="sticky top-[68px] z-20 flex justify-center px-4 pt-4">
       <div
         className={cx(
-          "inline-flex items-center gap-1 rounded-full border bg-white/55 p-1 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_18px_38px_rgba(15,23,42,0.10)]",
-          "border-white/65",
+          "inline-flex items-center gap-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] p-1 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_38px_rgba(2,8,6,0.12)]",
         )}
         role="tablist"
         aria-label="Profile view mode"
@@ -136,8 +135,8 @@ function ToggleLink({
       className={cx(
         "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition",
         active
-          ? "border border-white/70 bg-white/85 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-          : "border border-transparent text-slate-600 hover:bg-white/45 hover:text-slate-900",
+          ? "border border-[var(--glass-border)] bg-[var(--nav-active-bg)] text-[var(--color-fg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
+          : "border border-transparent text-[var(--color-fg-muted)] hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-fg)]",
       )}
     >
       <Icon className="h-3.5 w-3.5" />

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "@/components/ui/toast";
 import { getToken } from "@/lib/auth-server";
+import { ThemeProvider } from "@/components/theme-provider";
 import { ConvexClientProvider } from "./convex-client-provider";
 import "./globals.css";
 
@@ -23,6 +25,24 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
 });
+
+const themeBootScript = `
+(function() {
+  try {
+    var key = "recruit-theme";
+    var stored = window.localStorage.getItem(key);
+    var theme = stored === "dark" || stored === "light"
+      ? stored
+      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+  } catch (error) {
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
+  }
+})();
+`;
 
 export const metadata: Metadata = {
   title: "Recruit · Autonomous job-application agent",
@@ -50,11 +70,20 @@ export default async function RootLayout({
       className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <Script
+          id="recruit-theme-boot"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeBootScript }}
+        />
+      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <ConvexClientProvider initialToken={initialToken}>
-          {children}
-        </ConvexClientProvider>
-        <Toaster />
+        <ThemeProvider>
+          <ConvexClientProvider initialToken={initialToken}>
+            {children}
+          </ConvexClientProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

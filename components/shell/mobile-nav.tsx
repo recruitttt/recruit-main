@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface NavItem {
   href: string;
@@ -106,7 +107,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
             role="dialog"
             aria-modal="true"
             aria-label="Site navigation"
-            className="fixed inset-y-0 right-0 z-30 flex w-[80vw] max-w-[320px] flex-col gap-4 border-l border-white/45 bg-[#D5E0D0]/95 px-4 py-5 text-[#102016] shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur-2xl lg:hidden"
+            className="app-shell-drawer fixed inset-y-0 right-0 z-30 flex w-[80vw] max-w-[320px] flex-col gap-4 border-l border-[var(--glass-border)] px-4 py-5 text-[var(--color-fg)] shadow-[0_22px_60px_rgba(2,8,6,0.26)] lg:hidden"
             initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
@@ -116,15 +117,18 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
               <span className="font-serif text-[18px] leading-none text-[var(--color-accent)]">
                 recruit
               </span>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={onClose}
-                aria-label="Close navigation"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/55 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/72"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle compact />
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close navigation"
+                  className="app-nav-control flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-fg-muted)] transition hover:text-[var(--color-fg)]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <nav className="flex flex-col gap-1" aria-label="Primary">
@@ -142,8 +146,8 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
                     className={cn(
                       "flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-[13px] font-semibold transition",
                       active
-                        ? "border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                        : "border-transparent text-slate-600 hover:border-white/55 hover:bg-white/40 hover:text-slate-900",
+                        ? "app-nav-active text-[var(--color-fg)]"
+                        : "border-transparent text-[var(--color-fg-muted)] hover:border-[var(--app-nav-control-border)] hover:bg-[var(--app-nav-control-hover)] hover:text-[var(--color-fg)]",
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -157,7 +161,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
               <Link
                 href="/3d"
                 onClick={onClose}
-                className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-white/55 bg-white/30 px-3 py-2 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:bg-white/50 hover:text-slate-900"
+                className="app-nav-control mt-1 flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-[12px] font-semibold text-[var(--color-fg-muted)] transition hover:text-[var(--color-fg)]"
                 aria-label="Try the 3D view (beta)"
               >
                 <Box className="h-3.5 w-3.5" />
@@ -168,16 +172,16 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
               </Link>
             )}
 
-            <div className="mt-auto rounded-2xl border border-white/55 bg-white/30 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+            <div className="app-nav-track mt-auto rounded-2xl p-2">
               {isPending ? (
                 <div className="h-10 animate-pulse rounded-xl bg-white/45" aria-hidden="true" />
               ) : user ? (
                 <div className="space-y-2">
                   <div className="px-2 py-1">
-                    <div className="truncate text-[12px] font-semibold text-slate-950">
+                    <div className="truncate text-[12px] font-semibold text-[var(--color-fg)]">
                       {user.name || "Recruit user"}
                     </div>
-                    <div className="truncate text-[11px] text-slate-500">
+                    <div className="truncate text-[11px] text-[var(--color-fg-muted)]">
                       {user.email}
                     </div>
                   </div>
@@ -187,7 +191,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
                       onClose();
                       onSignOut?.();
                     }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/58 px-3 py-2.5 text-[13px] font-semibold text-slate-800 transition hover:bg-white/72"
+                    className="app-nav-control flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[var(--color-fg)] transition"
                   >
                     <LogOut className="h-4 w-4" />
                     Log out
@@ -197,7 +201,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
                 <Link
                   href="/sign-in"
                   onClick={onClose}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-white/58 px-3 py-2.5 text-[13px] font-semibold text-slate-800 transition hover:bg-white/72"
+                  className="app-nav-control flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[var(--color-fg)] transition"
                 >
                   <LogIn className="h-4 w-4" />
                   Log in
