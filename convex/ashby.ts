@@ -772,7 +772,7 @@ export const upsertAtsSources = internalMutation({
       const provider = String(source.provider ?? "").trim();
       const slug = String(source.slug ?? "").trim();
       const company = String(source.company ?? "").trim();
-      if (!["greenhouse", "lever", "workday"].includes(provider) || !slug || !company) {
+      if (!["greenhouse", "lever", "workday", "workable"].includes(provider) || !slug || !company) {
         continue;
       }
 
@@ -818,7 +818,8 @@ export const listEnabledAtsSourcesForAction = internalQuery({
     provider: v.union(
       v.literal("greenhouse"),
       v.literal("lever"),
-      v.literal("workday")
+      v.literal("workday"),
+      v.literal("workable")
     ),
     limit: v.optional(v.number()),
   },

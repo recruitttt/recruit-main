@@ -1,0 +1,51 @@
+[
+  {
+    "provider": "ashby",
+    "company": "Attio",
+    "slug": "attio",
+    "careersUrl": "https://jobs.ashbyhq.com/attio",
+    "enabled": true
+  },
+  {
+    "provider": "ashby",
+    "company": "Aleph Alpha",
+    "slug": "AlephAlpha",
+    "careersUrl": "https://jobs.ashbyhq.com/AlephAlpha",
+    "enabled": true
+  },
+  {
+    "provider": "greenhouse",
+    "company": "Airtable",
+    "slug": "airtable",
+    "careersUrl": "https://job-boards.greenhouse.io/airtable",
+    "enabled": true
+  },
+  {
+    "provider": "greenhouse",
+    "company": "Vercel",
+    "slug": "vercel",
+    "careersUrl": "https://job-boards.greenhouse.io/vercel",
+    "enabled": true
+  },
+  {
+    "provider": "lever",
+    "company": "Mistral AI",
+    "slug": "mistral",
+    "careersUrl": "https://jobs.lever.co/mistral",
+    "enabled": true
+  },
+  {
+    "provider": "lever",
+    "company": "Palantir",
+    "slug": "palantir",
+    "careersUrl": "https://jobs.lever.co/palantir",
+    "enabled": true
+  },
+  {
+    "provider": "workable",
+    "company": "Rentokil Initial",
+    "slug": "rentokil-initial",
+    "careersUrl": "https://apply.workable.com/rentokil-initial",
+    "enabled": true
+  }
+]

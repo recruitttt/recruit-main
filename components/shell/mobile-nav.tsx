@@ -6,7 +6,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   AlertTriangle,
   Box,
-  CreditCard,
   LayoutDashboard,
   LayoutGrid,
   LogIn,
@@ -25,9 +24,8 @@ export interface NavItem {
 
 export const navItems: readonly NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dlq", label: "DLQ", icon: AlertTriangle },
+  { href: "/dlq", label: "Review queue", icon: AlertTriangle },
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/pricing", label: "Pricing", icon: CreditCard },
 ];
 
 export interface MobileNavProps {
