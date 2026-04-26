@@ -2,7 +2,7 @@
 
 import { parseCompensation } from "../lib/job-ranking";
 
-export type AtsProvider = "greenhouse" | "lever" | "workday";
+export type AtsProvider = "greenhouse" | "lever" | "workday" | "workable";
 
 export type AtsSource = {
   _id?: string;
@@ -257,6 +257,70 @@ export function normalizeWorkdayJob(
   };
 }
 
+export function normalizeWorkableJob(
+  source: AtsSource,
+  job: any,
+  runId: string
+): NormalizedAtsJob | null {
+  const title = stringValue(job.title);
+  const stableId =
+    stringValue(job.shortcode) ??
+    stringValue(job.id) ??
+    stringValue(job.code) ??
+    stringValue(job.url);
+  const jobUrl =
+    stringValue(job.url) ??
+    stringValue(job.shortlink) ??
+    stringValue(job.application_url) ??
+    (stableId ? `https://apply.workable.com/${source.slug}/j/${stableId}/` : undefined);
+  if (!title || !jobUrl || !stableId) return null;
+
+  const location = workableLocation(job);
+  const compensationSummary =
+    stringValue(job.salary) ??
+    stringValue(job.salary_range) ??
+    stringValue(job.compensation);
+  const parsedCompensation = parseCompensation(compensationSummary);
+  const workplaceType = stringValue(job.workplace);
+
+  return {
+    company: source.company,
+    sourceSlug: `workable:${source.slug}`,
+    title,
+    normalizedTitle: title.toLowerCase(),
+    location,
+    isRemote: job.telecommuting === true || inferRemote([location, workplaceType]),
+    workplaceType,
+    employmentType:
+      stringValue(job.type) ??
+      stringValue(job.employment_type) ??
+      stringValue(job.employmentType),
+    department: stringValue(job.department),
+    team: stringValue(job.team),
+    descriptionPlain:
+      stripHtml(stringValue(job.description)) ??
+      stripHtml(stringValue(job.full_description)) ??
+      stringValue(job.descriptionPlain),
+    compensationSummary,
+    salaryMin: parsedCompensation.min ?? undefined,
+    salaryMax: parsedCompensation.max ?? undefined,
+    currency: parsedCompensation.currency,
+    jobUrl,
+    applyUrl: stringValue(job.application_url) ?? jobUrl,
+    publishedAt: stringValue(job.published_on ?? job.created_at),
+    dedupeKey: `workable:${source.slug}:${stableId}`,
+    raw: { ...job, provider: "workable", runId },
+  };
+}
+
+export function extractWorkableJobs(json: any): any[] {
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json?.jobs)) return json.jobs;
+  if (Array.isArray(json?.results)) return json.results;
+  if (Array.isArray(json?.positions)) return json.positions;
+  return [];
+}
+
 export function stripHtml(html?: string): string | undefined {
   if (!html) return undefined;
   return html
@@ -286,6 +350,7 @@ function vendorStatusFromUrl(url: string, status: number) {
   if (url.includes("greenhouse.io")) return `greenhouse_${status}`;
   if (url.includes("lever.co")) return `lever_${status}`;
   if (url.includes("/ccx/service/customreport")) return `workday_${status}`;
+  if (url.includes("workable.com")) return `workable_${status}`;
   return `vendor_${status}`;
 }
 
@@ -354,4 +419,15 @@ function stringArray(value: unknown): string[] {
 
 function arrayValue(value: unknown): any[] {
   return Array.isArray(value) ? value : [];
+}
+
+function workableLocation(value: any) {
+  if (typeof value?.location === "string") return stringValue(value.location);
+  const nestedLocation = value?.location && typeof value.location === "object" ? value.location : {};
+  const parts = [
+    stringValue(nestedLocation.city ?? value?.city),
+    stringValue(nestedLocation.region ?? nestedLocation.state ?? value?.state),
+    stringValue(nestedLocation.country ?? value?.country),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
 }

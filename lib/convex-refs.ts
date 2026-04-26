@@ -26,6 +26,9 @@ export const convexRefs = {
     seedAtsSourcesFromCareerOps: makeFunctionReference<"action">(
       "ashbyActions:seedAtsSourcesFromCareerOps"
     ),
+    seedCuratedAtsSources: makeFunctionReference<"action">(
+      "ashbyActions:seedCuratedAtsSources"
+    ),
     runAshbyIngestion: makeFunctionReference<"action">(
       "ashbyActions:runAshbyIngestion"
     ),
@@ -37,6 +40,9 @@ export const convexRefs = {
     ),
     runWorkdayIngestion: makeFunctionReference<"action">(
       "ashbyActions:runWorkdayIngestion"
+    ),
+    runWorkableIngestion: makeFunctionReference<"action">(
+      "ashbyActions:runWorkableIngestion"
     ),
     runAtsIngestion: makeFunctionReference<"action">(
       "ashbyActions:runAtsIngestion"
