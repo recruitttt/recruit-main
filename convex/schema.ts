@@ -149,6 +149,7 @@ export default defineSchema({
     jobId: v.id("ingestedJobs"),
     status: v.union(v.literal("kept"), v.literal("rejected")),
     reasons: v.array(v.string()),
+    softSignals: v.optional(v.record(v.string(), v.number())),
     ruleScore: v.number(),
     createdAt: isoString,
   })
@@ -204,6 +205,12 @@ export default defineSchema({
     job: v.any(),
     research: v.optional(v.any()),
     tailoredResume: v.optional(v.any()),
+    // v2 pipeline: structured JSON Resume + chosen template id.
+    // When present, the renderer reads this in preference to tailoredResume.
+    jsonResume: v.optional(v.any()),
+    templateId: v.optional(v.string()),
+    consolidatorVersion: v.optional(v.string()),
+    pipelineVersion: v.optional(v.string()),
     tailoringScore: v.optional(v.number()),
     keywordCoverage: v.optional(v.number()),
     durationMs: v.optional(v.number()),
@@ -222,6 +229,7 @@ export default defineSchema({
   ashbyFormFillRuns: defineTable({
     demoUserId: v.string(),
     jobId: v.optional(v.id("ingestedJobs")),
+    ingestionRunId: v.optional(v.id("ingestionRuns")),
     targetUrl: v.string(),
     finalUrl: v.optional(v.string()),
     organizationSlug: v.optional(v.string()),
@@ -252,6 +260,7 @@ export default defineSchema({
   })
     .index("by_demo_user_started", ["demoUserId", "startedAt"])
     .index("by_job", ["jobId"])
+    .index("by_ingestion_run", ["ingestionRunId"])
     .index("by_status", ["status"]),
 
   ashbyPromptAliases: defineTable({

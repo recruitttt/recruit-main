@@ -73,9 +73,9 @@ export function IntakeProgressBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center gap-2 rounded-2xl border border-sky-200/60 bg-sky-50/55 px-3 py-2 text-[12px] leading-5 text-sky-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+      className="flex items-center gap-2 rounded-2xl border border-[var(--dashboard-row-highlight-border)] bg-[var(--dashboard-row-highlight)] px-3 py-2 text-[12px] leading-5 text-[var(--dashboard-panel-muted)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
     >
-      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-600" />
+      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--color-ai)]" />
       <span className="min-w-0 truncate">
         {summary}. Your dashboard will fill in as each source finishes.
       </span>

@@ -69,6 +69,44 @@ export const getSharedLoginCredentials = query({
   },
 });
 
+export const getSharedRuntimeConfig = query({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const browserbaseApiKey = (process.env.BROWSERBASE_API_KEY ?? "").trim();
+    const browserbaseProjectId = (process.env.BROWSERBASE_PROJECT_ID ?? "").trim();
+    const browserbaseSessionId = (process.env.BROWSERBASE_SESSION_ID ?? "").trim();
+    const linkedinEmail = (process.env.LINKEDIN_EMAIL ?? "").trim();
+    const linkedinPassword = (process.env.LINKEDIN_PASSWORD ?? "").trim();
+    const linkedinLiAt = (process.env.LINKEDIN_LI_AT ?? "").trim();
+    const aiGatewayKey = (process.env.AI_GATEWAY_API_KEY ?? "").trim();
+    const anthropicKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
+
+    return {
+      browserbase: browserbaseApiKey && browserbaseProjectId
+        ? {
+            apiKey: browserbaseApiKey,
+            projectId: browserbaseProjectId,
+            ...(browserbaseSessionId ? { reuseSessionId: browserbaseSessionId } : {}),
+          }
+        : null,
+      linkedin: {
+        ...(linkedinEmail ? { email: linkedinEmail } : {}),
+        ...(linkedinPassword ? { password: linkedinPassword } : {}),
+        ...(linkedinLiAt ? { liAt: linkedinLiAt } : {}),
+      },
+      ai: aiGatewayKey
+        ? { source: "gateway", apiKey: aiGatewayKey }
+        : anthropicKey
+          ? { source: "anthropic", apiKey: anthropicKey }
+          : null,
+    };
+  },
+});
+
 // Public metadata only. The plaintext cookie is never returned to clients.
 export const byUser = query({
   args: { userId: v.string() },
