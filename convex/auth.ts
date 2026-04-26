@@ -71,13 +71,11 @@ async function findGithubAccounts(
   const result = (await ctx.runQuery(
     (components.betterAuth.adapter as any).findMany,
     {
-      input: {
-        model: "account",
-        where: [
-          { field: "userId", operator: "eq", value: userId },
-          { field: "providerId", operator: "eq", value: "github" },
-        ],
-      },
+      model: "account",
+      where: [
+        { field: "userId", operator: "eq", value: userId },
+        { field: "providerId", operator: "eq", value: "github" },
+      ],
       paginationOpts: { cursor: null, numItems: 50 },
     }
   )) as { page?: GithubAccountRow[] } | null;

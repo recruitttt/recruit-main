@@ -34,7 +34,8 @@ export const countJwks = internalAction({
       components as { betterAuth: { adapter: Record<string, unknown> } }
     ).betterAuth.adapter;
     const result = (await ctx.runQuery((adapter as any).findMany, {
-      input: { model: "jwks", where: [] },
+      model: "jwks",
+      where: [],
       paginationOpts: { cursor: null, numItems: 100 },
     })) as { page?: unknown[] };
     return {
