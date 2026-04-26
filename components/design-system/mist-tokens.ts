@@ -8,6 +8,11 @@ export const mistColors = {
   warning: "#B86D12",
   danger: "#EF4444",
   neutral: "#6E7B6C",
+  // Scarce-use accents — ship sparingly so they keep their meaning.
+  // activationGold: only at the activation orbit climax + first-job-applied moment.
+  // aiPlum: only on AI-speaks surfaces (Scout dock, enrichment-chat header).
+  activationGold: "#F4C26B",
+  aiPlum: "#8E7EA8",
   surfacePanel: "rgba(255,255,255,0.45)",
   surfaceCard: "rgba(250,253,247,0.38)",
   surfaceControl: "rgba(255,255,255,0.52)",
@@ -16,6 +21,7 @@ export const mistColors = {
 
 export const mistClasses = {
   page: "bg-[#D5E0D0] text-[#102016]",
+  appSurface: "bg-[#D5E0D0] bg-[linear-gradient(180deg,#D5E0D0_0%,#E2E9DE_46%,#D5E0D0_100%)] text-[#102016]",
   panel: "rounded-[24px] border border-white/50 bg-white/42 shadow-[0_24px_70px_rgba(15,23,42,0.13)] backdrop-blur-2xl",
   card: "rounded-[24px] border border-white/40 bg-[#FAFDF7]/34 shadow-[inset_0_1px_0_rgba(255,255,255,0.60)] backdrop-blur-xl",
   control: "rounded-full border border-white/70 bg-white/54 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] backdrop-blur-xl",

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { GET as completeOAuth } from "../app/api/auth/complete-oauth/route";
 import { responseFromAuthUpstream } from "../lib/auth-proxy";
 import {
   authErrorMessage,
   authNewUserRedirectPath,
+  buildOAuthLinkCallbackURL,
   authSuccessRedirectPath,
   buildOAuthCompletionURL,
   safeRedirectPath,
@@ -35,6 +37,38 @@ async function main() {
   assert.equal(
     buildOAuthCompletionURL("http://localhost:3000", "/onboarding?step=2&auth=github"),
     "http://localhost:3000/api/auth/complete-oauth?redirect=%2Fonboarding%3Fstep%3D2%26auth%3Dgithub"
+  );
+  assert.equal(
+    buildOAuthLinkCallbackURL("http://localhost:3000", "/onboarding?step=3"),
+    "http://localhost:3000/onboarding?step=3"
+  );
+  assert.equal(
+    buildOAuthLinkCallbackURL("http://localhost:3000", "https://evil.example/callback"),
+    "http://localhost:3000/dashboard"
+  );
+  const convexAuthSource = readFileSync(
+    new URL("../convex/auth.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(convexAuthSource, /allowDifferentEmails:\s*true/);
+
+  const onboardingClientSource = readFileSync(
+    new URL("../app/onboarding/_client.tsx", import.meta.url),
+    "utf8"
+  );
+  const linkSocialIndex = onboardingClientSource.indexOf("authClient.linkSocial");
+  assert.ok(linkSocialIndex >= 0, "onboarding has a GitHub linkSocial flow");
+  assert.notEqual(
+    onboardingClientSource.lastIndexOf("buildOAuthLinkCallbackURL", linkSocialIndex),
+    -1,
+    "GitHub linkSocial uses the direct link callback helper"
+  );
+  assert.equal(
+    onboardingClientSource
+      .slice(linkSocialIndex, linkSocialIndex + 500)
+      .includes("buildOAuthCompletionURL"),
+    false,
+    "GitHub linkSocial must not use one-time-token completion"
   );
 
   assert.equal(authSuccessRedirectPath("sign-in", null), "/dashboard");

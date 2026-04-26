@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PageTransition } from "@/components/page-transition";
+import { cx, mistClasses } from "@/components/design-system";
 import { Topnav } from "@/components/shell/topnav";
 import { isAuthenticated } from "@/lib/auth-server";
 import {
@@ -21,7 +22,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
+    <div className={cx("flex min-h-screen flex-col", mistClasses.appSurface)}>
       <Topnav />
       <main className="flex-1">
         <PageTransition>{children}</PageTransition>

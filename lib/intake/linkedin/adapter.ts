@@ -36,6 +36,15 @@ import {
 } from "./browserbase";
 import { scrapeProfile } from "./scrape";
 import {
+  dedupeLinkedInExperiences,
+  dedupeLinkedInSnapshotExperiences,
+} from "./experience-dedupe";
+import {
+  resolveLinkedInBrowserbaseConfig,
+  resolveLinkedInLoginConfig,
+  type LinkedInSharedRuntimeConfig,
+} from "./runtime-config";
+import {
   type LinkedInEducation,
   type LinkedInExperience,
   type LinkedInSnapshot,
@@ -45,6 +54,7 @@ const PER_EXPERIENCE_CONCURRENCY = 4;
 
 export interface LinkedInIntakeInput {
   profileUrl: string;
+  runtimeConfig?: LinkedInSharedRuntimeConfig | null;
 }
 
 export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
@@ -56,27 +66,41 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
       level: "info",
     };
 
-    // ---- Read Browserbase + LinkedIn credentials from env ------------------
-    const apiKey = (process.env.BROWSERBASE_API_KEY ?? "").trim();
-    const projectId = (process.env.BROWSERBASE_PROJECT_ID ?? "").trim();
-    if (!apiKey || !projectId) {
+    // ---- Read Browserbase + LinkedIn credentials from Convex-first config --
+    let sharedRuntimeConfig: LinkedInSharedRuntimeConfig | null =
+      input.runtimeConfig ?? null;
+    if (!sharedRuntimeConfig) {
+      try {
+        sharedRuntimeConfig = (await ctx.ctx.runQuery(
+          api.linkedinCookies.getSharedRuntimeConfig,
+          {},
+        )) as LinkedInSharedRuntimeConfig | null;
+      } catch (err) {
+        console.warn(
+          "[linkedin] shared runtime config lookup failed:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+
+    let browserbase;
+    try {
+      browserbase = resolveLinkedInBrowserbaseConfig(process.env, sharedRuntimeConfig);
+    } catch (err) {
       yield {
         stage: "error",
         level: "error",
-        message:
-          "BROWSERBASE_API_KEY / BROWSERBASE_PROJECT_ID env vars are required for the LinkedIn adapter",
+        message: err instanceof Error ? err.message : String(err),
       };
-      throw new Error("LinkedIn adapter requires Browserbase credentials");
+      throw err;
     }
-    const reuseSessionId = (process.env.BROWSERBASE_SESSION_ID ?? "").trim() || undefined;
+
     // Backwards-compat: a legacy single-file env override. New code should
     // prefer LINKEDIN_CHALLENGE_PIN_DIR (resolved inside auth.ts) so each
     // session gets its own file.
     const challengePinPathOverride =
       (process.env.LINKEDIN_CHALLENGE_PIN_FILE ?? "").trim() || undefined;
-    const liEnv = (process.env.LINKEDIN_LI_AT ?? "").trim() || undefined;
-    const emailEnv = (process.env.LINKEDIN_EMAIL ?? "").trim() || undefined;
-    const passwordEnv = (process.env.LINKEDIN_PASSWORD ?? "").trim() || undefined;
+    const loginConfig = resolveLinkedInLoginConfig(process.env, sharedRuntimeConfig);
 
     // ---- Saved cookie from Convex ----------------------------------------
     // `linkedinCookies.byUser` no longer returns the plaintext li_at — it's
@@ -94,9 +118,9 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
     let page: Page | undefined;
     try {
       session = await makeBrowserbaseSession({
-        apiKey,
-        projectId,
-        reuseSessionId,
+        apiKey: browserbase.apiKey,
+        projectId: browserbase.projectId,
+        reuseSessionId: browserbase.reuseSessionId,
         keepAlive: true,
         apiTimeoutSeconds: 1800,
       });
@@ -126,9 +150,9 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
       // ---- Authenticate ---------------------------------------------------
       yield { stage: "login", level: "info", message: "Authenticating with LinkedIn" };
       const authResult = await authenticate(page, {
-        liAt: liEnv ?? savedLiAt,
-        email: emailEnv,
-        password: passwordEnv,
+        liAt: savedLiAt ?? loginConfig.liAt,
+        email: loginConfig.email,
+        password: loginConfig.password,
         sessionId: session.sessionId,
         challengePinPath: challengePinPathOverride,
         liveViewUrl: session.liveViewUrl,
@@ -193,13 +217,14 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
         message: "Scraping LinkedIn profile + 8 detail subpages",
       };
       const events: IntakeProgressEvent[] = [];
-      const snapshot = await scrapeProfile({
+      const scrapedSnapshot = await scrapeProfile({
         page,
         profileUrl: input.profileUrl,
         onProgress: (event) => {
           events.push({ stage: event.stage, level: "info", message: event.message });
         },
       });
+      const snapshot = dedupeLinkedInSnapshotExperiences(scrapedSnapshot);
       for (const e of events) yield e;
 
       // Persist snapshot.
@@ -255,7 +280,7 @@ async function summarizeExperiences(
   snapshot: LinkedInSnapshot,
   ctx: IntakeContext
 ): Promise<IntakeProgressEvent[]> {
-  const experiences = snapshot.experiences;
+  const experiences = dedupeLinkedInExperiences(snapshot.experiences);
   if (experiences.length === 0) return [];
 
   const events: IntakeProgressEvent[] = [
@@ -353,7 +378,7 @@ function mapSnapshotToProfile(snapshot: LinkedInSnapshot): SnapshotMapping {
     provenance["links.linkedin"] = "linkedin";
   }
 
-  const experiences = snapshot.experiences
+  const experiences = dedupeLinkedInExperiences(snapshot.experiences)
     .map(toUserProfileExperience)
     .filter((e): e is UserProfile["experience"][number] => Boolean(e));
   if (experiences.length > 0) {

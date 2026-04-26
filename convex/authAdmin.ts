@@ -34,7 +34,8 @@ export const countJwks = internalAction({
       components as { betterAuth: { adapter: Record<string, unknown> } }
     ).betterAuth.adapter;
     const result = (await ctx.runQuery((adapter as any).findMany, {
-      input: { model: "jwks", where: [] },
+      model: "jwks",
+      where: [],
       paginationOpts: { cursor: null, numItems: 100 },
     })) as { page?: unknown[] };
     return {
@@ -68,6 +69,7 @@ export const debugCreateAuth = internalAction({
         // After plugins resolve, the $context has the FINAL options.
         ctxSocialProviderKeys: Object.keys(ctxOpts.socialProviders ?? {}),
         ctxHasGithub: Boolean(ctxOpts.socialProviders?.github),
+        accountLinking: ctxOpts.account?.accountLinking ?? opts.account?.accountLinking ?? null,
         pluginIds: ($context?.options?.plugins ?? []).map((p: any) => p?.id),
       };
     } catch (error) {

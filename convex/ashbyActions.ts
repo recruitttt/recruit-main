@@ -52,6 +52,7 @@ const MAX_LLM_CANDIDATES = 40;
 const MAX_RECOMMENDATIONS = 15;
 const RECOMMENDATION_CUTOFF = 70;
 const LEVER_PAGE_SIZE = 100;
+const ATS_PROVIDERS: AtsProvider[] = ["greenhouse", "lever", "workday", "workable"];
 
 type AshbySource = {
   _id?: string;
@@ -454,21 +455,37 @@ export const runOnboardingPipeline = internalAction({
   args: {
     demoUserId: v.optional(v.string()),
     runId: v.id("ingestionRuns"),
+    mode: v.optional(v.union(v.literal("ashby"), v.literal("mixed"))),
     limitSources: v.optional(v.number()),
+    targetJobs: v.optional(v.number()),
+    maxJobs: v.optional(v.number()),
     tailorLimit: v.optional(v.number()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const mode = args.mode ?? "ashby";
     const tailorLimit = args.tailorLimit ?? 3;
 
     try {
-      await ctx.runAction(anyApi.ashbyActions.seedAshbySourcesFromCareerOps, {});
-      const ingestion = await ctx.runAction(anyApi.ashbyActions.runAshbyIngestion, {
-        demoUserId,
-        runId: args.runId,
-        limitSources: args.limitSources ?? 3,
-      });
+      let ingestion: any;
+      if (mode === "mixed") {
+        await ctx.runAction(anyApi.ashbyActions.seedAshbySourcesFromCareerOps, {});
+        await ctx.runAction(anyApi.ashbyActions.seedCuratedAtsSources, {});
+        ingestion = await ctx.runAction(anyApi.ashbyActions.runMixedProviderIngestion, {
+          demoUserId,
+          runId: args.runId,
+          targetJobs: args.targetJobs ?? 150,
+          maxJobs: args.maxJobs ?? 175,
+        });
+      } else {
+        await ctx.runAction(anyApi.ashbyActions.seedAshbySourcesFromCareerOps, {});
+        ingestion = await ctx.runAction(anyApi.ashbyActions.runAshbyIngestion, {
+          demoUserId,
+          runId: args.runId,
+          limitSources: args.limitSources ?? 3,
+        });
+      }
       const ranking = await ctx.runAction(anyApi.ashbyActions.rankIngestionRun, {
         demoUserId,
         runId: args.runId,
@@ -634,6 +651,180 @@ export const runAtsIngestion = action({
       limitSources: args.limitSources,
       sources: args.sources,
     });
+  },
+});
+
+export const runMixedProviderIngestion = action({
+  args: {
+    demoUserId: v.optional(v.string()),
+    runId: v.optional(v.id("ingestionRuns")),
+    targetJobs: v.optional(v.number()),
+    maxJobs: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const targetJobs = args.targetJobs ?? 150;
+    const maxJobs = args.maxJobs ?? 175;
+
+    let ashbySources = (await ctx.runQuery(anyApi.ashby.listEnabledSourcesForAction, {})) as AshbySource[];
+    if (ashbySources.length === 0) {
+      const seeded = await loadCareerOpsSources();
+      await ctx.runMutation(anyApi.ashby.upsertAshbySources, { sources: seeded });
+      ashbySources = (await ctx.runQuery(anyApi.ashby.listEnabledSourcesForAction, {})) as AshbySource[];
+    }
+
+    const atsSourcesByProvider = await Promise.all(
+      ATS_PROVIDERS.map(async (provider) => ({
+        provider,
+        sources: (await ctx.runQuery(anyApi.ashby.listEnabledAtsSourcesForAction, {
+          provider,
+        })) as AtsSource[],
+      }))
+    );
+
+    const mixedSources: Array<
+      | { kind: "ashby"; source: AshbySource }
+      | { kind: "ats"; provider: AtsProvider; source: AtsSource }
+    > = [
+      ...ashbySources.map((source) => ({ kind: "ashby" as const, source })),
+      ...atsSourcesByProvider.flatMap(({ provider, sources }) =>
+        sources.map((source) => ({ kind: "ats" as const, provider, source }))
+      ),
+    ].sort((a, b) => a.source.company.localeCompare(b.source.company));
+
+    const runId = args.runId ?? await ctx.runMutation(anyApi.ashby.createIngestionRun, {
+      demoUserId,
+      provider: "mixed",
+      sourceCount: mixedSources.length,
+    });
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId,
+      stage: "ingestion",
+      level: "info",
+      message: `Started mixed-provider ingestion for up to ${targetJobs} jobs.`,
+      payload: {
+        provider: "mixed",
+        targetJobs,
+        maxJobs,
+        sourceCount: mixedSources.length,
+      },
+    });
+
+    try {
+      const errors: Array<{ source: string; message: string }> = [];
+      const seenDedupeKeys = new Set<string>();
+      const normalizedJobs: NormalizedAtsJob[] = [];
+      let fetchedCount = 0;
+
+      for (const sourceRef of mixedSources) {
+        if (normalizedJobs.length >= targetJobs) break;
+
+        try {
+          const provider = sourceRef.kind === "ashby" ? "ashby" : sourceRef.provider;
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "info",
+            message: `Fetching ${sourceRef.source.company} from ${provider}.`,
+            payload: { provider, company: sourceRef.source.company, slug: sourceRef.source.slug },
+          });
+
+          const jobs = sourceRef.kind === "ashby"
+            ? await fetchAshbySourceJobs(sourceRef.source, String(runId))
+            : await fetchProviderJobs(sourceRef.source, String(runId));
+          fetchedCount++;
+
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "success",
+            message: `Fetched ${jobs.length} jobs from ${sourceRef.source.company}.`,
+            payload: {
+              provider,
+              company: sourceRef.source.company,
+              slug: sourceRef.source.slug,
+              jobCount: jobs.length,
+            },
+          });
+
+          for (const job of jobs) {
+            if (normalizedJobs.length >= maxJobs) break;
+            if (seenDedupeKeys.has(job.dedupeKey)) continue;
+            seenDedupeKeys.add(job.dedupeKey);
+            normalizedJobs.push(job);
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({ source: sourceRef.source.company, message });
+          await appendPipelineLog(ctx, {
+            demoUserId,
+            runId,
+            stage: "fetch",
+            level: "error",
+            message: `Failed to fetch ${sourceRef.source.company}.`,
+            payload: {
+              provider: sourceRef.kind === "ashby" ? "ashby" : sourceRef.provider,
+              company: sourceRef.source.company,
+              slug: sourceRef.source.slug,
+              error: message,
+            },
+          });
+        }
+      }
+
+      const stored = await ctx.runMutation(anyApi.ashby.storeFetchedJobs, {
+        runId,
+        demoUserId,
+        sourceCount: mixedSources.length,
+        fetchedCount,
+        jobs: toConvexValue(normalizedJobs.slice(0, maxJobs)),
+        errors,
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "storage",
+        level: stored.errorCount > 0 ? "warning" : "success",
+        message: `Stored ${stored.rawJobCount} mixed-provider jobs with ${stored.errorCount} source errors.`,
+        payload: {
+          provider: "mixed",
+          targetJobs,
+          maxJobs,
+          rawJobCount: stored.rawJobCount,
+          errorCount: stored.errorCount,
+          fetchedCount,
+          sourceCount: mixedSources.length,
+        },
+      });
+
+      return {
+        runId,
+        provider: "mixed",
+        sourceCount: mixedSources.length,
+        fetchedCount,
+        rawJobCount: stored.rawJobCount,
+        errorCount: stored.errorCount,
+      };
+    } catch (err) {
+      await ctx.runMutation(anyApi.ashby.markRunFailed, {
+        runId,
+        source: "mixed",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "ingestion",
+        level: "error",
+        message: "Mixed-provider ingestion failed.",
+        payload: { error: err instanceof Error ? err.message : String(err) },
+      });
+      throw err;
+    }
   },
 });
 
@@ -1140,6 +1331,15 @@ function normalizeAtsSources(provider: AtsProvider, sources: any[]): AtsSource[]
     .filter((source): source is AtsSource => source !== null);
 }
 
+async function fetchAshbySourceJobs(source: AshbySource, runId: string): Promise<NormalizedAtsJob[]> {
+  const json = await fetchAshbyBoard(source.slug);
+  const jobs = Array.isArray(json.jobs) ? (json.jobs as AshbyApiJob[]) : [];
+  return jobs
+    .filter((job) => job.isListed !== false)
+    .map((job) => normalizeAshbyJob(source, job, runId))
+    .filter((job): job is NormalizedAtsJob => job !== null);
+}
+
 async function fetchProviderJobs(source: AtsSource, runId: string) {
   if (source.provider === "greenhouse") {
     const url = `${GREENHOUSE_API_BASE}/${encodeURIComponent(source.slug)}/jobs?content=true`;
@@ -1420,7 +1620,11 @@ async function fetchAshbyBoard(slug: string): Promise<{ jobs?: AshbyApiJob[] }> 
   return (await res.json()) as { jobs?: AshbyApiJob[] };
 }
 
-function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string) {
+function normalizeAshbyJob(
+  source: AshbySource,
+  job: AshbyApiJob,
+  runId: string
+): NormalizedAtsJob | null {
   const title = job.title?.trim();
   const jobUrl = job.jobUrl?.trim();
   if (!title || !jobUrl) return null;
@@ -1432,29 +1636,30 @@ function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string)
   const location = [job.location, ...(job.secondaryLocations ?? []).map((loc) => loc.location)]
     .filter(Boolean)
     .join(" · ");
+  const descriptionPlain = job.descriptionPlain ?? stripHtml(job.descriptionHtml);
 
   return {
-    sourceId: source._id || undefined,
     company: source.company,
     sourceSlug: source.slug,
     title,
     normalizedTitle: title.toLowerCase(),
-    location: location || undefined,
-    isRemote: job.isRemote,
-    workplaceType: job.workplaceType,
-    employmentType: job.employmentType,
-    department: job.department,
-    team: job.team,
-    descriptionPlain: job.descriptionPlain ?? stripHtml(job.descriptionHtml),
-    compensationSummary,
-    salaryMin: parsedCompensation.min ?? undefined,
-    salaryMax: parsedCompensation.max ?? undefined,
-    currency: parsedCompensation.currency,
     jobUrl,
-    applyUrl: job.applyUrl,
-    publishedAt: job.publishedAt,
     dedupeKey: `${source.slug}:${jobUrl}`,
     raw: { ...job, runId },
+    ...(source._id ? { sourceId: source._id } : {}),
+    ...(location ? { location } : {}),
+    ...(typeof job.isRemote === "boolean" ? { isRemote: job.isRemote } : {}),
+    ...(job.workplaceType ? { workplaceType: job.workplaceType } : {}),
+    ...(job.employmentType ? { employmentType: job.employmentType } : {}),
+    ...(job.department ? { department: job.department } : {}),
+    ...(job.team ? { team: job.team } : {}),
+    ...(descriptionPlain ? { descriptionPlain } : {}),
+    ...(compensationSummary ? { compensationSummary } : {}),
+    ...(typeof parsedCompensation.min === "number" ? { salaryMin: parsedCompensation.min } : {}),
+    ...(typeof parsedCompensation.max === "number" ? { salaryMax: parsedCompensation.max } : {}),
+    ...(parsedCompensation.currency ? { currency: parsedCompensation.currency } : {}),
+    ...(job.applyUrl ? { applyUrl: job.applyUrl } : {}),
+    ...(job.publishedAt ? { publishedAt: job.publishedAt } : {}),
   };
 }
 

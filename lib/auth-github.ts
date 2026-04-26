@@ -15,6 +15,10 @@ import type { ActionCtx, MutationCtx, QueryCtx } from "../convex/_generated/serv
 
 type AnyCtx = ActionCtx | MutationCtx | QueryCtx;
 
+type GithubAccountRow = {
+  accessToken?: string | null;
+};
+
 export async function getGitHubAccessToken(
   ctx: AnyCtx,
   userId: string
@@ -23,20 +27,23 @@ export async function getGitHubAccessToken(
 
   // Account rows live in the better-auth component's `account` table. Each row
   // holds (providerId, userId, accessToken, refreshToken, ...) for a single
-  // OAuth provider.
-  const row = (await (ctx as any).runQuery(
-    components.betterAuth.adapter.findOne,
+  // OAuth provider. Repeated reconnect attempts can leave stale GitHub rows,
+  // so prefer any row with a persisted access token instead of the first row.
+  const result = (await (ctx as any).runQuery(
+    (components.betterAuth.adapter as any).findMany,
     {
       model: "account",
       where: [
         { field: "userId", operator: "eq", value: userId },
         { field: "providerId", operator: "eq", value: "github" },
       ],
+      paginationOpts: { cursor: null, numItems: 50 },
     }
-  )) as { accessToken?: string | null } | null;
+  )) as { page?: GithubAccountRow[] } | null;
 
-  if (!row) return null;
-  const token = row.accessToken;
+  const token = (result?.page ?? []).find(
+    (row) => typeof row.accessToken === "string" && row.accessToken.length > 0
+  )?.accessToken;
   if (typeof token !== "string" || token.length === 0) return null;
   return token;
 }
