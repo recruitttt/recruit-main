@@ -43,7 +43,19 @@ export async function getToken() {
   }
 }
 
-async function getSessionFromAuth() {
+interface SessionEnvelopeUser {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
+interface SessionEnvelope {
+  session?: { userId?: string; id?: string } | null;
+  user?: SessionEnvelopeUser | null;
+}
+
+export async function getSessionFromAuth(): Promise<SessionEnvelope | null> {
   const convexSiteUrl = getConvexSiteUrl();
   if (!convexSiteUrl) return null;
 
@@ -69,7 +81,22 @@ async function getSessionFromAuth() {
   });
 
   if (!response.ok) return null;
-  return (await response.json().catch(() => null)) as { session?: unknown } | null;
+  return (await response.json().catch(() => null)) as SessionEnvelope | null;
+}
+
+/**
+ * Resolve the current user's id from the better-auth session, or `null` if
+ * no session is present. Use from Next route handlers / server components.
+ */
+export async function getSessionUserId(): Promise<string | null> {
+  const envelope = await getSessionFromAuth();
+  if (!envelope) return null;
+  return (
+    envelope.user?.id ??
+    envelope.session?.userId ??
+    envelope.session?.id ??
+    null
+  );
 }
 
 export async function isAuthenticated() {
