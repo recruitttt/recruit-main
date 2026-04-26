@@ -2,7 +2,13 @@
 
 import { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { ContactShadows, AdaptiveDpr, Environment, PerformanceMonitor } from "@react-three/drei";
+import {
+  AccumulativeShadows,
+  AdaptiveDpr,
+  Environment,
+  PerformanceMonitor,
+  RandomizedLight,
+} from "@react-three/drei";
 import * as THREE from "three";
 import { RoomLighting } from "./room-lighting";
 import { RoomFloor } from "./room-floor";
@@ -49,7 +55,11 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
       <PerformanceMonitor flipflops={3} />
       <AdaptiveDpr pixelated={false} />
       <Suspense fallback={null}>
-        <Environment preset="apartment" background={false} environmentIntensity={0.55} />
+        <Environment
+          files="/hdri/studio_small_09_2k.hdr"
+          environmentIntensity={0.6}
+          background={false}
+        />
       </Suspense>
       <RoomLighting />
       <IntroRevealGroup phase={introPhase}>
@@ -58,15 +68,24 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
         {activeIntroPhase ? null : <PlayerCharacter />}
-        <ContactShadows
-          position={[0, 0.004, -0.4]}
-          opacity={0.38}
+        <AccumulativeShadows
+          temporal
+          frames={100}
+          alphaTest={0.85}
           scale={28}
-          blur={2.8}
-          far={5.5}
-          resolution={1024}
+          position={[0, 0.005, -0.4]}
           color="#2B2620"
-        />
+          opacity={0.7}
+        >
+          <RandomizedLight
+            amount={8}
+            radius={4}
+            ambient={0.5}
+            intensity={1}
+            position={[5, 8, -10]}
+            bias={0.001}
+          />
+        </AccumulativeShadows>
       </IntroRevealGroup>
       {activeIntroPhase ? (
         <>

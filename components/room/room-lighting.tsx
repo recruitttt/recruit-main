@@ -7,7 +7,7 @@ export function RoomLighting() {
       <hemisphereLight args={["#FFF2D8", "#C9D4DC", 0.35]} position={[0, 8, 0]} />
       <directionalLight
         position={[6, 9, 5]}
-        intensity={1.45}
+        intensity={1}
         color="#FFE9C2"
         castShadow
         shadow-mapSize-width={512}
