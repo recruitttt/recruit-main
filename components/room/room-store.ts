@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { AgentId } from "@/lib/agents";
 import { mergeProfile, readProfile, type UserProfile } from "@/lib/profile";
+import type { StationId } from "@/lib/room/stations";
 
 export type CameraMode = "overview" | "focus";
 
@@ -18,16 +19,47 @@ export type IntakeMessage = {
   content: string;
 };
 
+export type FurnitureId =
+  | "sofa"
+  | "coffee-table"
+  | "tv"
+  | "bookshelf"
+  | "window"
+  | "plant"
+  | "ceiling-fan";
+
+export type FocusTarget =
+  | { kind: "agent"; id: AgentId }
+  | { kind: "station"; id: StationId }
+  | { kind: "furniture"; id: FurnitureId };
+
+export type PlayerMode = "off" | "walking";
+
+export type ChatMode = "3d" | "flat";
+
 type RoomState = {
   selectedAgentId: AgentId | null;
   hoveredAgentId: AgentId | null;
+  hoveredObjectKey: string | null;
   cameraMode: CameraMode;
+  focusTarget: FocusTarget | null;
   intakePhase: IntakePhase;
   intakeMessages: IntakeMessage[];
   intakePending: boolean;
   intakeError: string | null;
+  playerMode: PlayerMode;
+  playerNearestAgentId: AgentId | null;
+  chatMode: ChatMode;
   setSelected: (id: AgentId | null) => void;
   setHovered: (id: AgentId | null) => void;
+  setHoveredObject: (key: string | null) => void;
+  setFocusTarget: (target: FocusTarget | null) => void;
+  clearFocus: () => void;
+  setPlayerMode: (mode: PlayerMode) => void;
+  togglePlayerMode: () => void;
+  setPlayerNearestAgent: (id: AgentId | null) => void;
+  setChatMode: (mode: ChatMode) => void;
+  toggleChatMode: () => void;
   startIntake: () => void;
   setIntakePhase: (phase: IntakePhase) => void;
   submitIntakeAnswer: (value: string) => Promise<void>;
@@ -88,16 +120,47 @@ const FALLBACK_OPENER =
 export const useRoomStore = create<RoomState>((set, get) => ({
   selectedAgentId: null,
   hoveredAgentId: null,
+  hoveredObjectKey: null,
   cameraMode: "overview",
+  focusTarget: null,
   intakePhase: "inactive",
   intakeMessages: [],
   intakePending: false,
   intakeError: null,
   setSelected: (id) => {
     if (get().intakePhase !== "inactive") return;
-    set({ selectedAgentId: id, cameraMode: id ? "focus" : "overview" });
+    set({
+      selectedAgentId: id,
+      cameraMode: id ? "focus" : "overview",
+      focusTarget: id ? { kind: "agent", id } : null,
+    });
   },
   setHovered: (id) => set({ hoveredAgentId: id }),
+  setHoveredObject: (key) => set({ hoveredObjectKey: key }),
+  setFocusTarget: (target) => {
+    if (get().intakePhase !== "inactive") return;
+    set({
+      focusTarget: target,
+      cameraMode: target ? "focus" : "overview",
+      selectedAgentId: target?.kind === "agent" ? target.id : null,
+    });
+  },
+  clearFocus: () =>
+    set({
+      focusTarget: null,
+      cameraMode: "overview",
+      selectedAgentId: null,
+    }),
+  playerMode: "off",
+  playerNearestAgentId: null,
+  chatMode: "3d",
+  setPlayerMode: (mode) => set({ playerMode: mode }),
+  togglePlayerMode: () =>
+    set((s) => ({ playerMode: s.playerMode === "walking" ? "off" : "walking" })),
+  setPlayerNearestAgent: (id) => set({ playerNearestAgentId: id }),
+  setChatMode: (mode) => set({ chatMode: mode }),
+  toggleChatMode: () =>
+    set((s) => ({ chatMode: s.chatMode === "3d" ? "flat" : "3d" })),
   startIntake: () => {
     if (get().intakePhase !== "inactive") return;
     set({

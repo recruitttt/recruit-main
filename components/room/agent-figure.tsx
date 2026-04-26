@@ -45,6 +45,7 @@ type Props = {
   onPointerOver?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (e: ThreeEvent<PointerEvent>) => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
+  children?: React.ReactNode;
 };
 
 export function AgentFigure({
@@ -56,6 +57,7 @@ export function AgentFigure({
   onPointerOver,
   onPointerOut,
   onClick,
+  children,
 }: Props) {
   const hue = AGENTS[agentId].hue;
   const defaultFaceTex = useAgentFaceTexture(agentId, true);
@@ -141,6 +143,7 @@ export function AgentFigure({
           <AgentTopper id={agentId} />
         </group>
       </group>
+      {children}
     </group>
   );
 }

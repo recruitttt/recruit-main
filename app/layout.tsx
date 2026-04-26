@@ -48,8 +48,9 @@ export default async function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ConvexClientProvider initialToken={initialToken}>
           {children}
         </ConvexClientProvider>

@@ -1,5 +1,7 @@
 "use client";
 
+import { InteractiveHotspot } from "./interactive-hotspot";
+
 import { useRef, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -25,7 +27,57 @@ export function RoomFurniture() {
       <BackWallWindows />
       <CeilingBeams />
       <CeilingFan position={[0, 7.28, 1.6]} />
+      <FurnitureHotspots />
     </group>
+  );
+}
+
+function FurnitureHotspots() {
+  return (
+    <>
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "sofa" }}
+        hotspotKey="furniture:sofa"
+        size={[3.4, 1.4, 1.6]}
+        position={[0, 0.7, 3.0]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "coffee-table" }}
+        hotspotKey="furniture:coffee-table"
+        size={[1.6, 0.8, 1.0]}
+        position={[0, 0.4, 4.6]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "tv" }}
+        hotspotKey="furniture:tv"
+        size={[1.0, 1.8, 2.6]}
+        position={[-9.9, 2.1, 1.5]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "bookshelf" }}
+        hotspotKey="furniture:bookshelf"
+        size={[1.2, 4.4, 2.6]}
+        position={[9.9, 2.2, 1.8]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "window" }}
+        hotspotKey="furniture:window"
+        size={[10.0, 3.2, 0.6]}
+        position={[0, 3.6, -5.0]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "plant" }}
+        hotspotKey="furniture:plant"
+        size={[1.4, 2.6, 1.4]}
+        position={[-8.4, 1.3, 4.4]}
+      />
+      <InteractiveHotspot
+        target={{ kind: "furniture", id: "ceiling-fan" }}
+        hotspotKey="furniture:ceiling-fan"
+        size={[2.4, 0.8, 2.4]}
+        position={[0, 6.9, 1.6]}
+      />
+    </>
   );
 }
 

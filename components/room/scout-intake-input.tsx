@@ -12,7 +12,8 @@ export function ScoutIntakeInput() {
   const messageCount = useRoomStore((s) => s.intakeMessages.filter((m) => m.role === "user").length);
   const submitIntakeAnswer = useRoomStore((s) => s.submitIntakeAnswer);
   const skipIntake = useRoomStore((s) => s.skipIntake);
-  const visible = intakePhase === "questioning";
+  const chatMode = useRoomStore((s) => s.chatMode);
+  const visible = intakePhase === "questioning" && chatMode === "3d";
 
   return (
     <AnimatePresence>
