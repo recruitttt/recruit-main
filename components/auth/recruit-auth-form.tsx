@@ -44,9 +44,6 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
   const alternateHref = isSignUp ? "/sign-in" : "/sign-up";
   const alternateText = isSignUp ? "Already have an account?" : "New to Recruit?";
   const alternateAction = isSignUp ? "Sign in" : "Create account";
-  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "1";
-  const githubEnabled = process.env.NEXT_PUBLIC_GITHUB_AUTH_ENABLED === "1";
-  const socialAuthEnabled = googleEnabled || githubEnabled;
 
   async function submitEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,42 +107,34 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-sm leading-6 text-[#465568]">{subtitle}</p>
           </div>
 
-          {socialAuthEnabled && (
-            <>
-              <div className="mt-7 grid gap-3">
-                {googleEnabled && (
-                  <button
-                    type="button"
-                    className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 text-[13px] font-semibold text-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] transition hover:bg-white/68 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={pendingAction !== null}
-                    onClick={() => void submitSocial("google")}
-                  >
-                    {pendingAction === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
-                    Continue with Google
-                  </button>
-                )}
-                {githubEnabled && (
-                  <button
-                    type="button"
-                    className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 text-[13px] font-semibold text-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] transition hover:bg-white/68 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={pendingAction !== null}
-                    onClick={() => void submitSocial("github")}
-                  >
-                    {pendingAction === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GithubIcon className="h-4 w-4" />}
-                    Continue with GitHub
-                  </button>
-                )}
-              </div>
+          <div className="mt-7 grid gap-3">
+            <button
+              type="button"
+              className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 text-[13px] font-semibold text-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] transition hover:bg-white/68 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={pendingAction !== null}
+              onClick={() => void submitSocial("google")}
+            >
+              {pendingAction === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 text-[13px] font-semibold text-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] transition hover:bg-white/68 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={pendingAction !== null}
+              onClick={() => void submitSocial("github")}
+            >
+              {pendingAction === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GithubIcon className="h-4 w-4" />}
+              Continue with GitHub
+            </button>
+          </div>
 
-              <div className="my-7 flex items-center gap-4">
-                <div className="h-px flex-1 bg-white/55" />
-                <span className="font-mono text-[11px] font-semibold uppercase text-[#6B7A90]">or</span>
-                <div className="h-px flex-1 bg-white/55" />
-              </div>
-            </>
-          )}
+          <div className="my-7 flex items-center gap-4">
+            <div className="h-px flex-1 bg-white/55" />
+            <span className="font-mono text-[11px] font-semibold uppercase text-[#6B7A90]">or</span>
+            <div className="h-px flex-1 bg-white/55" />
+          </div>
 
-          <form className={socialAuthEnabled ? "grid gap-4" : "mt-7 grid gap-4"} onSubmit={submitEmail}>
+          <form className="grid gap-4" onSubmit={submitEmail}>
             {isSignUp && (
               <label className="grid gap-2">
                 <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Name</span>
