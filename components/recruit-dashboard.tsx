@@ -17,6 +17,7 @@ import {
   shouldTriggerCosmeticShuffle,
 } from "@/components/dashboard/leaderboard-helpers";
 import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
+import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -397,36 +398,40 @@ function ConnectedRecruitDashboard() {
         </div>
 
         <div className="space-y-6">
-          <DashboardStatusStrip
-            run={liveData?.run}
-            recommendationCount={boardRows.length}
-            refreshedAt={refreshedAt}
-            controls={controls}
-          />
+          <div data-tour="status-strip">
+            <DashboardStatusStrip
+              run={liveData?.run}
+              recommendationCount={boardRows.length}
+              refreshedAt={refreshedAt}
+              controls={controls}
+            />
+          </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(380px,0.88fr)]">
-            <DashboardLeaderboard
-              rows={boardRows}
-              displayRows={renderedRows}
-              selectedJobId={selection.selectedJobId}
-              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-              onSelect={selectRecommendation}
-              mobileInlineDetail={
-                <DashboardJobInspector
-                  inline
-                  selected={selected}
-                  detail={jobDetail}
-                  detailError={detailError}
-                  state={tailorState}
-                  pdf={pdfState}
-                  onTailor={() => void tailorSelectedJob()}
-                  onOpenPdf={() => setPdfViewerOpen(true)}
-                  onDownload={downloadTailoredPdf}
-                />
-              }
-            />
+            <div data-tour="leaderboard">
+              <DashboardLeaderboard
+                rows={boardRows}
+                displayRows={renderedRows}
+                selectedJobId={selection.selectedJobId}
+                loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+                onSelect={selectRecommendation}
+                mobileInlineDetail={
+                  <DashboardJobInspector
+                    inline
+                    selected={selected}
+                    detail={jobDetail}
+                    detailError={detailError}
+                    state={tailorState}
+                    pdf={pdfState}
+                    onTailor={() => void tailorSelectedJob()}
+                    onOpenPdf={() => setPdfViewerOpen(true)}
+                    onDownload={downloadTailoredPdf}
+                  />
+                }
+              />
+            </div>
 
-            <div className="hidden xl:block">
+            <div data-tour="inspector" className="hidden xl:block">
               <DashboardJobInspector
                 selected={selected}
                 detail={jobDetail}
@@ -450,6 +455,8 @@ function ConnectedRecruitDashboard() {
         sizeKb={pdfState.sizeKb}
         pdfBase64={viewerPdfBase64}
       />
+
+      <DashboardTour />
     </main>
   );
 }

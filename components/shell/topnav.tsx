@@ -43,6 +43,7 @@ export function Topnav() {
     void authClient.signOut({
       fetchOptions: {
         onSuccess: () => router.push("/"),
+        onError: () => router.push("/"),
       },
     });
   };
