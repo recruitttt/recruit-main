@@ -123,15 +123,20 @@ async function genericFormFill(args: RunFormAutomationArgs, provider: string): P
   } catch {
     // viewport may not be available
   }
-  try {
-    await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 45_000 });
-  } catch (error) {
-    notes.push(`goto_networkidle_failed=${error instanceof Error ? error.message : String(error)}`);
+  const currentBeforeNavigation = page.url?.() ?? "";
+  if (!sameUrl(currentBeforeNavigation, targetUrl)) {
     try {
-      await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
-    } catch {
-      notes.push("goto_domcontentloaded_also_failed");
+      await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    } catch (error) {
+      notes.push(`goto_domcontentloaded_failed=${error instanceof Error ? error.message : String(error)}`);
+      try {
+        await page.goto(targetUrl, { waitUntil: "load", timeout: 20_000 });
+      } catch {
+        notes.push("goto_load_also_failed");
+      }
     }
+  } else {
+    notes.push("reused_preloaded_page=true");
   }
 
   const currentUrl = page.url?.() ?? targetUrl;
@@ -167,6 +172,16 @@ async function genericFormFill(args: RunFormAutomationArgs, provider: string): P
     evidence: submission.evidence,
     rawResult: { targetUrl, finalUrl: currentUrl, notes, screenshots: [] },
   };
+}
+
+function sameUrl(left: string, right: string): boolean {
+  try {
+    const a = new URL(left);
+    const b = new URL(right);
+    return a.origin === b.origin && a.pathname.replace(/\/+$/, "") === b.pathname.replace(/\/+$/, "");
+  } catch {
+    return left === right;
+  }
 }
 
 function unsupportedProviderResult(job: ApplicationJobInput, provider: string): RunFormAutomationResult {

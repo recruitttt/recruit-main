@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   applyHubMetrics,
   fieldProgress,
+  normalizeConvexApplicationStatus,
   reduceLiveApplyEvent,
   seedLiveApplyJobs,
 } from "../lib/apply-service/live-ui";
@@ -146,5 +147,11 @@ assert.equal(metrics.needsReview, 1);
 assert.equal(metrics.submitted, 1);
 assert.equal(metrics.fieldsFilled, 1);
 assert.equal(metrics.fieldsTotal, 5);
+
+assert.equal(normalizeConvexApplicationStatus("browser_started"), "filling");
+assert.equal(normalizeConvexApplicationStatus("filled_verified"), "review_ready");
+assert.equal(normalizeConvexApplicationStatus("submitted_confirmed"), "submitted");
+assert.equal(normalizeConvexApplicationStatus("failed_network"), "failed");
+assert.equal(normalizeConvexApplicationStatus("failed_captcha_or_bot_challenge"), "awaiting_user_input");
 
 console.log("Apply live UI tests passed");

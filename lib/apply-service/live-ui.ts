@@ -106,6 +106,31 @@ export type ApplyHubMetrics = {
   fieldsTotal: number;
 };
 
+export function normalizeConvexApplicationStatus(status: unknown): LiveApplyJob["status"] | undefined {
+  if (typeof status !== "string" || status.length === 0) return undefined;
+  if (status === "queued") return "queued";
+  if (
+    status === "claimed" ||
+    status === "browser_started" ||
+    status === "form_discovered" ||
+    status === "answers_resolved" ||
+    status === "fill_in_progress"
+  ) {
+    return "filling";
+  }
+  if (status === "submit_attempted") return "submitting";
+  if (status === "filled_verified") return "review_ready";
+  if (status === "submitted_confirmed" || status === "submitted_probable" || status === "duplicate_or_already_applied") {
+    return "submitted";
+  }
+  if (status === "waiting_for_user_input" || status === "failed_user_input_required" || status === "failed_auth_required" || status === "failed_captcha_or_bot_challenge") {
+    return "awaiting_user_input";
+  }
+  if (status.startsWith("failed_")) return "failed";
+  if (status === "archived") return "cancelled";
+  return undefined;
+}
+
 export function seedLiveApplyJobs(run: ApplyRun): LiveApplyJob[] {
   return run.jobs.map((job) => ({
     id: job.id,

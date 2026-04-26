@@ -90,11 +90,11 @@ async function focusResponse(req: Request, runId: string, jobId: string): Promis
     });
   }
 
-  const screenshot = await latestConvexScreenshot(job.remoteJobSlug);
+  const screenshot = await latestConvexSnapshot(job.remoteJobSlug);
   if (screenshot.ok) {
-    return Response.json({ ...screenshot.body, focusUnavailable: true });
+    return jsonNoStore({ ...screenshot.body, focusUnavailable: true }, screenshot.status);
   }
-  return Response.json(
+  return jsonNoStore(
     { ok: false, reason: "focus_unavailable_for_convex_engine" },
     { status: 409 },
   );
@@ -115,31 +115,59 @@ async function screenshotResponse(runId: string, search: URLSearchParams): Promi
     return Response.json({ ok: false, reason: "no_convex_job_id" }, { status: 409 });
   }
 
-  const screenshot = await latestConvexScreenshot(convexJobId);
+  const screenshot = await latestConvexSnapshot(convexJobId);
   if (!screenshot.ok) return screenshot.response;
-  return Response.json(screenshot.body);
+  return jsonNoStore(screenshot.body, screenshot.status);
 }
 
-async function latestConvexScreenshot(convexJobId: string): Promise<
-  | { ok: true; body: { ok: true; screenshotPng: string; label?: string; createdAt?: string | number } }
+async function latestConvexSnapshot(convexJobId: string): Promise<
+  | {
+      ok: true;
+      status?: ResponseInit;
+      body: {
+        ok: boolean;
+        reason?: string;
+        screenshotPng?: string;
+        label?: string;
+        createdAt?: string | number;
+        jobStatus?: string;
+        checkpoint?: string;
+        error?: string;
+        updatedAt?: string;
+      };
+    }
   | { ok: false; response: Response }
 > {
   const client = await getConvexClient();
   if (!client) {
     return {
       ok: false,
-      response: Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 }),
+      response: jsonNoStore({ ok: false, reason: "missing_convex_url" }, { status: 503 }),
     };
   }
 
   try {
-    const screenshot = await client.query(api.applicationJobs.getLatestScreenshot, {
-      jobId: convexJobId as never,
-    });
+    const [job, screenshot] = await Promise.all([
+      client.query(api.applicationJobs.getApplicationJob, { jobId: convexJobId as never }),
+      client.query(api.applicationJobs.getLatestScreenshot, { jobId: convexJobId as never }),
+    ]);
+    const metadata = job && typeof job === "object"
+      ? {
+          jobStatus: stringValue((job as { status?: unknown }).status),
+          checkpoint: stringValue((job as { lastCheckpoint?: unknown }).lastCheckpoint),
+          error: stringValue((job as { error?: unknown }).error),
+          updatedAt: stringValue((job as { updatedAt?: unknown }).updatedAt),
+        }
+      : {};
     if (!screenshot?.pngBase64) {
       return {
-        ok: false,
-        response: Response.json({ ok: false, reason: "no_screenshot" }, { status: 404 }),
+        ok: true,
+        status: { status: 202 },
+        body: {
+          ok: false,
+          reason: "no_screenshot",
+          ...metadata,
+        },
       };
     }
     return {
@@ -149,12 +177,13 @@ async function latestConvexScreenshot(convexJobId: string): Promise<
         screenshotPng: screenshot.pngBase64,
         label: screenshot.label,
         createdAt: screenshot.createdAt,
+        ...metadata,
       },
     };
   } catch (error) {
     return {
       ok: false,
-      response: Response.json(
+      response: jsonNoStore(
         { ok: false, reason: error instanceof Error ? error.message : String(error) },
         { status: 500 },
       ),
@@ -172,4 +201,14 @@ async function optionalJson(req: Request): Promise<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function jsonNoStore(body: unknown, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  headers.set("Cache-Control", "no-store");
+  return Response.json(body, { ...init, headers });
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }

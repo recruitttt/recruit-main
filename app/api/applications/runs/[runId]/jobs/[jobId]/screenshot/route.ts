@@ -34,13 +34,18 @@ export async function GET(
       jobId: convexJobId as never,
     });
     if (!screenshot?.pngBase64) {
-      return Response.json({ ok: false, reason: "no_screenshot" }, { status: 404 });
+      return Response.json(
+        { ok: false, reason: "no_screenshot" },
+        { status: 202, headers: { "Cache-Control": "no-store" } },
+      );
     }
     return Response.json({
       ok: true,
       screenshotPng: screenshot.pngBase64,
       label: screenshot.label,
       createdAt: screenshot.createdAt,
+    }, {
+      headers: { "Cache-Control": "no-store" },
     });
   } catch (err) {
     return Response.json(

@@ -204,15 +204,15 @@ export const runApplicationJob = action({
       } catch { /* viewport may not be available */ }
       console.log(`[runApplicationJob] navigating to ${normalizedUrl}`);
       try {
-        await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30_000 });
+        await page.goto(normalizedUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
         console.log(`[runApplicationJob] navigation complete`);
       } catch (navErr) {
-        console.warn(`[runApplicationJob] networkidle2 failed: ${safeMessage(navErr)}`);
+        console.warn(`[runApplicationJob] initial navigation failed: ${safeMessage(navErr)}`);
         try {
-          await page.goto(normalizedUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-          console.log(`[runApplicationJob] domcontentloaded fallback complete`);
+          await page.goto(normalizedUrl, { waitUntil: "load", timeout: 15_000 });
+          console.log(`[runApplicationJob] load fallback complete`);
         } catch (navErr2) {
-          console.warn(`[runApplicationJob] domcontentloaded also failed: ${safeMessage(navErr2)}`);
+          console.warn(`[runApplicationJob] load fallback also failed: ${safeMessage(navErr2)}`);
         }
       }
       await captureAndStoreScreenshot(ctx, page, args.jobId, "page_loaded");

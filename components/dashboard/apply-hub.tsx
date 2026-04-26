@@ -32,6 +32,7 @@ import {
   applyHubMetrics,
   fieldProgress,
   mergeRunJobState,
+  normalizeConvexApplicationStatus,
   reduceLiveApplyEvent,
   seedLiveApplyJobs,
   statusLabel,
@@ -211,12 +212,31 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok || cancelled) return;
-        const body = await response.json() as { ok: boolean; screenshotPng?: string };
+        const body = await response.json() as {
+          ok: boolean;
+          screenshotPng?: string;
+          jobStatus?: string;
+          checkpoint?: string;
+          error?: string;
+          reason?: string;
+        };
+        if (cancelled) return;
+        const mappedStatus = normalizeConvexApplicationStatus(body.jobStatus);
+        if (mappedStatus || body.error || body.checkpoint || body.screenshotPng) {
+          setLiveJobs((current) => current.map((job) => (
+            job.id === selectedJobId
+              ? {
+                  ...job,
+                  ...(mappedStatus ? { status: mappedStatus } : {}),
+                  ...(body.screenshotPng ? { screenshotPng: body.screenshotPng } : {}),
+                  ...(body.error ? { error: body.error } : {}),
+                  ...(body.checkpoint && !body.error ? { attention: body.checkpoint } : {}),
+                }
+              : job
+          )));
+        }
         if (body.ok && body.screenshotPng && !cancelled) {
           setFocusedShot({ jobId: selectedJobId, png: body.screenshotPng });
-          setLiveJobs((current) => current.map((job) => (
-            job.id === selectedJobId ? { ...job, screenshotPng: body.screenshotPng } : job
-          )));
         }
       } catch {
         // Best-effort polling.
