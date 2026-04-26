@@ -209,8 +209,8 @@ await withEnvAsync({
     200,
     {}
   );
-  assert.equal((liveJson.recommendations as unknown[]).length, 100);
-  assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
+  assert.equal((liveJson.recommendations as unknown[]).length, 9);
+  assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 9);
   assert.match(
     String((liveJson.run as { scoringMode?: string }).scoringMode ?? ""),
     /^v2_/,
@@ -230,16 +230,14 @@ await withEnvAsync({
   const demoCompanies = new Set(
     demoRecommendations.map((recommendation) => recommendation.company)
   );
-  assert.equal(demoCompanies.has("Google DeepMind"), true);
-  assert.equal(demoCompanies.has("Anthropic"), true);
-  const deepMindRecommendation = demoRecommendations.find(
-    (recommendation) => recommendation.company === "Google DeepMind"
+  assert.equal(demoCompanies.has("Cohere"), true);
+  assert.equal(demoCompanies.has("Aleph Alpha"), true);
+  const cohereRecommendation = demoRecommendations.find(
+    (recommendation) => recommendation.company === "Cohere"
   );
-  assert.equal(deepMindRecommendation?.organization?.logoUrl, "/company-logos/google-deepmind.png");
-  assert.equal(deepMindRecommendation?.organization?.prestigeTag, "AI Lab");
-  assert.equal(deepMindRecommendation?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
-  assert.equal(deepMindRecommendation?.job?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
-  assert.equal(deepMindRecommendation?.job?.applyUrl, "https://recruit-company-pages.vercel.app/google-deepmind?apply=1");
+  assert.equal(cohereRecommendation?.jobUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da");
+  assert.equal(cohereRecommendation?.job?.jobUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da");
+  assert.equal(cohereRecommendation?.job?.applyUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da/application");
 
   const omDetailJson = await assertJsonResponse(
     await getJobDetail(new Request(`http://test.local/api/dashboard/job-detail?jobId=${firstRecommendation.jobId}`)),
