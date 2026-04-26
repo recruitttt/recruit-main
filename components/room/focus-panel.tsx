@@ -189,22 +189,29 @@ const STATION_BLURBS: Record<StationId, { title: string; tagline: string; body: 
     tagline: "Submitted + follow-ups",
     body: "Submitted applications land here. The calendar tracks follow-up due dates and the desk lights up when an interview moves forward.",
   },
+  profile: {
+    title: "Profile workbench",
+    tagline: "The you zone",
+    body: "Your personal desk. As your profile grows — skills, experience, education, preferences — this workbench gains props. Nothing here is shared; it's the diegetic mirror of who you are.",
+  },
 };
 
 function StationPanel({ stationId }: { stationId: StationId }) {
   const blurb = STATION_BLURBS[stationId];
   const station = STATIONS.find((s) => s.id === stationId) ?? STATIONS[0];
   const live = useLiveRoom();
-  const agentsHere = Object.entries(live.byAgent)
-    .filter(([, t]) => t?.stage === station.stage)
-    .map(([id]) => id as AgentId);
+  const agentsHere = station.stage
+    ? Object.entries(live.byAgent)
+        .filter(([, t]) => t?.stage === station.stage)
+        .map(([id]) => id as AgentId)
+    : [];
 
   return (
     <>
       <div className="px-5 pt-5 pb-4 border-b border-white/45">
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[#6B7A90]">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: station.accent, boxShadow: `0 0 8px ${station.accent}77` }} />
-          Station · {stageLabels[station.stage]}
+          Station · {station.stage ? stageLabels[station.stage] : station.label}
         </div>
         <h2 className="mt-3 font-serif text-[22px] leading-snug text-[#101827]">{blurb.title}</h2>
         <div className="mt-1 text-[12.5px] text-[#465568]">{blurb.tagline}</div>

@@ -6,6 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { STATIONS } from "@/lib/room/stations";
 import { InteractiveHotspot } from "./interactive-hotspot";
+import { ProfileWorkbench } from "./profile-workbench";
 import { useRoomStore } from "./room-store";
 
 function StationHoverRing({ stationKey, accent }: { stationKey: string; accent: string }) {
@@ -25,6 +26,7 @@ function StationHoverRing({ stationKey, accent }: { stationKey: string; accent: 
 export function RoomStations() {
   return (
     <group>
+      <ProfileWorkbench />
       <JobBoard />
       <Workbench />
       <ReviewPanel />

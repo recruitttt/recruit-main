@@ -5,11 +5,12 @@ export type StationId =
   | "workbench"
   | "review"
   | "submit"
-  | "calendar";
+  | "calendar"
+  | "profile";
 
 export type Station = {
   id: StationId;
-  stage: Stage;
+  stage: Stage | null;
   label: string;
   pos: readonly [number, number, number];
   stand: readonly [number, number, number];
@@ -69,8 +70,18 @@ export const STATIONS: readonly Station[] = [
     accent: "#059669",
     wanderRadius: 0.22,
   },
+  {
+    id: "profile",
+    stage: null,
+    label: "Profile workbench",
+    pos: [0, 0, 4.0],
+    stand: [0, 0, 4.8],
+    facing: 0,
+    accent: "#3F7A56",
+    wanderRadius: 0,
+  },
 ] as const;
 
 export function stationForStage(stage: Stage): Station {
-  return STATIONS.find((s) => s.stage === stage) ?? STATIONS[0];
+  return STATIONS.find((s) => s.stage !== null && s.stage === stage) ?? STATIONS[0];
 }
