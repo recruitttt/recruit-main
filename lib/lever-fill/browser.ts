@@ -1754,6 +1754,7 @@ async function installEvaluateNameHelper(page: LeverPageLike): Promise<void> {
   await stringEvaluate.evaluate(`
     globalThis.__name = globalThis.__name || ((fn) => fn);
     globalThis.n = globalThis.n || ((fn) => fn);
+    globalThis.s = globalThis.s || ((fn) => fn);
   `);
 }
 

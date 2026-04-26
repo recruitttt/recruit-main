@@ -462,7 +462,8 @@ function compactRawResult(raw: any) {
 }
 
 function safeMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.stack || error.message;
+  return String(error);
 }
 
 function toConvexValue<T>(value: T): T {
