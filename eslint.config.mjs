@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "convex/_generated/**",
     "backups/**",
+    "manual-runs/**",
   ]),
 ]);
 
