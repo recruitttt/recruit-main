@@ -188,14 +188,30 @@ export const createAndScheduleApplicationJob = mutation({
       });
     }
 
-    const scheduled = !existing || !isTerminalStatus(existing.status);
+    // Re-run failed jobs: reset terminal failures back to queued so the
+    // action picks them up with the latest code (e.g. after fixing the
+    // generic-provider block). Also re-run filled_verified so users can
+    // re-trigger form fills.
+    const shouldRetry = existing && isRetryableTerminalStatus(existing.status);
+    if (shouldRetry) {
+      await ctx.db.patch(jobId, {
+        status: "queued",
+        error: undefined,
+        lockOwner: undefined,
+        lockExpiresAt: undefined,
+        lastCheckpoint: "retry_queued",
+        updatedAt: now,
+      });
+    }
+
+    const scheduled = !existing || !isTerminalStatus(existing.status) || shouldRetry;
     if (scheduled) {
       await ctx.scheduler.runAfter(0, anyApi.applicationActions.runApplicationJob, { jobId });
       await ctx.db.insert("applicationJobCheckpoints", {
         jobId,
-        status: existing?.status ?? "queued",
-        checkpoint: "scheduled",
-        payload: { source: "apply_service_fallback" },
+        status: shouldRetry ? "queued" : (existing?.status ?? "queued"),
+        checkpoint: shouldRetry ? "retry_scheduled" : "scheduled",
+        payload: { source: "apply_service_fallback", retried: shouldRetry ?? false },
         createdAt: now,
       });
     }
@@ -203,7 +219,7 @@ export const createAndScheduleApplicationJob = mutation({
     return {
       jobId,
       idempotencyKey,
-      status: existing?.status ?? "queued",
+      status: shouldRetry ? "queued" : (existing?.status ?? "queued"),
       scheduled,
     };
   },
@@ -528,6 +544,17 @@ function isTerminalStatus(status: ApplicationJobStatus): boolean {
     "failed_network",
     "duplicate_or_already_applied",
     "archived",
+  ].includes(status);
+}
+
+function isRetryableTerminalStatus(status: ApplicationJobStatus): boolean {
+  return [
+    "filled_verified",
+    "failed_repairable",
+    "failed_unsupported_widget",
+    "failed_browser_crash",
+    "failed_network",
+    "needs_human_review",
   ].includes(status);
 }
 
