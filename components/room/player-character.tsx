@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -248,8 +249,35 @@ function PlayerCharacterActive() {
           </mesh>
         </group>
       </group>
+      <DeskSitPrompt positionRef={positionRef} />
       {nearestId ? <NearestPrompt agentName={AGENTS[nearestId].name} /> : null}
     </group>
+  );
+}
+
+function DeskSitPrompt({ positionRef }: { positionRef: React.RefObject<THREE.Vector3> }) {
+  const playerPose = useRoomStore((s) => s.playerPose);
+  const [visible, setVisible] = React.useState(false);
+  useFrame(() => {
+    if (!positionRef.current) return;
+    const pos = positionRef.current;
+    const distToDesk = Math.hypot(pos.x - 0, pos.z - 0);
+    const shouldShow = distToDesk < 1.2 && playerPose === "standing";
+    if (shouldShow !== visible) setVisible(shouldShow);
+  });
+  if (!visible) return null;
+  return (
+    <Html
+      position={[0, 1.95, 0]}
+      center
+      distanceFactor={9}
+      style={{ pointerEvents: "none" }}
+      zIndexRange={[40, 0]}
+    >
+      <div className="pointer-events-none -translate-y-1 select-none rounded-full border border-white/55 bg-emerald-700/90 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white shadow-[0_8px_18px_-10px_rgba(15,23,42,0.4)]">
+        E · sit at desk
+      </div>
+    </Html>
   );
 }
 

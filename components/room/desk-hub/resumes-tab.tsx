@@ -9,44 +9,42 @@ type TailoredAppRow = {
   _id: string;
   company?: string;
   title?: string;
+  status?: string;
+  tailoringScore?: number;
+  pdfReady?: boolean;
 };
-
-// `tailoredApplications` is not yet a generated Convex module; the field/module may
-// not exist on the typed `api` object. We probe it dynamically and degrade
-// gracefully so the tab renders even before the backend query lands.
-const tailoredApi = (api as unknown as Record<string, Record<string, unknown>>)
-  .tailoredApplications;
-const listQueryRef =
-  (tailoredApi?.listForUser as Parameters<typeof useQuery>[0] | undefined) ??
-  (tailoredApi?.byUser as Parameters<typeof useQuery>[0] | undefined) ??
-  null;
 
 export function ResumesTab({ userId }: Props) {
   const apps = useQuery(
-    // Fallback to a no-op-style ref when the backend query isn't available;
-    // we still pass "skip" to ensure no fetch is attempted.
-    listQueryRef ?? ((api as unknown as { userProfiles: { byUser: Parameters<typeof useQuery>[0] } }).userProfiles.byUser),
-    listQueryRef && userId ? { userId, limit: 10 } : "skip",
+    api.tailoredApplications.listForUser,
+    userId ? { userId, limit: 25 } : "skip",
   ) as TailoredAppRow[] | undefined;
 
   if (!userId) return <div className="text-gray-500">Sign in.</div>;
-  if (!listQueryRef)
-    return (
-      <div className="text-gray-500 text-sm">
-        Tailored resume list not wired yet. Tailor a job from the dashboard to
-        populate this view.
-      </div>
-    );
   if (!apps) return <div className="text-gray-500">Loading…</div>;
   if (apps.length === 0)
-    return <div className="text-gray-500">No tailored resumes yet.</div>;
+    return <div className="text-gray-500">No tailored resumes yet. Tailor a job from the dashboard to populate this view.</div>;
 
   return (
     <div className="space-y-2">
       {apps.map((a) => (
         <div key={a._id} className="p-2 border border-gray-200 rounded">
-          <div className="font-medium text-sm">{a.title ?? "(role)"}</div>
-          <div className="text-xs text-gray-500">{a.company ?? "(company)"}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-medium text-sm truncate">{a.title ?? "(role)"}</div>
+              <div className="text-xs text-gray-500 truncate">{a.company ?? "(company)"}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {typeof a.tailoringScore === "number" && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                  {Math.round(a.tailoringScore * 100)}%
+                </span>
+              )}
+              {a.pdfReady && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">PDF</span>
+              )}
+            </div>
+          </div>
         </div>
       ))}
     </div>

@@ -294,12 +294,32 @@ export const seedRecruiters = action({
 export const applyThroughRecruiter = action({
   args: { recruiterId: v.id("recruiters"), userId: v.string() },
   returns: v.any(),
-  handler: async (ctx, { recruiterId, userId }) => {
+  handler: async (ctx, { recruiterId }) => {
+    const recruiter: any = await ctx.runQuery(anyApi.recruiters.getById, {
+      recruiterId,
+    });
+    if (!recruiter) throw new Error("recruiter not found");
+
+    const applicationJobId: any = recruiter.jobId ?? null;
+    let queued = false;
+    try {
+      const existing: any = applicationJobId
+        ? await ctx.runQuery(anyApi.applicationJobs.getApplicationJob, {
+            jobId: applicationJobId,
+          })
+        : null;
+      if (existing && existing.status === "queued") {
+        queued = true;
+      }
+    } catch {
+      // best-effort lookup; fall through and treat as not-queued
+    }
+
     await ctx.runMutation(anyApi.recruiters.setRecruiterStatus, {
       recruiterId,
       status: "applied",
     });
-    await ctx.runAction(anyApi.recruiterActions.seedRecruiters, { userId });
-    return { ok: true };
+
+    return { ok: true, applicationJobId, queued };
   },
 });

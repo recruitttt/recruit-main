@@ -61,6 +61,7 @@ export const createApplicationJob = mutation({
     company: v.optional(v.string()),
     title: v.optional(v.string()),
     submitPolicy: v.optional(v.union(v.literal("dry_run"), v.literal("submit"))),
+    engine: v.optional(v.union(v.literal("deterministic"), v.literal("ai-fill"))),
     llmMode: v.optional(v.union(v.literal("off"), v.literal("review_only"), v.literal("best_effort"))),
     repairLimit: v.optional(v.number()),
   },
@@ -94,6 +95,7 @@ export const createApplicationJob = mutation({
       company: args.company,
       title: args.title,
       submitPolicy: args.submitPolicy ?? "dry_run",
+      engine: args.engine,
       llmMode: args.llmMode ?? "best_effort",
       repairLimit: args.repairLimit ?? 1,
       status: "queued" as const,
@@ -118,6 +120,113 @@ export const getApplicationJob = query({
   args: { jobId: v.id("applicationJobs") },
   returns: v.any(),
   handler: async (ctx, args) => await ctx.db.get(args.jobId),
+});
+
+export const ensureForTailoredApplication = mutation({
+  args: {
+    userId: v.string(),
+    tailoredApplicationId: v.id("tailoredApplications"),
+  },
+  returns: v.id("applicationJobs"),
+  handler: async (ctx, { userId, tailoredApplicationId }) => {
+    const tailored: any = await ctx.db.get(tailoredApplicationId);
+    if (!tailored) throw new Error("tailored application not found");
+    const ingestedJobId = tailored.jobId;
+    const ingested: any = ingestedJobId ? await ctx.db.get(ingestedJobId) : null;
+    if (!ingested) throw new Error("ingested job not found for tailored application");
+
+    const targetUrl: string =
+      ingested.applyUrl ?? ingested.jobUrl ?? tailored.job?.applyUrl ?? tailored.job?.jobUrl;
+    if (!targetUrl) throw new Error("no target url for application");
+
+    const company: string | undefined = ingested.company ?? tailored.company ?? tailored.job?.company;
+    const title: string | undefined = ingested.title ?? tailored.title ?? tailored.job?.title;
+
+    const provider = coerceProvider(undefined) ?? detectProviderFromUrl(targetUrl);
+    const canonicalTargetUrl = canonicalizeJobUrl(targetUrl);
+    const idempotencyKey = computeApplicationIdempotencyKey({
+      demoUserId: userId,
+      profileId: undefined,
+      provider,
+      providerJobId: extractProviderJobId(provider, canonicalTargetUrl),
+      targetUrl: canonicalTargetUrl,
+      company,
+      title,
+    });
+
+    const existing = await ctx.db
+      .query("applicationJobs")
+      .withIndex("by_idempotency", (q: any) => q.eq("idempotencyKey", idempotencyKey))
+      .first();
+    if (existing) return existing._id;
+
+    const now = new Date().toISOString();
+    const jobId = await ctx.db.insert("applicationJobs", omitUndefined({
+      demoUserId: userId,
+      jobId: ingestedJobId,
+      targetUrl,
+      canonicalTargetUrl,
+      provider,
+      company,
+      title,
+      submitPolicy: "dry_run" as const,
+      llmMode: "best_effort" as const,
+      repairLimit: 1,
+      status: "queued" as const,
+      attemptCount: 0,
+      repairAttemptCount: 0,
+      idempotencyKey,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await ctx.db.insert("applicationJobCheckpoints", {
+      jobId,
+      status: "queued",
+      checkpoint: "job_created",
+      payload: { targetUrl, provider, source: "ensureForTailoredApplication" },
+      createdAt: now,
+    });
+    return jobId;
+  },
+});
+
+export const listRecentForCurrentUser = query({
+  args: {
+    limit: v.optional(v.number()),
+    demoUserId: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const limit = Math.min(args.limit ?? 25, 100);
+    const rows = await ctx.db
+      .query("applicationJobs")
+      .withIndex("by_demo_user_status", (q: any) => q.eq("demoUserId", demoUserId))
+      .order("desc")
+      .take(limit);
+    return rows.map((row: any) => ({
+      _id: row._id,
+      company: row.company,
+      title: row.title,
+      status: row.status,
+      provider: row.provider,
+      targetUrl: row.targetUrl,
+      submitPolicy: row.submitPolicy,
+      updatedAt: row.updatedAt,
+      createdAt: row.createdAt,
+    }));
+  },
+});
+
+export const listJobEvidence = query({
+  args: { jobId: v.id("applicationJobs") },
+  returns: v.any(),
+  handler: async (ctx, args) =>
+    ctx.db
+      .query("applicationJobEvidence")
+      .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+      .order("asc")
+      .collect(),
 });
 
 export const getApplicationJobForAction = internalQuery({

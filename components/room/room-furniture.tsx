@@ -54,8 +54,18 @@ export function RoomFurniture() {
 function DeskAnchor() {
   const deskState = useRoomStore((s) => s.deskState);
   const setDeskState = useRoomStore((s) => s.setDeskState);
+  const playerPose = useRoomStore((s) => s.playerPose);
   const [scale, setScale] = useState<number>(deskState === "expanded" ? 1 : 0.4);
   const lastTargetRef = useRef<typeof deskState>(deskState);
+
+  // Auto-expand the desk when the player sits, collapse when they stand
+  useEffect(() => {
+    if (playerPose === "sitting" && deskState === "collapsed") {
+      setDeskState("expanded");
+    } else if (playerPose !== "sitting" && deskState === "expanded") {
+      setDeskState("collapsed");
+    }
+  }, [playerPose, deskState, setDeskState]);
 
   useEffect(() => {
     if (lastTargetRef.current === deskState && deskState !== "animating") return;
@@ -68,17 +78,129 @@ function DeskAnchor() {
       setDeskState(finalState);
       lastTargetRef.current = finalState;
     });
-    // We intentionally exclude `scale` from deps; reading the latest from state
-    // would re-fire the effect mid-tween and cause a stutter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deskState, setDeskState]);
 
   useFrame(() => updateTweens(performance.now()));
 
-  // No geometry rendered here yet — the desk lives in `recruiter-desk.tsx`.
-  // This anchor exists to drive the animation tick + expose `scale` for
-  // future migration of desk geometry into this file.
-  return <group scale={[scale, scale, scale]} />;
+  // The user's primary desk — sits at world origin facing -z so that when the
+  // player sits (E key near [0,0,1]), the desk-hub Html surface mounts cleanly
+  // on the monitor at z = -0.3, y = 1.5.
+  return (
+    <group position={[0, 0, 0]} scale={[scale, scale, scale]}>
+      <PlayerDesk />
+    </group>
+  );
+}
+
+function PlayerDesk() {
+  return (
+    <group>
+      {/* Desk top */}
+      <RoundedBox args={[2.6, 0.06, 1.2]} radius={0.02} smoothness={4} position={[0, 0.95, 0]}>
+        <meshStandardMaterial color="#A88766" roughness={0.6} metalness={0.05} />
+      </RoundedBox>
+      {/* Desk legs */}
+      {[
+        [-1.22, 0.475, -0.55],
+        [1.22, 0.475, -0.55],
+        [-1.22, 0.475, 0.55],
+        [1.22, 0.475, 0.55],
+      ].map((p, i) => (
+        <mesh key={`desk-leg-${i}`} position={p as [number, number, number]}>
+          <boxGeometry args={[0.06, 0.95, 0.06]} />
+          <meshStandardMaterial color="#3A2F22" roughness={0.5} metalness={0.4} />
+        </mesh>
+      ))}
+      {/* Monitor stand */}
+      <mesh position={[0, 1.04, -0.35]}>
+        <boxGeometry args={[0.16, 0.08, 0.18]} />
+        <meshStandardMaterial color="#2C2A28" roughness={0.4} metalness={0.5} />
+      </mesh>
+      <mesh position={[0, 1.22, -0.35]}>
+        <boxGeometry args={[0.04, 0.36, 0.04]} />
+        <meshStandardMaterial color="#2C2A28" roughness={0.4} metalness={0.5} />
+      </mesh>
+      {/* Monitor body — the desk-hub Html surface mounts here when sitting */}
+      <RoundedBox
+        args={[1.6, 1.0, 0.06]}
+        radius={0.025}
+        smoothness={4}
+        position={[0, 1.5, -0.32]}
+      >
+        <meshStandardMaterial color="#15161A" roughness={0.35} metalness={0.6} />
+      </RoundedBox>
+      {/* Monitor screen glow (when collapsed, this is what the user sees from afar) */}
+      <mesh position={[0, 1.5, -0.288]}>
+        <planeGeometry args={[1.5, 0.92]} />
+        <meshBasicMaterial color="#1F2A44" toneMapped={false} />
+      </mesh>
+      {/* Keyboard */}
+      <RoundedBox args={[0.8, 0.025, 0.24]} radius={0.01} smoothness={3} position={[0, 0.99, 0.18]}>
+        <meshStandardMaterial color="#1A1A1F" roughness={0.5} metalness={0.3} />
+      </RoundedBox>
+      {/* Mouse */}
+      <RoundedBox args={[0.08, 0.018, 0.13]} radius={0.008} smoothness={3} position={[0.55, 0.985, 0.18]}>
+        <meshStandardMaterial color="#1A1A1F" roughness={0.5} metalness={0.3} />
+      </RoundedBox>
+      {/* Mug */}
+      <group position={[-0.7, 1.0, 0.1]}>
+        <mesh>
+          <cylinderGeometry args={[0.05, 0.045, 0.1, 16]} />
+          <meshStandardMaterial color="#E8D8B8" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.052, 0]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.005, 16]} />
+          <meshStandardMaterial color="#5B3E1E" roughness={0.6} />
+        </mesh>
+      </group>
+      {/* Notebook */}
+      <RoundedBox args={[0.32, 0.018, 0.22]} radius={0.005} smoothness={3} position={[0.65, 0.99, -0.1]}>
+        <meshStandardMaterial color="#3F4A6A" roughness={0.85} />
+      </RoundedBox>
+      {/* Office chair (player sits here when first-person desk camera engages) */}
+      <PlayerChair position={[0, 0, 1.2]} />
+    </group>
+  );
+}
+
+function PlayerChair({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Seat */}
+      <RoundedBox args={[0.55, 0.08, 0.55]} radius={0.04} smoothness={4} position={[0, 0.5, 0]}>
+        <meshStandardMaterial color="#2A2A2E" roughness={0.7} />
+      </RoundedBox>
+      {/* Back */}
+      <RoundedBox args={[0.55, 0.7, 0.08]} radius={0.05} smoothness={4} position={[0, 0.85, 0.24]}>
+        <meshStandardMaterial color="#2A2A2E" roughness={0.7} />
+      </RoundedBox>
+      {/* Stem */}
+      <mesh position={[0, 0.28, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.42, 12]} />
+        <meshStandardMaterial color="#1A1A1F" roughness={0.4} metalness={0.6} />
+      </mesh>
+      {/* Base */}
+      <mesh position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[0.03, 0.32, 0.04, 16]} />
+        <meshStandardMaterial color="#1A1A1F" roughness={0.4} metalness={0.6} />
+      </mesh>
+      {/* Wheels */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const angle = (i / 5) * Math.PI * 2;
+        const r = 0.3;
+        return (
+          <mesh
+            key={`wheel-${i}`}
+            position={[Math.cos(angle) * r, 0.025, Math.sin(angle) * r]}
+          >
+            <sphereGeometry args={[0.03, 8, 6]} />
+            <meshStandardMaterial color="#0F0F12" roughness={0.6} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
 }
 
 function FurnitureHotspots() {

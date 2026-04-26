@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
-import { Send, X } from "lucide-react";
+import { Send, Sparkles, X } from "lucide-react";
 import { convexRefs } from "@/lib/convex-refs";
 import { useRoomStore } from "./room-store";
 
@@ -12,20 +12,30 @@ type Props = {
 
 type Message = { role: string; content: string; timestamp?: string };
 
+type RecruiterRow = {
+  _id: string;
+  recruiterName: string;
+  companyName: string;
+  status?: "active" | "applied" | "departed";
+};
+
 export function RecruiterDialogue({ userId }: Props) {
   const activeRecruiterId = useRoomStore((s) => s.activeRecruiterId);
   const setActiveRecruiterId = useRoomStore((s) => s.setActiveRecruiterId);
+  const setTerminalActive = useRoomStore((s) => s.setTerminalActive);
   const recruiter = useQuery(
     convexRefs.recruiters.getById,
     activeRecruiterId ? { recruiterId: activeRecruiterId as never } : "skip",
-  ) as { _id: string; recruiterName: string; companyName: string } | null | undefined;
+  ) as RecruiterRow | null | undefined;
   const conversation = useQuery(
     convexRefs.recruiters.getConversation,
     activeRecruiterId ? { recruiterId: activeRecruiterId as never } : "skip",
   ) as { messages: Message[] } | null | undefined;
   const sendMessage = useAction(convexRefs.recruiterActions.sendMessage);
+  const applyThroughRecruiter = useAction(convexRefs.recruiterActions.applyThroughRecruiter);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   if (!activeRecruiterId || !recruiter) return null;
 
@@ -37,6 +47,18 @@ export function RecruiterDialogue({ userId }: Props) {
       setDraft("");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!userId || !activeRecruiterId) return;
+    setApplying(true);
+    try {
+      await applyThroughRecruiter({ recruiterId: activeRecruiterId as never, userId });
+      setTerminalActive(true);
+      setActiveRecruiterId(null);
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -60,17 +82,27 @@ export function RecruiterDialogue({ userId }: Props) {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 p-3 border-t border-black/5">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
-          placeholder={`Ask ${recruiter.recruiterName.split(" ")[0]} about ${recruiter.companyName}…`}
-          className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
-          disabled={sending}
-        />
-        <button onClick={handleSend} disabled={sending || !draft.trim()} className="p-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
-          <Send className="h-4 w-4" />
+      <div className="flex flex-col gap-2 p-3 border-t border-black/5">
+        <div className="flex items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+            placeholder={`Ask ${recruiter.recruiterName.split(" ")[0]} about ${recruiter.companyName}…`}
+            className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+            disabled={sending}
+          />
+          <button onClick={handleSend} disabled={sending || !draft.trim()} className="p-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+        <button
+          onClick={handleApply}
+          disabled={applying || recruiter.status === "applied"}
+          className="flex items-center justify-center gap-1.5 w-full px-3 py-2 text-xs font-medium rounded-lg bg-emerald-600 text-white disabled:bg-emerald-300 hover:bg-emerald-700"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          {recruiter.status === "applied" ? "Already applied" : applying ? "Routing to terminal…" : `Apply via ${recruiter.recruiterName.split(" ")[0]}`}
         </button>
       </div>
     </div>
