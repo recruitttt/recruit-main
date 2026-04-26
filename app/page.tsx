@@ -24,6 +24,7 @@ import {
   TopLine,
   topLinePillClass,
 } from "@/components/shell/top-line";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const HERO_TITLE_WORDS = ["Apply", "to", "jobs", "without", "applying."];
 
@@ -103,11 +104,12 @@ export default function LandingPage() {
         }
         actions={
           <>
+            <ThemeToggle compact className="border-white/24 bg-black/10 text-white hover:bg-white/15" />
             <Link href="/dashboard" className={`${topLinePillClass("hero")} hidden sm:inline-flex`}>
               Sign in
             </Link>
             <Link href="/onboarding">
-              <Button size="sm" className="h-10 rounded-full bg-[var(--color-accent)] px-4 text-white hover:brightness-110">
+              <Button size="sm" className="h-10 rounded-full bg-[var(--color-accent)] px-4 text-[var(--color-accent-contrast)] hover:brightness-105">
                 Start applying
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
@@ -127,13 +129,13 @@ export default function LandingPage() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_22%,rgba(255,255,255,0)_55%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-[16%] bg-[linear-gradient(to_bottom,rgba(245,248,241,0)_0%,#F5F8F1_100%)]" />
+          <div className="absolute inset-0" style={{ backgroundImage: "var(--landing-hero-overlay)" }} />
+          <div className="absolute inset-x-0 bottom-0 h-[16%]" style={{ backgroundImage: "var(--landing-hero-fade)" }} />
         </div>
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-20 sm:px-6 sm:pt-24 lg:pt-28">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
-            <h1 className="mx-auto max-w-4xl text-balance font-serif text-[clamp(32px,5.6vw,72px)] leading-[0.96] tracking-tight text-slate-950">
+            <h1 className="mx-auto max-w-4xl text-balance font-serif text-[clamp(32px,5.6vw,72px)] leading-[0.96] tracking-tight text-[var(--color-fg)]">
               {HERO_TITLE_WORDS.map((word, index) => (
                 <Fragment key={`${word}-${index}`}>
                   <span
@@ -155,7 +157,7 @@ export default function LandingPage() {
               ))}
             </h1>
             <p
-              className="mx-auto max-w-xl text-balance text-[13px] leading-5 text-slate-600 sm:text-[14px]"
+              className="mx-auto max-w-xl text-balance text-[13px] leading-5 text-[var(--color-fg-muted)] sm:text-[14px]"
               style={{
                 animation: "hero-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1.35s both",
               }}
@@ -170,7 +172,7 @@ export default function LandingPage() {
               }}
             >
               <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
-                <Button size="lg" className="h-12 rounded-full bg-[var(--color-accent)] px-6 text-white hover:brightness-110">
+                <Button size="lg" className="h-12 rounded-full bg-[var(--color-accent)] px-6 text-[var(--color-accent-contrast)] hover:brightness-105">
                   Spin up my agents
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -179,7 +181,7 @@ export default function LandingPage() {
                 <Button
                   variant="secondary"
                   size="lg"
-                  className="h-12 rounded-full border-white/70 bg-white/58 px-6 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_34px_rgba(15,23,42,0.06)] hover:bg-white/75"
+                  className="h-12 rounded-full border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-6 text-[var(--color-fg)] shadow-[var(--theme-control-shadow)] hover:bg-[var(--glass-control-hover)]"
                 >
                   View live dashboard
                 </Button>
@@ -203,13 +205,13 @@ export default function LandingPage() {
           {steps.map((step) => (
             <div
               key={step.title}
-              className="rounded-[28px] border border-white/70 bg-white/68 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl"
+              className="rounded-[28px] border border-[var(--glass-border)] bg-[var(--glass-card-bg)] p-5 shadow-[var(--theme-card-inset-shadow)] backdrop-blur-xl"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/78 text-[var(--color-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-control-bg)] text-[var(--color-accent)] shadow-[var(--theme-control-shadow)]">
                 <step.icon className="h-5 w-5" />
               </div>
-              <h2 className="mt-5 text-lg font-semibold tracking-tight text-slate-950">{step.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{step.detail}</p>
+              <h2 className="mt-5 text-lg font-semibold tracking-tight text-[var(--color-fg)]">{step.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{step.detail}</p>
             </div>
           ))}
         </div>
@@ -219,10 +221,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Simple pricing</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Start free, then scale only when the agent is doing real work.</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-fg)]">Simple pricing</h2>
+              <p className="mt-1 text-sm leading-6 text-[var(--color-fg-muted)]">Start free, then scale only when the agent is doing real work.</p>
             </div>
-            <div className="text-sm font-medium text-slate-500">Cancel anytime</div>
+            <div className="text-sm font-medium text-[var(--color-fg-subtle)]">Cancel anytime</div>
           </div>
 
           <div className="mt-5 grid gap-3 lg:grid-cols-3" style={{ perspective: "1100px" }}>
@@ -231,16 +233,16 @@ export default function LandingPage() {
                 key={plan.name}
                 className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
                   plan.featured
-                    ? "border-[var(--color-accent)] bg-white/82"
-                    : "border-white/70 bg-white/58"
+                    ? "border-[var(--color-accent)] bg-[var(--glass-card-bg)]"
+                    : "border-[var(--glass-border)] bg-[var(--glass-card-bg)]"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-950">{plan.name}</div>
+                    <div className="text-sm font-semibold text-[var(--color-fg)]">{plan.name}</div>
                     <div className="mt-2 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-semibold tracking-tight text-slate-950">{plan.price}</span>
-                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">/ mo</span>
+                      <span className="text-3xl font-semibold tracking-tight text-[var(--color-fg)]">{plan.price}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">/ mo</span>
                     </div>
                   </div>
                   {plan.featured ? (
@@ -249,11 +251,11 @@ export default function LandingPage() {
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-2 text-sm text-slate-600">{plan.detail}</div>
+                <div className="mt-2 text-sm text-[var(--color-fg-muted)]">{plan.detail}</div>
                 <div className="mt-4 grid gap-2">
                   {plan.features.map((feature) => (
-                    <div key={feature} className="flex items-center gap-2 text-sm text-slate-600">
-                      <Check className="h-4 w-4 text-emerald-500" />
+                    <div key={feature} className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)]">
+                      <Check className="h-4 w-4 text-[var(--color-success)]" />
                       <span>{feature}</span>
                     </div>
                   ))}
@@ -264,8 +266,8 @@ export default function LandingPage() {
                     variant={plan.featured ? "primary" : "secondary"}
                     className={`w-full rounded-full ${
                       plan.featured
-                        ? "bg-[var(--color-accent)] text-white hover:brightness-110"
-                        : "border-white/70 bg-white/58 text-slate-700 hover:bg-white/75"
+                        ? "bg-[var(--color-accent)] text-[var(--color-accent-contrast)] hover:brightness-105"
+                        : "border-[var(--glass-border)] bg-[var(--glass-control-bg)] text-[var(--color-fg)] hover:bg-[var(--glass-control-hover)]"
                     }`}
                   >
                     {plan.cta}
@@ -279,11 +281,11 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-6 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-[var(--color-fg-subtle)] sm:flex-row sm:items-center sm:justify-between">
           <Wordmark />
           <div className="flex gap-5">
-            <Link href="/dashboard" className="transition hover:text-slate-950">Dashboard</Link>
-            <Link href="/onboarding" className="transition hover:text-slate-950">Start</Link>
+            <Link href="/dashboard" className="transition hover:text-[var(--color-fg)]">Dashboard</Link>
+            <Link href="/onboarding" className="transition hover:text-[var(--color-fg)]">Start</Link>
           </div>
         </div>
       </footer>
@@ -349,7 +351,7 @@ function ProductMockup() {
                   5 agents applying for Mo
                 </h2>
               </div>
-              <button className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-4 text-[13px] font-semibold text-white">
+              <button className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-4 text-[13px] font-semibold text-[var(--color-accent-contrast)]">
                 <Command className="h-3.5 w-3.5" />
                 Assist
               </button>

@@ -28,6 +28,7 @@ import type {
 
 import { api } from "@/convex/_generated/api";
 import { cx } from "@/components/design-system";
+import { StarClusterField } from "@/components/visual/star-cluster-field";
 import type {
   Education,
   ProfileLinks,
@@ -283,7 +284,7 @@ export function GraphView({ userId, active }: GraphViewProps): React.ReactElemen
       <div
         ref={containerRef}
         className={cx(
-          "relative overflow-hidden rounded-[28px] border border-white/70 bg-[#eef4eb]/70",
+          "relative overflow-hidden rounded-[28px] border border-[var(--glass-border)] bg-[var(--profile-graph-bg)]",
           "shadow-[0_28px_80px_rgba(45,69,50,0.14),inset_0_1px_0_rgba(255,255,255,0.86)] backdrop-blur-2xl",
         )}
         style={{ height: "clamp(520px, 68vh, 820px)" }}
@@ -294,6 +295,7 @@ export function GraphView({ userId, active }: GraphViewProps): React.ReactElemen
         }}
       >
         <ConstellationBackdrop />
+        <StarClusterField variant="graph" className="z-[1]" />
         {isLoading ? (
           <GraphPlaceholder text="Mapping profile constellation..." />
         ) : filteredGraph.nodes.length === 0 ? (
@@ -1523,7 +1525,7 @@ function subtitleForNode(node: GraphNode): string | undefined {
 function ConstellationBackdrop(): React.ReactElement {
   return (
     <div className="pointer-events-none absolute inset-0 z-0">
-      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(238,246,235,0.64)_48%,rgba(213,224,208,0.58))]" />
+      <div className="absolute inset-0 [background-image:var(--profile-graph-backdrop)]" />
       <div
         className="absolute inset-0 opacity-[0.55]"
         style={{

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { cx, mistClasses } from "@/components/design-system";
+import { cx } from "@/components/design-system";
 import { Mark } from "@/components/ui/logo";
 
 export type TopLineVariant = "mist" | "hero";
@@ -32,16 +32,14 @@ export function TopLine({
         "top-0 z-30 px-2 py-3 md:px-5",
         variant === "hero"
           ? "absolute inset-x-0 z-40 text-white"
-          : "sticky border-b border-white/35 bg-[#D5E0D0]/78 text-[#102016] backdrop-blur-2xl",
+          : "app-shell-header sticky text-[var(--color-fg)]",
         className,
       )}
     >
       <div
         className={cx(
-          "mx-auto flex min-h-14 items-center gap-1 px-1.5 py-2 md:gap-3 md:px-3",
+          "mx-auto flex min-h-12 items-center gap-2 px-0 py-1 md:gap-3",
           maxWidthClassName,
-          variant === "mist" && "border",
-          variant === "mist" && mistClasses.panel,
           innerClassName,
         )}
       >
@@ -72,10 +70,10 @@ export function RecruitBrandLink({
     <Link
       href={href}
       className={cx(
-        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-2 text-slate-900 transition sm:pr-3",
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-2 text-slate-900 transition sm:pr-3 !no-underline",
         hero
           ? "border-white/24 bg-black/10 text-white shadow-[0_1px_2px_rgba(15,23,42,0.18)] backdrop-blur-sm hover:bg-white/15"
-          : "border-white/60 bg-white/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_10px_28px_rgba(15,23,42,0.06)] hover:bg-white/58",
+          : "app-nav-control",
         className,
       )}
       aria-label={ariaLabel}
@@ -90,7 +88,7 @@ export function RecruitBrandLink({
       />
       <span
         className={cx(
-          "font-serif text-[19px] leading-none tracking-tight",
+          "font-serif text-[19px] leading-none tracking-tight [text-decoration:none!important]",
           hero ? "text-white" : "text-[var(--color-accent)]",
         )}
       >
@@ -102,10 +100,10 @@ export function RecruitBrandLink({
 
 export function topLinePillClass(variant: TopLineVariant = "mist") {
   return cx(
-    "inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition !no-underline",
     variant === "hero"
       ? "border-white/24 bg-black/10 text-white shadow-[0_1px_2px_rgba(15,23,42,0.18)] backdrop-blur-sm hover:bg-white/15"
-      : "border-white/60 bg-white/54 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] hover:bg-white/68",
+      : "app-nav-control text-[var(--color-fg)]",
   );
 }
 
@@ -114,6 +112,6 @@ export function topLineIconButtonClass(variant: TopLineVariant = "mist") {
     "inline-flex h-10 w-10 items-center justify-center rounded-full border transition",
     variant === "hero"
       ? "border-white/24 bg-black/10 text-white shadow-[0_1px_2px_rgba(15,23,42,0.18)] backdrop-blur-sm hover:bg-white/15"
-      : "border-white/60 bg-white/44 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] hover:bg-white/58",
+      : "app-nav-control text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
   );
 }

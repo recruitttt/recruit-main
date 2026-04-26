@@ -201,19 +201,19 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
 
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="mx-auto flex w-full max-w-[460px] flex-col items-center gap-5">
-          <section className="w-full rounded-[28px] border border-white/55 bg-white/42 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl sm:p-8">
+          <section className="w-full rounded-[28px] border border-[var(--glass-border)] bg-[var(--glass-panel-bg)] p-6 shadow-[var(--theme-panel-shadow)] backdrop-blur-2xl sm:p-8">
           <div className="text-center">
-            <h1 className="font-serif text-[30px] font-normal leading-none text-[#101827]">
+            <h1 className="font-serif text-[30px] font-normal leading-none text-[var(--color-fg)]">
               {title}
             </h1>
-            <p className="mt-3 text-sm leading-6 text-[#465568]">{subtitle}</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-fg-muted)]">{subtitle}</p>
           </div>
 
           <button
             type="button"
             onClick={continueWithGitHub}
             disabled={pendingAction !== null}
-            className="mt-7 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/70 bg-[#101827] px-4 text-[13px] font-semibold text-white shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:bg-[#1C2637] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-7 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-fg)] px-4 text-[13px] font-semibold text-[var(--color-bg)] shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pendingAction === "github" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -225,55 +225,55 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             )}
           </button>
 
-          <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-[#6B7A90]">
-            <span className="h-px flex-1 bg-white/55" />
+          <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+            <span className="h-px flex-1 bg-[var(--glass-border)]" />
             or use email
-            <span className="h-px flex-1 bg-white/55" />
+            <span className="h-px flex-1 bg-[var(--glass-border)]" />
           </div>
 
           <form className="grid gap-4" onSubmit={submitEmail}>
             {isSignUp && (
               <label className="grid gap-2">
-                <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Name</span>
-                <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
-                  <User className="h-4 w-4 text-[#6B7A90]" />
-                  <input value={name} onChange={(event) => setName(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="Your name" autoComplete="name" />
+                <span className="font-mono text-[11px] font-semibold uppercase text-[var(--color-fg-muted)]">Name</span>
+                <span className="flex h-11 items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-4 shadow-[var(--theme-control-shadow)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
+                  <User className="h-4 w-4 text-[var(--color-fg-subtle)]" />
+                  <input value={name} onChange={(event) => setName(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[var(--color-fg)] outline-none placeholder:text-[var(--color-fg-subtle)]" placeholder="Your name" autoComplete="name" />
                 </span>
               </label>
             )}
 
             <label className="grid gap-2">
-              <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Email address</span>
-              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
-                <Mail className="h-4 w-4 text-[#6B7A90]" />
-                <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="you@example.com" autoComplete="email" />
+              <span className="font-mono text-[11px] font-semibold uppercase text-[var(--color-fg-muted)]">Email address</span>
+              <span className="flex h-11 items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-4 shadow-[var(--theme-control-shadow)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
+                <Mail className="h-4 w-4 text-[var(--color-fg-subtle)]" />
+                <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[var(--color-fg)] outline-none placeholder:text-[var(--color-fg-subtle)]" placeholder="you@example.com" autoComplete="email" />
               </span>
             </label>
 
             <label className="grid gap-2">
-              <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Password</span>
-              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
-                <Lock className="h-4 w-4 text-[#6B7A90]" />
-                <input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="At least 8 characters" autoComplete={isSignUp ? "new-password" : "current-password"} />
+              <span className="font-mono text-[11px] font-semibold uppercase text-[var(--color-fg-muted)]">Password</span>
+              <span className="flex h-11 items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-4 shadow-[var(--theme-control-shadow)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
+                <Lock className="h-4 w-4 text-[var(--color-fg-subtle)]" />
+                <input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[var(--color-fg)] outline-none placeholder:text-[var(--color-fg-subtle)]" placeholder="At least 8 characters" autoComplete={isSignUp ? "new-password" : "current-password"} />
               </span>
             </label>
 
             {displayedError && (
-              <p className="rounded-2xl border border-red-300/50 bg-red-50/70 px-3 py-2 text-sm text-red-700">
+              <p className="rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] px-3 py-2 text-sm text-[var(--color-danger)]">
                 {displayedError}
               </p>
             )}
 
             <button
               type="submit"
-              className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-[#101827] px-4 text-[13px] font-semibold text-white shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:bg-[#1C2637] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-fg)] px-4 text-[13px] font-semibold text-[var(--color-bg)] shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={pendingAction !== null}
             >
               {pendingAction === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{isSignUp ? "Create account" : "Continue"}<ArrowRight className="h-4 w-4" /></>}
             </button>
           </form>
 
-          <div className="mt-7 text-center text-sm text-[#465568]">
+          <div className="mt-7 text-center text-sm text-[var(--color-fg-muted)]">
             {alternateText}{" "}
             <Link href={alternateHref} className="font-semibold text-[var(--color-accent)] hover:brightness-110">
               {alternateAction}
@@ -284,7 +284,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             type="button"
             onClick={continueAsDemo}
             disabled={pendingAction !== null}
-            className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-[#6B7A90]/50 bg-transparent px-3 text-[12px] font-medium text-[#465568] transition hover:border-[var(--color-accent)] hover:bg-white/40 hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-[var(--color-border-strong)] bg-transparent px-3 text-[12px] font-medium text-[var(--color-fg-muted)] transition hover:border-[var(--color-accent)] hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pendingAction === "demo" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
