@@ -3,13 +3,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { GithubIcon } from "@/components/ui/brand-icons";
 import { Mark } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
 import { ArrowRight, Loader2, Lock, Mail, User } from "lucide-react";
 
 type AuthMode = "sign-in" | "sign-up";
-type SocialProvider = "github";
 
 export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
@@ -62,20 +60,6 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
     router.refresh();
   }
 
-  async function submitSocial(provider: SocialProvider) {
-    setError(null);
-    setPendingAction(provider);
-    const result = await authClient.signIn.social({
-      provider,
-      callbackURL,
-    });
-
-    if (result.error) {
-      setPendingAction(null);
-      setError(result.error.message ?? `Unable to continue with ${provider}.`);
-    }
-  }
-
   return (
     <main className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#CDD5DF] px-4 py-10 text-[#101827]">
       <div className="mx-auto flex w-full max-w-[460px] flex-col items-center gap-5">
@@ -96,25 +80,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-sm leading-6 text-[#465568]">{subtitle}</p>
           </div>
 
-          <div className="mt-7 grid gap-3">
-            <button
-              type="button"
-              className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 text-[13px] font-semibold text-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(15,23,42,0.045)] transition hover:bg-white/68 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={pendingAction !== null}
-              onClick={() => void submitSocial("github")}
-            >
-              {pendingAction === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GithubIcon className="h-4 w-4" />}
-              Continue with GitHub
-            </button>
-          </div>
-
-          <div className="my-7 flex items-center gap-4">
-            <div className="h-px flex-1 bg-white/55" />
-            <span className="font-mono text-[11px] font-semibold uppercase text-[#6B7A90]">or</span>
-            <div className="h-px flex-1 bg-white/55" />
-          </div>
-
-          <form className="grid gap-4" onSubmit={submitEmail}>
+          <form className="mt-7 grid gap-4" onSubmit={submitEmail}>
             {isSignUp && (
               <label className="grid gap-2">
                 <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Name</span>
