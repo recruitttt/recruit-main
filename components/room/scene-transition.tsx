@@ -108,7 +108,7 @@ export function useSceneTransition() {
 
   const handleComplete = useCallback(() => {
     setActive(false);
-    router.push("/dashboard/room");
+    router.push("/dashboard");
   }, [router]);
 
   return { active, trigger, handleComplete };

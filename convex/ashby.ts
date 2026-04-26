@@ -22,6 +22,24 @@ async function scopedDemoUserId(ctx: any, requestedDemoUserId?: string) {
   return identity?.subject ? `auth:${identity.subject}` : DEMO_USER_ID;
 }
 
+function normalizeConvexFieldName(key: string) {
+  return key
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
+function normalizeConvexObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => normalizeConvexObjectKeys(item));
+  if (!value || typeof value !== "object") return value;
+  const normalized: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    normalized[normalizeConvexFieldName(key)] = normalizeConvexObjectKeys(nested);
+  }
+  return normalized;
+}
+
 export const upsertDemoProfileSnapshot = mutation({
   args: {
     demoUserId: v.optional(v.string()),
@@ -31,17 +49,18 @@ export const upsertDemoProfileSnapshot = mutation({
   handler: async (ctx, args) => {
     const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const updatedAt = new Date().toISOString();
+    const profile = normalizeConvexObjectKeys(args.profile);
     const existing = await ctx.db
       .query("demoProfiles")
       .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { profile: args.profile, updatedAt });
+      await ctx.db.patch(existing._id, { profile, updatedAt });
     } else {
       await ctx.db.insert("demoProfiles", {
         demoUserId,
-        profile: args.profile,
+        profile,
         updatedAt,
       });
     }
@@ -68,17 +87,18 @@ export const startOnboardingPipeline = mutation({
     const now = new Date().toISOString();
     const limitSources = args.limitSources ?? 3;
     const tailorLimit = args.tailorLimit ?? 3;
+    const profile = normalizeConvexObjectKeys(args.profile);
     const existing = await ctx.db
       .query("demoProfiles")
       .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { profile: args.profile, updatedAt: now });
+      await ctx.db.patch(existing._id, { profile, updatedAt: now });
     } else {
       await ctx.db.insert("demoProfiles", {
         demoUserId,
-        profile: args.profile,
+        profile,
         updatedAt: now,
       });
     }
@@ -104,7 +124,7 @@ export const startOnboardingPipeline = mutation({
       stage: "profile",
       level: "success",
       message: "Saved onboarding profile snapshot.",
-      payload: { targetRoles: args.profile?.targetRoles ?? args.profile?.prefs?.roles ?? [] },
+      payload: { targetRoles: (profile as any)?.targetRoles ?? (profile as any)?.prefs?.roles ?? [] },
       createdAt: now,
     });
     await ctx.db.insert("pipelineLogs", {
@@ -324,6 +344,364 @@ export const appendPipelineLog = internalMutation({
       payload: args.payload,
       createdAt: new Date().toISOString(),
     }));
+    return null;
+  },
+});
+
+export const getAshbyFormFillContext = internalQuery({
+  args: {
+    demoUserId: v.optional(v.string()),
+    organizationSlug: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const organizationSlug = args.organizationSlug?.trim().toLowerCase() ?? null;
+    const profile = await ctx.db
+      .query("demoProfiles")
+      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+      .unique();
+
+    const scopes = [
+      { scopeKind: "global" as const, scopeValue: "__global__" },
+      ...(organizationSlug
+        ? [{ scopeKind: "organization" as const, scopeValue: organizationSlug }]
+        : []),
+    ];
+
+    const aliases = [];
+    const approvedAnswers = [];
+    for (const scope of scopes) {
+      const scopeAliases = await ctx.db
+        .query("ashbyPromptAliases")
+        .withIndex("by_scope", (q) => q.eq("provider", "ashby"))
+        .filter((q) => q.eq(q.field("scopeKind"), scope.scopeKind))
+        .filter((q) => q.eq(q.field("scopeValue"), scope.scopeValue))
+        .filter((q) => q.eq(q.field("approved"), true))
+        .collect();
+      aliases.push(
+        ...scopeAliases.map((alias) => ({
+          provider: "ashby",
+          scopeKind: alias.scopeKind,
+          scopeValue: alias.scopeValue,
+          promptHash: alias.promptHash,
+          normalizedPrompt: alias.normalizedPrompt,
+          controlKind: alias.controlKind,
+          optionSignature: alias.optionSignature ?? null,
+          canonicalKey: alias.canonicalKey,
+          confidence: alias.confidence,
+          source: alias.source,
+          approved: alias.approved,
+        }))
+      );
+
+      const answers = await ctx.db
+        .query("ashbyApprovedAnswers")
+        .withIndex("by_demo_user_scope", (q) => q.eq("demoUserId", demoUserId))
+        .filter((q) => q.eq(q.field("provider"), "ashby"))
+        .filter((q) => q.eq(q.field("scopeKind"), scope.scopeKind))
+        .filter((q) => q.eq(q.field("scopeValue"), scope.scopeValue))
+        .filter((q) => q.eq(q.field("approved"), true))
+        .collect();
+      approvedAnswers.push(
+        ...answers.map((answer) => ({
+          provider: "ashby",
+          scopeKind: answer.scopeKind,
+          scopeValue: answer.scopeValue,
+          canonicalKey: answer.canonicalKey,
+          promptHash: answer.promptHash ?? null,
+          answerValue: answer.answerValue,
+          answerKind: answer.answerKind,
+          source: answer.source,
+          approved: answer.approved,
+        }))
+      );
+    }
+
+    return {
+      demoUserId,
+      profile: profile?.profile ?? null,
+      aliases,
+      approvedAnswers,
+    };
+  },
+});
+
+export const getAshbyRuntimeProfileContext = query({
+  args: {
+    demoUserId: v.optional(v.string()),
+    organizationSlug: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const context = await loadAshbyFormFillContext(ctx, args);
+    return {
+      ...context,
+      profileIdentity: profileIdentityForAshbyRun(context.profile),
+      profileSource: context.profile ? "convex" : "missing",
+    };
+  },
+});
+
+export const upsertAshbyApprovedAnswer = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    organizationSlug: v.optional(v.string()),
+    scopeKind: v.optional(v.union(v.literal("global"), v.literal("organization"))),
+    canonicalKey: v.string(),
+    promptHash: v.optional(v.string()),
+    answerValue: v.string(),
+    answerKind: v.union(v.literal("text"), v.literal("choice"), v.literal("file")),
+    source: v.optional(v.string()),
+  },
+  returns: v.object({ id: v.id("ashbyApprovedAnswers"), updatedAt: v.string() }),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const now = new Date().toISOString();
+    const scopeKind = args.scopeKind ?? (args.organizationSlug ? "organization" : "global");
+    const scopeValue = scopeKind === "organization"
+      ? String(args.organizationSlug ?? "").trim().toLowerCase()
+      : "__global__";
+    if (scopeKind === "organization" && !scopeValue) {
+      throw new Error("organization_slug_required");
+    }
+
+    const existing = await findApprovedAnswer(ctx, {
+      demoUserId,
+      scopeKind,
+      scopeValue,
+      canonicalKey: args.canonicalKey,
+      promptHash: args.promptHash,
+    });
+    const doc = omitUndefined({
+      demoUserId,
+      provider: "ashby" as const,
+      scopeKind,
+      scopeValue,
+      canonicalKey: args.canonicalKey,
+      promptHash: args.promptHash,
+      answerValue: args.answerValue,
+      answerKind: args.answerKind,
+      source: args.source ?? "user_supplied",
+      approved: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    if (existing) {
+      await ctx.db.patch(existing._id, omitUndefined({
+        answerValue: args.answerValue,
+        answerKind: args.answerKind,
+        source: args.source ?? existing.source,
+        approved: true,
+        updatedAt: now,
+      }));
+      return { id: existing._id, updatedAt: now };
+    }
+    const id = await ctx.db.insert("ashbyApprovedAnswers", doc);
+    return { id, updatedAt: now };
+  },
+});
+
+export const approveAshbyPendingReview = mutation({
+  args: {
+    itemId: v.id("ashbyPendingReviews"),
+    demoUserId: v.optional(v.string()),
+    answerValue: v.string(),
+    canonicalKey: v.optional(v.string()),
+    answerKind: v.optional(v.union(v.literal("text"), v.literal("choice"), v.literal("file"))),
+  },
+  returns: v.object({ approvedAnswerId: v.id("ashbyApprovedAnswers"), updatedAt: v.string() }),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.demoUserId !== demoUserId) {
+      throw new Error("pending_review_not_found");
+    }
+    const now = new Date().toISOString();
+    const canonicalKey = args.canonicalKey ?? item.canonicalKeyCandidate;
+    if (!canonicalKey) {
+      throw new Error("canonical_key_required");
+    }
+    const scopeKind = item.organizationSlug ? "organization" as const : "global" as const;
+    const scopeValue = item.organizationSlug ?? "__global__";
+    const existing = await findApprovedAnswer(ctx, {
+      demoUserId,
+      scopeKind,
+      scopeValue,
+      canonicalKey,
+      promptHash: item.promptHash,
+    });
+    const answerKind = args.answerKind ?? answerKindFromControlKind(item.controlKind);
+    let approvedAnswerId;
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        answerValue: args.answerValue,
+        answerKind,
+        source: "pending_review_approval",
+        approved: true,
+        updatedAt: now,
+      });
+      approvedAnswerId = existing._id;
+    } else {
+      approvedAnswerId = await ctx.db.insert("ashbyApprovedAnswers", omitUndefined({
+        demoUserId,
+        provider: "ashby" as const,
+        scopeKind,
+        scopeValue,
+        canonicalKey,
+        promptHash: item.promptHash,
+        answerValue: args.answerValue,
+        answerKind,
+        source: "pending_review_approval",
+        approved: true,
+        createdAt: now,
+        updatedAt: now,
+      }));
+    }
+    await ctx.db.patch(args.itemId, {
+      status: "approved",
+      answerCandidate: args.answerValue,
+      canonicalKeyCandidate: canonicalKey,
+      updatedAt: now,
+    });
+    return { approvedAnswerId, updatedAt: now };
+  },
+});
+
+export const createAshbyFormFillRun = internalMutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    jobId: v.optional(v.id("ingestedJobs")),
+    targetUrl: v.string(),
+    organizationSlug: v.optional(v.string()),
+    profileIdentity: v.any(),
+  },
+  returns: v.id("ashbyFormFillRuns"),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const now = new Date().toISOString();
+    return await ctx.db.insert("ashbyFormFillRuns", omitUndefined({
+      demoUserId,
+      jobId: args.jobId,
+      targetUrl: args.targetUrl,
+      organizationSlug: args.organizationSlug,
+      status: "running",
+      submitAttempted: false,
+      submitCompleted: false,
+      profileIdentity: args.profileIdentity,
+      startedAt: now,
+      updatedAt: now,
+    }));
+  },
+});
+
+export const finalizeAshbyFormFillRun = internalMutation({
+  args: {
+    runId: v.id("ashbyFormFillRuns"),
+    result: v.optional(v.any()),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+
+    const now = new Date().toISOString();
+    const result = args.result;
+    const failed = Boolean(args.error);
+    await ctx.db.patch(args.runId, omitUndefined({
+      status: failed ? "failed" : "completed",
+      finalUrl: result?.finalUrl,
+      organizationSlug: result?.organizationSlug ?? run.organizationSlug,
+      outcome: result?.outcome,
+      submitAttempted: Boolean(result?.submitAttempted),
+      submitCompleted: Boolean(result?.submitCompleted),
+      runGrade: result?.runGrade,
+      evidence: result ? compactAshbyFillEvidence(result) : undefined,
+      error: args.error,
+      completedAt: now,
+      updatedAt: now,
+    }));
+
+    if (Array.isArray(result?.plan?.pending_review)) {
+      for (const item of result.plan.pending_review) {
+        await ctx.db.insert("ashbyPendingReviews", omitUndefined({
+          demoUserId: run.demoUserId,
+          runId: args.runId,
+          organizationSlug: result.organizationSlug,
+          promptHash: String(item.prompt_hash ?? ""),
+          questionText: String(item.question_text ?? ""),
+          normalizedPrompt: String(item.normalized_prompt ?? ""),
+          controlKind: String(item.control_kind ?? ""),
+          widgetFamily: String(item.widget_family ?? ""),
+          canonicalKeyCandidate:
+            typeof item.canonical_key_candidate === "string"
+              ? item.canonical_key_candidate
+              : undefined,
+          answerCandidate:
+            typeof item.answer_candidate === "string"
+              ? item.answer_candidate
+              : undefined,
+          reason: String(item.reason ?? "pending review"),
+          payload: item,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        }));
+      }
+    }
+
+    if (result?.targetUrl && result?.organizationSlug && result?.outcome) {
+      const existing = await ctx.db
+        .query("ashbyTargetHistory")
+        .withIndex("by_target", (q) => q.eq("demoUserId", run.demoUserId))
+        .filter((q) => q.eq(q.field("provider"), "ashby"))
+        .filter((q) => q.eq(q.field("targetUrl"), result.targetUrl))
+        .unique();
+      const history = omitUndefined({
+        demoUserId: run.demoUserId,
+        provider: "ashby" as const,
+        organizationSlug: result.organizationSlug,
+        targetUrl: result.targetUrl,
+        lastStatus: targetHistoryStatusForOutcome(result.outcome),
+        spamFlagged: result.outcome === "rejected_spam",
+        lastRunId: args.runId,
+        lastRunAt: now,
+        artifactSummary: {
+          finalUrl: result.finalUrl,
+          screenshots: result.screenshots,
+          runGrade: result.runGrade,
+        },
+      });
+      if (existing) {
+        await ctx.db.patch(existing._id, history);
+      } else {
+        await ctx.db.insert("ashbyTargetHistory", history);
+      }
+    }
+
+    await ctx.db.insert("pipelineLogs", omitUndefined({
+      demoUserId: run.demoUserId,
+      stage: "ashby-fill",
+      level: failed
+        ? "error"
+        : result?.outcome === "confirmed"
+          ? "success"
+          : "warning",
+      message: failed
+        ? "Ashby form fill failed."
+        : `Ashby form fill completed with outcome ${result?.outcome ?? "unknown"}.`,
+      payload: {
+        runId: args.runId,
+        targetUrl: run.targetUrl,
+        outcome: result?.outcome,
+        submitAttempted: result?.submitAttempted,
+        submitCompleted: result?.submitCompleted,
+        error: args.error,
+      },
+      createdAt: now,
+    }));
+
     return null;
   },
 });
@@ -571,6 +949,28 @@ export const getRunForRanking = internalQuery({
       .withIndex("by_run", (q) => q.eq("runId", args.runId))
       .collect();
     return { run, profile: profile?.profile ?? {}, jobs };
+  },
+});
+
+export const getCompletedTailoredApplicationForAction = internalQuery({
+  args: {
+    demoUserId: v.optional(v.string()),
+    jobId: v.id("ingestedJobs"),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    return await ctx.db
+      .query("tailoredApplications")
+      .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("demoUserId"), demoUserId),
+          q.eq(q.field("status"), "completed"),
+          q.eq(q.field("pdfReady"), true)
+        )
+      )
+      .first();
   },
 });
 
@@ -1041,6 +1441,174 @@ function omitUndefined<T extends Record<string, any>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined && item !== null)
   ) as T;
+}
+
+function compactAshbyFillEvidence(result: any) {
+  return omitUndefined({
+    submissionEvidence: result.submissionEvidence,
+    fillOperations: Array.isArray(result.fillOperations)
+      ? result.fillOperations
+      : [],
+    blockers: Array.isArray(result.blockers) ? result.blockers : [],
+    needsUserAnswers: Array.isArray(result.needsUserAnswers)
+      ? result.needsUserAnswers
+      : [],
+    mappingDecisions: Array.isArray(result.plan?.mapping_decisions)
+      ? result.plan.mapping_decisions
+      : [],
+    resolvedAnswers: Array.isArray(result.plan?.resolved_answers)
+      ? result.plan.resolved_answers
+      : [],
+    pendingReview: Array.isArray(result.plan?.pending_review)
+      ? result.plan.pending_review
+      : [],
+    screenshots: result.screenshots,
+    notes: result.notes,
+    errors: result.errors,
+    finalSnapshot: result.finalSnapshot
+      ? {
+          url: result.finalSnapshot.url,
+          validation_errors: result.finalSnapshot.validation_errors,
+          confirmation_texts: result.finalSnapshot.confirmation_texts,
+          submit_controls: result.finalSnapshot.submit_controls,
+          unexpected_verification_gate:
+            result.finalSnapshot.unexpected_verification_gate,
+          question_count: Array.isArray(result.finalSnapshot.questions)
+            ? result.finalSnapshot.questions.length
+            : 0,
+        }
+      : undefined,
+  });
+}
+
+async function findApprovedAnswer(
+  ctx: any,
+  args: {
+    demoUserId: string;
+    scopeKind: "global" | "organization";
+    scopeValue: string;
+    canonicalKey: string;
+    promptHash?: string;
+  }
+) {
+  const docs = await ctx.db
+    .query("ashbyApprovedAnswers")
+    .withIndex("by_demo_user_key", (q: any) =>
+      q.eq("demoUserId", args.demoUserId)
+        .eq("provider", "ashby")
+        .eq("canonicalKey", args.canonicalKey)
+    )
+    .collect();
+  return docs.find((doc: any) =>
+    doc.scopeKind === args.scopeKind &&
+    doc.scopeValue === args.scopeValue &&
+    ((doc.promptHash ?? null) === (args.promptHash ?? null))
+  ) ?? null;
+}
+
+async function loadAshbyFormFillContext(
+  ctx: any,
+  args: { demoUserId?: string; organizationSlug?: string }
+) {
+  const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+  const organizationSlug = args.organizationSlug?.trim().toLowerCase() ?? null;
+  const profile = await ctx.db
+    .query("demoProfiles")
+    .withIndex("by_demo_user", (q: any) => q.eq("demoUserId", demoUserId))
+    .unique();
+
+  const scopes = [
+    { scopeKind: "global" as const, scopeValue: "__global__" },
+    ...(organizationSlug
+      ? [{ scopeKind: "organization" as const, scopeValue: organizationSlug }]
+      : []),
+  ];
+
+  const aliases = [];
+  const approvedAnswers = [];
+  for (const scope of scopes) {
+    const scopeAliases = await ctx.db
+      .query("ashbyPromptAliases")
+      .withIndex("by_scope", (q: any) => q.eq("provider", "ashby"))
+      .filter((q: any) => q.eq(q.field("scopeKind"), scope.scopeKind))
+      .filter((q: any) => q.eq(q.field("scopeValue"), scope.scopeValue))
+      .filter((q: any) => q.eq(q.field("approved"), true))
+      .collect();
+    aliases.push(
+      ...scopeAliases.map((alias: any) => ({
+        provider: "ashby",
+        scopeKind: alias.scopeKind,
+        scopeValue: alias.scopeValue,
+        promptHash: alias.promptHash,
+        normalizedPrompt: alias.normalizedPrompt,
+        controlKind: alias.controlKind,
+        optionSignature: alias.optionSignature ?? null,
+        canonicalKey: alias.canonicalKey,
+        confidence: alias.confidence,
+        source: alias.source,
+        approved: alias.approved,
+      }))
+    );
+
+    const answers = await ctx.db
+      .query("ashbyApprovedAnswers")
+      .withIndex("by_demo_user_scope", (q: any) => q.eq("demoUserId", demoUserId))
+      .filter((q: any) => q.eq(q.field("provider"), "ashby"))
+      .filter((q: any) => q.eq(q.field("scopeKind"), scope.scopeKind))
+      .filter((q: any) => q.eq(q.field("scopeValue"), scope.scopeValue))
+      .filter((q: any) => q.eq(q.field("approved"), true))
+      .collect();
+    approvedAnswers.push(
+      ...answers.map((answer: any) => ({
+        provider: "ashby",
+        scopeKind: answer.scopeKind,
+        scopeValue: answer.scopeValue,
+        canonicalKey: answer.canonicalKey,
+        promptHash: answer.promptHash ?? null,
+        answerValue: answer.answerValue,
+        answerKind: answer.answerKind,
+        source: answer.source,
+        approved: answer.approved,
+      }))
+    );
+  }
+
+  return {
+    demoUserId,
+    profile: profile?.profile ?? null,
+    aliases,
+    approvedAnswers,
+  };
+}
+
+function profileIdentityForAshbyRun(profile: unknown) {
+  const record = profile && typeof profile === "object" ? profile as Record<string, any> : {};
+  const links = record.links && typeof record.links === "object" ? record.links as Record<string, any> : {};
+  const files = record.files && typeof record.files === "object" ? record.files as Record<string, any> : {};
+  return {
+    name: typeof record.name === "string" ? record.name : null,
+    email: typeof record.email === "string" ? record.email : null,
+    location: typeof record.location === "string" ? record.location : null,
+    github: typeof links.github === "string" ? links.github : null,
+    linkedin: typeof links.linkedin === "string" ? links.linkedin : null,
+    hasResumePath: typeof record.resumePath === "string" || typeof files.resumePath === "string",
+  };
+}
+
+function answerKindFromControlKind(controlKind: string): "text" | "choice" | "file" {
+  if (controlKind === "file") return "file";
+  if (["radio", "checkbox", "select", "combobox"].includes(controlKind)) return "choice";
+  return "text";
+}
+
+function targetHistoryStatusForOutcome(outcome: string) {
+  if (outcome === "confirmed") return "submitted";
+  if (outcome === "rejected_spam") return "spam_flagged";
+  if (outcome === "rejected_validation") return "rejected";
+  if (outcome === "blocked_before_submit" || outcome === "unsupported_gate") {
+    return "blocked";
+  }
+  return "ambiguous";
 }
 
 function tailoringLogMessage(status: string, company?: string, title?: string) {

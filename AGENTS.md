@@ -1,5 +1,5 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Subagent Orchestration
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+The architecture uses a pluggable **adapter pattern** for data sources, not traditional subagents. See `CLAUDE.md` for the intake adapter contract and `docs/superpowers/specs/2026-04-25-recruit-merge-design.md` for the full design.
+
+For multi-step orchestration (e.g., intake → report generation), the `runIntake` driver handles the coordination; no agent threads are spawned from the application code.
