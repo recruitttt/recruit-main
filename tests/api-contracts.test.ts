@@ -4,6 +4,7 @@ import { GET as getCheckoutConfig, POST as postCheckout } from "../app/api/check
 import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
+import { GET as getDashboardLive } from "../app/api/dashboard/live/route";
 import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
 import {
   POST as postRunIngestion,
@@ -168,6 +169,32 @@ await withEnvAsync({ STRIPE_SECRET_KEY: "sk_test_123", STRIPE_CHECKOUT_MOCK: und
   } finally {
     restoreFetch();
   }
+});
+
+await withEnvAsync({ DASHBOARD_DATA_SOURCE: undefined, NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
+  const replayJson = await assertJsonResponse(await postRunFirst3(), 200, {
+    rankingWarning: null,
+  });
+  assert.equal((replayJson.ingestion as { runId?: string }).runId, "m973fa2ppmrpg4fxwz5kwdjzq185jszp");
+  assert.equal((replayJson.fixture as { source?: string }).source, "data/om-demo");
+
+  const liveJson = await assertJsonResponse(await getDashboardLive(), 200, {});
+  assert.equal((liveJson.recommendations as unknown[]).length, 100);
+  assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
+  const firstRecommendation = (liveJson.recommendations as Array<{
+    company?: string;
+    organization?: { logoUrl?: string; prestigeTag?: string };
+  }>)[0];
+  assert.equal(firstRecommendation.company, "Google DeepMind");
+  assert.equal(firstRecommendation.organization?.logoUrl, "https://logo.clearbit.com/google.com");
+  assert.equal(firstRecommendation.organization?.prestigeTag, "AI Lab");
+
+  const omDetailJson = await assertJsonResponse(
+    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=m576d7tac59qdwtsdb28k91v1d85kzpv")),
+    200,
+    {}
+  );
+  assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, "Google DeepMind");
 });
 
 await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {

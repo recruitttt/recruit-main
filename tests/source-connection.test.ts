@@ -138,16 +138,31 @@ function main() {
     new URL("../app/onboarding/page.tsx", import.meta.url),
     "utf8"
   );
-  assert.match(onboardingPage, /label="LinkedIn URL"/);
-  assert.equal(onboardingPage.includes("GitHub already connected"), false);
-  assert.equal(onboardingPage.includes("auto-skip Connect"), false);
-  assert.match(
-    onboardingPage,
-    /It's saved and I have processed it in the backend\./
+  const onboardingClient = readFileSync(
+    new URL("../app/onboarding/_client.tsx", import.meta.url),
+    "utf8"
   );
-  assert.equal(onboardingPage.includes("CloudBrowserView"), false);
-  assert.equal(onboardingPage.includes("liveViewUrl"), false);
-  assert.equal(onboardingPage.includes("onLiveView"), false);
+  const onboardingConnectStep = readFileSync(
+    new URL("../app/onboarding/steps/connect-step.tsx", import.meta.url),
+    "utf8"
+  );
+  const onboardingSource = [
+    onboardingPage,
+    onboardingClient,
+    onboardingConnectStep,
+  ].join("\n");
+  assert.match(onboardingPage, /<OnboardingClient \/>/);
+  assert.match(onboardingConnectStep, /title="LinkedIn"/);
+  assert.match(onboardingConnectStep, /placeholder="linkedin\.com\/in\/yourhandle"/);
+  assert.equal(onboardingSource.includes("GitHub already connected"), false);
+  assert.equal(onboardingSource.includes("auto-skip Connect"), false);
+  assert.match(
+    onboardingConnectStep,
+    /Saved &mdash; processing in the background\./
+  );
+  assert.equal(onboardingSource.includes("CloudBrowserView"), false);
+  assert.equal(onboardingSource.includes("liveViewUrl"), false);
+  assert.equal(onboardingSource.includes("onLiveView"), false);
 
   const profilePageUrl = new URL("../app/profile/page.tsx", import.meta.url);
   const gatedProfilePageUrl = new URL(

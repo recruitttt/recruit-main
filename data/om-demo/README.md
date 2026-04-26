@@ -9,6 +9,8 @@ Convex for `demoUserId: "om-demo"`.
 - `job-details.json`: job descriptions, ranking decisions/scores, research, and
   tailored resume metadata.
 - `pipeline-logs.json`: pipeline events for ingestion, ranking, and tailoring.
+- `organizations.json`: demo-only prestigious company overlays, including
+  stored logo URLs and brand metadata used by the dashboard.
 - `verification.json`: count checks for the seeded run.
 
 The snapshot intentionally excludes OM profile raw text and PDF base64. Convex

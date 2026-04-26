@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 //
 // userProfiles — canonical UserProfile blob (lib/profile.ts shape).
 //
@@ -138,6 +137,23 @@ const CAP_LOG = 200;
 // caps as the persisted ceiling — the GitHub adapter already truncates
 // profileReadme to 4 KB upstream, so the 8 KB ceiling is just a safety net.
 const CAP_SUMMARY_CHARS = 8_000;
+const EDITABLE_PROFILE_LINK_KEYS = [
+  "github",
+  "linkedin",
+  "website",
+  "devpost",
+  "twitter",
+] as const;
+const editableLinkValueValidator = v.union(v.string(), v.null());
+const editableLinksValidator = v.object({
+  github: v.optional(editableLinkValueValidator),
+  linkedin: v.optional(editableLinkValueValidator),
+  website: v.optional(editableLinkValueValidator),
+  devpost: v.optional(editableLinkValueValidator),
+  twitter: v.optional(editableLinkValueValidator),
+});
+
+type EditableProfileLinkKey = (typeof EDITABLE_PROFILE_LINK_KEYS)[number];
 
 function capArray<T>(items: ReadonlyArray<T>, cap: number): T[] {
   if (items.length <= cap) return [...items];
@@ -222,6 +238,79 @@ function mergeLinks(
     if (isNonEmpty(value)) merged[key] = value;
   }
   return merged;
+}
+
+function hasOwn<T extends object, K extends PropertyKey>(
+  object: T,
+  key: K
+): object is T & Record<K, unknown> {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function expandEditableLinkInput(
+  key: EditableProfileLinkKey,
+  value: string
+): string {
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const handle = value.replace(/^@+/, "");
+  if (key === "github" && !/[./]/.test(handle)) {
+    return `https://github.com/${handle}`;
+  }
+  if (key === "linkedin" && !/[./]/.test(handle)) {
+    return `https://www.linkedin.com/in/${handle}`;
+  }
+  if (key === "devpost" && !/[./]/.test(handle)) {
+    return `https://devpost.com/${handle}`;
+  }
+  if (key === "twitter" && !/[./]/.test(handle)) {
+    return `https://x.com/${handle}`;
+  }
+
+  return `https://${value}`;
+}
+
+function hostMatches(hostname: string, root: string): boolean {
+  return hostname === root || hostname.endsWith(`.${root}`);
+}
+
+function normalizeEditableLink(
+  key: EditableProfileLinkKey,
+  value: string | null | undefined
+): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  let url: URL;
+  try {
+    url = new URL(expandEditableLinkInput(key, trimmed));
+  } catch {
+    throw new Error(`Invalid ${key} URL.`);
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Invalid ${key} URL.`);
+  }
+  url.protocol = "https:";
+  url.hash = "";
+
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.toLowerCase();
+  if (key === "github" && !hostMatches(host, "github.com")) {
+    throw new Error("GitHub link must be on github.com.");
+  }
+  if (key === "linkedin" && (!hostMatches(host, "linkedin.com") || !path.startsWith("/in/"))) {
+    throw new Error("LinkedIn link must look like linkedin.com/in/<handle>.");
+  }
+  if (key === "devpost" && !hostMatches(host, "devpost.com")) {
+    throw new Error("DevPost link must be on devpost.com.");
+  }
+  if (key === "twitter" && !hostMatches(host, "x.com") && !hostMatches(host, "twitter.com")) {
+    throw new Error("X / Twitter link must be on x.com or twitter.com.");
+  }
+
+  return url.toString();
 }
 
 function mergePrefs(
@@ -402,6 +491,100 @@ export const merge = mutation({
       log: mergedProfile.log,
       updatedAt: now,
     });
+  },
+});
+
+// updateLinks — owner-scoped profile link editing for /profile.
+//
+// This deliberately has a narrower surface than `merge`: client UI can update
+// public source URLs without being able to write arbitrary profile fields.
+// Empty strings / null clear a link so users can remove stale sources.
+export const updateLinks = mutation({
+  args: {
+    userId: v.string(),
+    links: editableLinksValidator,
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
+
+    const now = new Date().toISOString();
+    const existing = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    const currentProfile: UserProfile = ensureProfile(existing?.profile);
+    const nextLinks: ProfileLinks = { ...currentProfile.links };
+    const provenancePatch: Record<string, string> = {};
+    const changed: EditableProfileLinkKey[] = [];
+
+    for (const key of EDITABLE_PROFILE_LINK_KEYS) {
+      if (!hasOwn(args.links, key)) continue;
+      const normalized = normalizeEditableLink(
+        key,
+        args.links[key] as string | null | undefined
+      );
+      const previous = currentProfile.links[key]?.trim() ?? "";
+
+      if (normalized) {
+        nextLinks[key] = normalized;
+      } else {
+        delete nextLinks[key];
+      }
+
+      if ((normalized ?? "") !== previous) {
+        changed.push(key);
+      }
+      provenancePatch.links = "manual";
+      provenancePatch[`links.${key}`] = "manual";
+      provenancePatch[key] = "manual";
+    }
+
+    const mergedProvenance: Record<string, string> = {
+      ...(existing?.provenance ?? {}),
+      ...currentProfile.provenance,
+      ...provenancePatch,
+    };
+    const existingLog: ProfileLogEntry[] = Array.isArray(existing?.log)
+      ? (existing!.log as ProfileLogEntry[])
+      : currentProfile.log;
+    const logEntry: ProfileLogEntry = {
+      at: now,
+      source: "manual",
+      label:
+        changed.length > 0
+          ? `Updated ${changed.length} source link${changed.length === 1 ? "" : "s"}`
+          : "Reviewed source links",
+      level: "success",
+      payload: { changed },
+    };
+    const nextProfile: UserProfile = {
+      ...currentProfile,
+      links: nextLinks,
+      provenance: mergedProvenance as Record<string, ProvenanceSource>,
+      log: appendLog(existingLog, logEntry),
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        profile: nextProfile,
+        provenance: mergedProvenance,
+        log: nextProfile.log,
+        updatedAt: now,
+      });
+      return { ok: true, changed };
+    }
+
+    const profileId = await ctx.db.insert("userProfiles", {
+      userId: args.userId,
+      profile: nextProfile,
+      provenance: mergedProvenance,
+      log: nextProfile.log,
+      updatedAt: now,
+    });
+    return { ok: true, changed, profileId };
   },
 });
 
