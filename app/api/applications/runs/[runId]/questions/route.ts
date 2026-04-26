@@ -15,7 +15,7 @@ export async function GET(
 ): Promise<Response> {
   const { runId } = await readParams(context);
   const run = getApplyRunStore().getRun(runId);
-  if (!run) return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
+  if (!run) return Response.json({ ok: true, groups: [] });
 
   if (run.remoteRunId && run.source === "recruit2-api") {
     const baseUrl = recruit2ApplyApiBaseUrl();

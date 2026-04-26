@@ -10,6 +10,6 @@ export async function GET(
 ): Promise<Response> {
   const { runId } = await readParams(context);
   const run = getApplyRunStore().getRun(runId);
-  if (!run) return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
+  if (!run) return Response.json({ ok: true, events: [] });
   return Response.json({ ok: true, events: getApplyRunStore().listEvents(runId) });
 }
