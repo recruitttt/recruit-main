@@ -155,9 +155,20 @@ const fetchStub = async (input: string | URL | Request) => {
   return jsonResponse({ message: `unexpected ${url}` }, 500);
 };
 
+const defaultSmoke = await runIngestionSmoke({
+  sourcesPath,
+  outputRoot,
+  fetchFn: fetchStub as typeof fetch,
+  now: new Date("2026-04-25T11:59:00.000Z"),
+});
+assert.deepEqual(defaultSmoke.summary.providers, ["ashby"]);
+assert.equal(defaultSmoke.summary.sourceCount, 1);
+assert.equal(defaultSmoke.summary.rawJobCount, 1);
+
 const { summary, artifactPath } = await runIngestionSmoke({
   sourcesPath,
   outputRoot,
+  providers: ["ashby", "greenhouse", "lever", "workable"],
   concurrency: 3,
   fetchFn: fetchStub as typeof fetch,
   now: new Date("2026-04-25T12:00:00.000Z"),
@@ -184,7 +195,10 @@ const ingestionRunsSchema = schemaSource.slice(
   schemaSource.indexOf("ingestionRuns: defineTable"),
   schemaSource.indexOf("ingestedJobs: defineTable")
 );
-assert.match(ingestionRunsSchema, /provider: v\.optional\(v\.string\(\)\)/);
+assert.match(ingestionRunsSchema, /provider:\s*v\.optional\(\s*v\.union\(/);
+for (const provider of ["ashby", "greenhouse", "lever", "mixed", "workday", "workable"]) {
+  assert.match(ingestionRunsSchema, new RegExp(`v\\.literal\\("${provider}"\\)`));
+}
 
 console.log("Local ingestion adapter tests passed");
 }

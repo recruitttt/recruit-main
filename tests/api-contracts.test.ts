@@ -5,11 +5,15 @@ import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
 import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
-import { POST as postRunIngestion } from "../app/api/dashboard/run-ingestion/route";
+import {
+  POST as postRunIngestion,
+  parseProviderSelection,
+} from "../app/api/dashboard/run-ingestion/route";
 import { GET as getJobDetail } from "../app/api/dashboard/job-detail/route";
 import { POST as postCustomJd } from "../app/api/dashboard/custom-jd/route";
 import { GET as getFollowups, POST as postFollowups } from "../app/api/dashboard/followups/route";
 import { POST as postDashboardTailorJob } from "../app/api/dashboard/tailor-job/route";
+import { POST as postDlq } from "../app/api/dlq/route";
 import type { UserProfile } from "../lib/profile";
 import type { Job, JobResearch } from "../lib/tailor/types";
 import { assertJsonResponse, badJsonRequest, installFetchStub, jsonRequest, withEnvAsync } from "./helpers";
@@ -21,7 +25,7 @@ await assertJsonResponse(await postResearchJob(badJsonRequest()), 400, {
 });
 await assertJsonResponse(await postResearchJob(jsonRequest({})), 400, {
   ok: false,
-  reason: "missing_job_fields",
+  reason: "missing_job_url",
 });
 await assertJsonResponse(
   await postResearchJob(jsonRequest({ job: { id: "job_1", company: "Acme", role: "Engineer" } })),
@@ -166,7 +170,7 @@ await withEnvAsync({ STRIPE_SECRET_KEY: "sk_test_123", STRIPE_CHECKOUT_MOCK: und
   }
 });
 
-await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
+await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
   await assertJsonResponse(await postRunFirst3(), 500, {
     error: "NEXT_PUBLIC_CONVEX_URL is not configured.",
   });
@@ -174,6 +178,26 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
     await postRunIngestion(jsonRequest({ providers: ["ashby"], limitSources: 1 })),
     503,
     { ok: false, reason: "missing_convex_url" }
+  );
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ provider: "ashby" })),
+    400,
+    { ok: false, reason: "invalid_provider" }
+  );
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ provider: "invalid" })),
+    400,
+    { ok: false, reason: "invalid_provider" }
+  );
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({})),
+    503,
+    { ok: false, reason: "missing_convex_url" }
+  );
+  await assertJsonResponse(
+    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail")),
+    400,
+    { error: "missing_job_id" }
   );
   await assertJsonResponse(
     await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=job_1")),
@@ -208,13 +232,23 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
   });
 });
 
-await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test" }, async () => {
+await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test", RECRUIT_E2E_FIXTURES: undefined }, async () => {
   await assertJsonResponse(await postRunIngestion(badJsonRequest()), 400, {
     ok: false,
     reason: "bad_request",
   });
   await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ provider: "invalid" })),
+    400,
+    { ok: false, reason: "invalid_provider" }
+  );
+  await assertJsonResponse(
     await postRunIngestion(jsonRequest({ providers: ["ashby", "unknown"] })),
+    400,
+    { ok: false, reason: "invalid_provider" }
+  );
+  await assertJsonResponse(
+    await postRunIngestion(jsonRequest({ providers: [] })),
     400,
     { ok: false, reason: "invalid_provider" }
   );
@@ -245,6 +279,15 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test" }, async () =
     ok: false,
     reason: "unknown_action",
   });
+  await assertJsonResponse(await postFollowups(jsonRequest({ action: "mark-test-applied" })), 403, {
+    ok: false,
+    reason: "fixtures_disabled",
+  });
+  await assertJsonResponse(
+    await postDlq(jsonRequest({ action: "reset-test-fixture", itemId: "dlq_2" })),
+    403,
+    { error: "fixtures_disabled" }
+  );
   await assertJsonResponse(
     await postFollowups(jsonRequest({ action: "mark-applied", company: "", title: "" })),
     400,
@@ -259,6 +302,14 @@ await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: "https://convex.test" }, async () =
     reason: "missing_job",
   });
 });
+
+assert.deepEqual(parseProviderSelection(undefined), { ok: true, value: ["ashby"] });
+assert.deepEqual(parseProviderSelection(["ashby"]), { ok: true, value: ["ashby"] });
+assert.deepEqual(parseProviderSelection(["ashby", "greenhouse"]), {
+  ok: true,
+  value: ["ashby", "greenhouse"],
+});
+assert.deepEqual(parseProviderSelection(["unknown"]), { ok: false });
 
 console.log("API contract tests passed");
 }

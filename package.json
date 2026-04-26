@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "ingest:smoke": "tsx scripts/ingest-smoke.ts",
+    "e2e:prod-smoke": "tsx scripts/prod-e2e-smoke.ts",
+    "ats:download": "tsx scripts/ats-download.ts",
+    "ats:normalize": "tsx scripts/ats-normalize.ts",
+    "ats:benchmark": "tsx scripts/ats-benchmark.ts",
     "lever:captcha-probe": "tsx manual-runs/lever-batch-2026-04-26/captcha-capability.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
@@ -26,7 +30,8 @@
     "test:form-engine": "tsx tests/form-engine.test.ts",
     "test:ranking": "tsx tests/job-ranking.test.ts",
     "test:ats": "tsx tests/ats-ingestion.test.ts",
-    "test:tailor": "tsx tests/tailor-quality.test.ts"
+    "test:tailor": "tsx tests/tailor-quality.test.ts",
+    "test:ats-benchmark": "tsx tests/ats-benchmark.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.77",

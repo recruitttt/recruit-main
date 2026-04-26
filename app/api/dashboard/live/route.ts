@@ -4,7 +4,7 @@ import { emptyFollowUps, omDemoLivePayload, shouldUseOmDemoData } from "@/lib/om
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (shouldUseOmDemoData()) {
     return Response.json(omDemoLivePayload());
   }
@@ -15,21 +15,36 @@ export async function GET() {
   }
 
   try {
+    const url = new URL(req.url);
+    const runId = url.searchParams.get("runId");
+    const demoUserId = url.searchParams.get("demoUserId") ?? undefined;
+    const queryArgs = demoUserId ? { demoUserId } : {};
     const [runResult, recommendationsResult, followUpsResult] = await Promise.allSettled([
-      client.query(api.ashby.latestIngestionRunSummary, {}),
-      client.query(api.ashby.currentRecommendations, {}),
+      client.query(api.ashby.latestIngestionRunSummary, queryArgs),
+      client.query(api.ashby.currentRecommendations, queryArgs),
       client.query(api.followups.followUpSummary, {}).then(
         (summary) => ({ ok: true as const, summary }),
         (error) => ({ ok: false as const, error: errorMessage(error) })
       ),
     ]);
-    const run = runResult.status === "fulfilled" ? runResult.value : null;
-    const recommendations = recommendationsResult.status === "fulfilled" ? recommendationsResult.value : [];
+    const latestRun = runResult.status === "fulfilled" ? runResult.value : null;
+    const run = runId && latestRun?._id !== runId ? null : latestRun;
+    const currentRecommendations = recommendationsResult.status === "fulfilled" && Array.isArray(recommendationsResult.value)
+      ? recommendationsResult.value
+      : [];
+    const runRecommendations = runId
+      ? currentRecommendations.filter((recommendation: { runId?: string }) => recommendation.runId === runId)
+      : currentRecommendations;
+    const recommendations = runRecommendations.length > 0
+      ? runRecommendations
+      : Array.isArray(run?.recommendations)
+        ? run.recommendations
+        : [];
     const followUps = followUpsResult.status === "fulfilled" ? followUpsResult.value : undefined;
     const logsResult = await Promise.allSettled([
       client.query(api.ashby.latestPipelineLogs, run?._id
-        ? { runId: run._id, limit: 200 }
-        : { limit: 200 }),
+        ? { ...queryArgs, runId: run._id, limit: 200 }
+        : { ...queryArgs, limit: 200 }),
     ]);
     const logs = logsResult[0].status === "fulfilled" ? logsResult[0].value : [];
 
