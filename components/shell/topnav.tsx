@@ -62,7 +62,11 @@ export function Topnav() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <button className="flex h-10 w-72 items-center gap-2 rounded-full border border-white/60 bg-white/42 px-3 text-[12px] text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56 hover:text-slate-700 xl:w-80">
+          <button
+            className="flex h-10 w-72 cursor-not-allowed items-center gap-2 rounded-full border border-white/60 bg-white/32 px-3 text-[12px] text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] xl:w-80"
+            disabled
+            title="Search is not wired in this demo."
+          >
             <Search className="h-3.5 w-3.5" />
             <span className="truncate">Search applications, jobs...</span>
             <kbd className="ml-auto rounded-full border border-white/70 bg-white/50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
@@ -70,17 +74,24 @@ export function Topnav() {
             </kbd>
           </button>
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/38 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56 hover:text-slate-900"
+            className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-white/60 bg-white/32 text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
             aria-label="Notifications"
+            disabled
+            title="Notifications are not wired in this demo."
           >
             <Bell className="h-4 w-4" />
           </button>
-          <button className="flex h-10 items-center gap-2 rounded-full border border-white/60 bg-white/42 py-1 pl-1 pr-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56">
+          <Link
+            href="/settings"
+            className="flex h-10 items-center gap-2 rounded-full border border-white/60 bg-white/42 py-1 pl-1 pr-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56"
+            aria-label="Open profile settings"
+            title="Open profile settings"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
               MH
             </span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-          </button>
+          </Link>
         </div>
 
         <div className="hidden shrink-0 md:block lg:hidden">

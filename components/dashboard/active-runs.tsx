@@ -1,8 +1,6 @@
-import Link from "next/link";
-import { mockApplications, stageLabels } from "@/lib/mock-data";
+import { mockApplications } from "@/lib/mock-data";
 import { CompanyLogo } from "@/components/ui/logo";
 import { StageBadge } from "@/components/ui/badge";
-import { ArrowUpRight } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
 
 export function ActiveRuns() {
@@ -24,10 +22,9 @@ export function ActiveRuns() {
       </div>
       <div className="divide-y divide-[var(--color-border)]">
         {mockApplications.map((app) => (
-          <Link
+          <div
             key={app.id}
-            href={`/applications/${app.id}`}
-            className="group block px-5 py-4 transition-colors hover:bg-[var(--color-surface-1)]"
+            className="block px-5 py-4"
           >
             <div className="flex items-start gap-3.5">
               <CompanyLogo bg={app.logoBg} text={app.logoText} size={36} />
@@ -43,7 +40,6 @@ export function ActiveRuns() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <StageBadge stage={app.stage} pulse />
-                    <ArrowUpRight className="h-3.5 w-3.5 text-[var(--color-fg-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
                   </div>
                 </div>
                 <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[var(--color-fg-subtle)] font-mono">
@@ -61,7 +57,7 @@ export function ActiveRuns() {
                 </div>
               </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>
