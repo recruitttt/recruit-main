@@ -100,6 +100,7 @@ export default defineSchema({
     ),
     model: v.optional(v.string()),
     scoringMode: v.optional(v.string()),
+    provider: v.optional(v.string()),
   })
     .index("by_demo_user_started", ["demoUserId", "startedAt"])
     .index("by_status", ["status"]),
