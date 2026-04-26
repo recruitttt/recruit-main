@@ -39,6 +39,36 @@ async function requireOwner(
   if (identity.subject !== userId) throw new Error("Forbidden");
 }
 
+// Shared LinkedIn login credentials sourced from `process.env.LINKEDIN_EMAIL`
+// and `process.env.LINKEDIN_PASSWORD` on the Convex deployment. Returned only
+// to authenticated callers — the LinkedIn intake route falls back to this
+// when the Next.js process doesn't have its own LINKEDIN_EMAIL/PASSWORD set
+// (e.g. fresh localhost devs who haven't populated `.env.local` yet).
+//
+// Security note: any authenticated user can read these. We accept that
+// because the same shared account is intentionally usable by every
+// developer running the app — that's the whole point of moving them off
+// each developer's `.env.local`. If the trust boundary ever needs to be
+// tightened, gate this on a server-side flag or specific user IDs.
+export const getSharedLoginCredentials = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      email: v.string(),
+      password: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const email = (process.env.LINKEDIN_EMAIL ?? "").trim();
+    const password = (process.env.LINKEDIN_PASSWORD ?? "").trim();
+    if (!email || !password) return null;
+    return { email, password };
+  },
+});
+
 // Public metadata only. The plaintext cookie is never returned to clients.
 export const byUser = query({
   args: { userId: v.string() },
