@@ -123,9 +123,20 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="relative border-b border-white/50">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.72),rgba(255,255,255,0.18)_42%,rgba(238,243,247,0))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+      <section className="relative">
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[78svh] overflow-hidden"
+          style={{
+            backgroundImage: "url(/landing-hero.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 35%",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.28),rgba(255,255,255,0.06)_22%,rgba(255,255,255,0)_55%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[40%] bg-[linear-gradient(to_bottom,rgba(238,243,247,0)_0%,rgba(238,243,247,0.6)_60%,#EEF3F7_100%)]" />
+        </div>
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
@@ -142,26 +153,26 @@ export default function LandingPage() {
             </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto max-w-5xl text-balance font-serif text-[clamp(48px,9vw,112px)] leading-[0.91] tracking-tight text-slate-950"
             >
               Apply to jobs without applying.
             </motion.h1>
             <motion.p
-              initial={{ opacity: 0, y: 12 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto max-w-2xl text-balance text-[16px] leading-7 text-slate-600 sm:text-[18px]"
             >
               Recruit finds roles, researches each company, tailors your resume, and pauses only when it needs your truth.
             </motion.p>
 
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col items-center justify-center gap-3 sm:flex-row"
             >
               <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
