@@ -28,6 +28,7 @@ Non-secret Recruit E2E config:
 - Pipeline launch: the full smoke uses `/api/onboarding/launch-pipeline` with the fixed E2E test profile. `/api/dashboard/run-ingestion` is fallback-only via `--dashboard-ingestion-fallback`.
 - ATS submit policy: `dry_run` by default. A real submit requires `RECRUIT_ASHBY_SUBMIT_GATE=1` plus `RECRUIT_ASHBY_TEST_POSTING_URL` or `RECRUIT_ASHBY_ALLOWED_SUBMIT_URLS` matching a dedicated test posting.
 - Test fixtures: set `RECRUIT_E2E_FIXTURES=1` in the target environment only when DLQ/follow-up fixture mutations should be enabled.
+- Protected Vercel previews: set `VERCEL_AUTOMATION_BYPASS_SECRET` in the local E2E env file or CI secret store so the runner can send Vercel's automation bypass header. Do not commit or paste the bypass secret.
 - Runner command examples:
   - Contract-only: `npm run e2e:prod-smoke -- --env-file=.env.e2e.local --contracts-only --base-url=<staging-url>`
   - Staging full smoke: `npm run e2e:prod-smoke -- --env-file=.env.e2e.local --base-url=<staging-url> --with-auth-ui --with-fixtures --with-ats-staging --limit-sources=3 --tailor-limit=1`

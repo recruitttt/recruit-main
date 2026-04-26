@@ -579,6 +579,10 @@ async function runAuthenticatedUiSmoke(options: CliOptions, ctx: RunContext) {
   try {
     browser = await getPuppeteerBrowser();
     const page = await browser.newPage();
+    const protectionHeaders = vercelProtectionHeaders();
+    if (Object.keys(protectionHeaders).length > 0) {
+      await page.setExtraHTTPHeaders(protectionHeaders);
+    }
     page.on("console", (message: any) => {
       if (message.type?.() === "error") consoleErrors.push(message.text());
     });
@@ -988,10 +992,23 @@ function tryJson(text: string) {
 
 function requestHeaders(ctx: RunContext, headers?: RequestInit["headers"]) {
   const next = new Headers(headers);
+  for (const [key, value] of Object.entries(vercelProtectionHeaders())) {
+    if (!next.has(key)) next.set(key, value);
+  }
   if (ctx.authCookieHeader && !next.has("cookie")) {
     next.set("cookie", ctx.authCookieHeader);
   }
   return next;
+}
+
+function vercelProtectionHeaders(): Record<string, string> {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ??
+    process.env.VERCEL_PROTECTION_BYPASS_SECRET;
+  if (!secret) return {};
+  return {
+    "x-vercel-protection-bypass": secret,
+    "x-vercel-set-bypass-cookie": "true",
+  };
 }
 
 function redactSecrets(value: unknown): unknown {
