@@ -155,7 +155,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
 
             {showRoom3dBeta && (
               <Link
-                href="/dashboard/room"
+                href="/3d"
                 onClick={onClose}
                 className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-white/55 bg-white/30 px-3 py-2 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:bg-white/50 hover:text-slate-900"
                 aria-label="Try the 3D view (beta)"

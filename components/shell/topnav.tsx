@@ -7,7 +7,6 @@ import { Mark } from "@/components/ui/logo";
 import { cx, mistClasses, StatusBadge } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
 import {
-  Box,
   ChevronDown,
   CreditCard,
   LogIn,
@@ -111,7 +110,7 @@ export function Topnav() {
 
         {showRoom3dBeta && (
           <Link
-            href="/dashboard/room"
+            href="/3d"
             className="hidden h-8 items-center gap-1.5 rounded-full border border-white/55 bg-white/30 px-3 text-[11px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:bg-white/50 hover:text-slate-900 lg:flex"
             aria-label="Try the 3D view (beta)"
             title="Try the 3D view (beta)"

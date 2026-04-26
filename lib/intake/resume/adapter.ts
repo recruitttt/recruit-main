@@ -1,5 +1,5 @@
 // Resume IntakeAdapter — pulls a PDF from Convex `_storage`, extracts plain
-// text via pdfjs, then asks GPT-4o-mini to structure the result into a
+// text via pdfjs, then asks GPT-5.4 Mini to structure the result into a
 // `Partial<UserProfile>` patch.
 //
 // Spec: docs/superpowers/specs/2026-04-25-recruit-merge-design.md §7.3.
@@ -100,7 +100,7 @@ async function* runResumeAdapter(
   // ---------------------------------------------------------------------------
   yield {
     stage: "llm-extract",
-    message: "Structuring resume with GPT-4o-mini",
+    message: "Structuring resume with GPT-5.4 Mini",
     level: "info",
   };
 
