@@ -9,6 +9,8 @@ import {
   ArrowRight,
   Briefcase,
   Check,
+  ChevronLeft,
+  Clock3,
   FileText,
   Link2,
   Mail,
@@ -50,6 +52,17 @@ type DataUpdate = Partial<Omit<Data, "links" | "prefs">> & {
 };
 
 type Step = "role" | "resume" | "links" | "email" | "prefs" | "review";
+
+const STEP_ORDER: Step[] = ["role", "resume", "links", "email", "prefs", "review"];
+
+const STEP_LABEL: Record<Step, string> = {
+  role: "Role",
+  resume: "Resume",
+  links: "Links",
+  email: "Email",
+  prefs: "Preferences",
+  review: "Review",
+};
 
 type ChatEntry =
   | { id: string; kind: "agent"; text: string }
@@ -120,6 +133,10 @@ function OnboardingChatContent() {
   const [activating, setActivating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<{ step: Step; data: Data; messages: ChatEntry[] }[]>([]);
+
+  const stepIndex = STEP_ORDER.indexOf(step);
+  const totalSteps = STEP_ORDER.length;
 
   useEffect(() => {
     const id = window.setTimeout(() => setMutedState(isMuted()), 0);
@@ -222,6 +239,10 @@ function OnboardingChatContent() {
   };
 
   const advance = (userText: string, nextStep: Step) => {
+    historyRef.current = [
+      ...historyRef.current,
+      { step, data, messages },
+    ];
     setMessages((current) => [
       ...current,
       { id: `u-${current.length}-${step}`, kind: "user", text: userText },
@@ -237,6 +258,31 @@ function OnboardingChatContent() {
       ]);
       playReceive();
     }, 360);
+  };
+
+  const handleBack = () => {
+    if (typing || activating) return;
+    const last = historyRef.current[historyRef.current.length - 1];
+    if (last) {
+      historyRef.current = historyRef.current.slice(0, -1);
+      setStep(last.step);
+      setData(last.data);
+      setMessages(last.messages);
+      return;
+    }
+    if (stepIndex <= 0) return;
+    const prev = STEP_ORDER[stepIndex - 1];
+    setStep(prev);
+    setMessages((current) => {
+      const trimmed = [...current];
+      while (trimmed.length > 0 && trimmed[trimmed.length - 1].kind !== "agent") {
+        trimmed.pop();
+      }
+      if (trimmed.length > 0 && trimmed[trimmed.length - 1].kind === "agent") {
+        trimmed.pop();
+      }
+      return trimmed.length > 0 ? trimmed : [{ id: `a-${prev}`, kind: "agent", text: STEP_PROMPTS[prev] }];
+    });
   };
 
   const handleResumeFile = (file: File | null) => {
@@ -290,34 +336,43 @@ function OnboardingChatContent() {
         {transitionActive && <SceneTransition onComplete={handleComplete} />}
       </AnimatePresence>
       <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
-      <header className="flex items-center justify-between px-5 py-4 md:px-8">
-        <Link href="/">
-          <Wordmark size="sm" />
-        </Link>
-        <div className="flex items-center gap-3">
-          <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
-            {completeCount} saved
-          </span>
-          <ActionButton
-            variant="ghost"
-            size="icon"
-            onClick={toggleMute}
-            aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-            title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-          >
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </ActionButton>
-          <Link href="/" aria-label="Close">
-            <ActionButton variant="ghost" size="icon">
-              <X className="h-4 w-4" />
-            </ActionButton>
+      <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-5 py-4 md:px-8">
+          <Link href="/">
+            <Wordmark size="sm" />
           </Link>
+          <div className="flex items-center gap-3">
+            <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
+              {completeCount} saved
+            </span>
+            <ActionButton
+              variant="ghost"
+              size="icon"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
+              title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
+            >
+              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </ActionButton>
+            <Link href="/" aria-label="Close">
+              <ActionButton variant="ghost" size="icon">
+                <X className="h-4 w-4" />
+              </ActionButton>
+            </Link>
+          </div>
         </div>
+        <ProgressBar
+          stepIndex={stepIndex}
+          totalSteps={totalSteps}
+          currentStep={step}
+          canGoBack={stepIndex > 0 && !typing && !activating}
+          onBack={handleBack}
+        />
       </header>
 
       <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0">
-          <GlassCard density="spacious" className="flex h-[calc(100vh-120px)] min-h-[640px] flex-col">
+          <GlassCard density="spacious" className="flex h-[calc(100vh-172px)] min-h-[600px] flex-col">
             <div className="mb-5 flex items-start gap-4 border-b border-white/45 pb-5">
               <AgentCharacter id="scout" awake size={52} />
               <div className="min-w-0">
@@ -345,20 +400,30 @@ function OnboardingChatContent() {
                 {typing && <TypingIndicator from="scout" />}
                 {!typing && !activating && (
                   <div className="pl-11">
-                    <StepCard
-                      step={step}
-                      data={data}
-                      selectedRoles={selectedRoles}
-                      linkCount={linkCount}
-                      parsingResume={parsingResume}
-                      fileInputRef={fileInputRef}
-                      toggleRole={toggleRole}
-                      updateData={updateData}
-                      onResumeFile={handleResumeFile}
-                      onAdvance={advance}
-                      onMergeFinalProfile={mergeFinalProfile}
-                      onLaunch={handleLaunch}
-                    />
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={step}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <StepCard
+                          step={step}
+                          data={data}
+                          selectedRoles={selectedRoles}
+                          linkCount={linkCount}
+                          parsingResume={parsingResume}
+                          fileInputRef={fileInputRef}
+                          toggleRole={toggleRole}
+                          updateData={updateData}
+                          onResumeFile={handleResumeFile}
+                          onAdvance={advance}
+                          onMergeFinalProfile={mergeFinalProfile}
+                          onLaunch={handleLaunch}
+                        />
+                      </motion.div>
+                    </AnimatePresence>
                   </div>
                 )}
                 {activating && <ActivationReveal />}
@@ -373,6 +438,64 @@ function OnboardingChatContent() {
       </div>
       </main>
     </>
+  );
+}
+
+function ProgressBar({
+  stepIndex,
+  totalSteps,
+  currentStep,
+  canGoBack,
+  onBack,
+}: {
+  stepIndex: number;
+  totalSteps: number;
+  currentStep: Step;
+  canGoBack: boolean;
+  onBack: () => void;
+}) {
+  const stepNumber = stepIndex + 1;
+  const progress = Math.max(0, Math.min(1, stepIndex / Math.max(1, totalSteps - 1)));
+
+  return (
+    <div className="flex items-center gap-3 border-t border-white/40 px-5 py-2.5 md:px-8">
+      <ActionButton
+        variant="ghost"
+        size="icon"
+        onClick={onBack}
+        disabled={!canGoBack}
+        aria-label="Go back to the previous step"
+        title={canGoBack ? "Go back" : "Already at the first step"}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </ActionButton>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          Step {stepNumber} of {totalSteps}
+        </span>
+        <span className="hidden truncate text-[12px] font-medium text-slate-700 sm:inline">
+          {STEP_LABEL[currentStep]}
+        </span>
+        <div
+          className="relative ml-2 hidden h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/55 sm:block"
+          aria-hidden="true"
+        >
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full bg-sky-500/80"
+            initial={false}
+            animate={{ width: `${progress * 100}%` }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+      </div>
+      <span
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/55 bg-white/45 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500"
+        title="Approximate time remaining"
+      >
+        <Clock3 className="h-3 w-3" />
+        ~3 min
+      </span>
+    </div>
   );
 }
 
@@ -391,7 +514,7 @@ function ScoutMessage({ children }: { children: React.ReactNode }) {
         <div className="mb-1 text-[13px] font-medium tracking-tight text-sky-700">
           Scout
         </div>
-        <div className="text-[15px] leading-relaxed text-slate-950">
+        <div className="text-[15px] leading-snug text-slate-950">
           {children}
         </div>
       </div>
