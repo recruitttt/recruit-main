@@ -113,7 +113,7 @@ export default function DLQPage() {
                 <Pill tone="neutral">{open.length} open</Pill>
               </div>
               <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl">
-                Dead letter queue
+                Review queue
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 Questions the agent will not guess. Answer once, cache safely, and keep applications moving.
@@ -158,7 +158,7 @@ export default function DLQPage() {
                   No blockers right now
                 </div>
                 <p className="mt-2 text-sm leading-snug text-slate-600">
-                  Great — nothing in the dead-letter queue. Failed jobs will appear here.
+                  Great — nothing needs your review. Failed jobs and questions will appear here.
                 </p>
               </div>
             ) : (

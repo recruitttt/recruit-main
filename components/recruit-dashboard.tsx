@@ -300,7 +300,7 @@ const emptyDashboardSeed: DashboardSeed = {
   metrics: [
     { label: "Applications", value: "0", detail: "no live runs yet", tone: "neutral", progress: 0 },
     { label: "Active runs", value: "0", detail: "idle", tone: "neutral", progress: 0 },
-    { label: "DLQ pending", value: "0", detail: "no blockers", tone: "success", progress: 0 },
+    { label: "Needs review", value: "0", detail: "no blockers", tone: "success", progress: 0 },
     { label: "Cache reuse", value: "0%", detail: "awaiting data", tone: "neutral", progress: 0 },
     { label: "Time saved", value: "0h", detail: "awaiting data", tone: "neutral", progress: 0 },
   ],
@@ -361,15 +361,15 @@ function DashboardShell({
   customJd?: CustomJdControls;
 }) {
   return (
-    <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
+    <main className={cx("min-h-screen overflow-x-hidden px-6 py-6 sm:px-8 md:px-10 md:py-8", mistClasses.page)}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[6%] top-[9%] h-72 w-72 rounded-full bg-white/32 blur-3xl" />
         <div className="absolute right-[8%] top-[16%] h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: `${mistColors.accent}16` }} />
         <div className="absolute bottom-[4%] left-[36%] h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: `${mistColors.neutral}12` }} />
       </div>
-      <div className="relative mx-auto min-w-0 max-w-[1520px]">
+      <div className="relative mx-auto min-w-0 max-w-[1480px]">
         <section className="min-w-0 space-y-5">
-          <header className={cx("flex flex-col gap-4 border px-4 py-3 md:flex-row md:items-center md:justify-between", mistClasses.panel)}>
+          <header className={cx("flex flex-col gap-4 border px-5 py-5 md:flex-row md:items-center md:justify-between", mistClasses.panel)}>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Pill tone="active">agent active</Pill>
@@ -612,8 +612,8 @@ function AsyncOnboardingBanner({
   ];
 
   return (
-    <GlassCard variant="selected" className="border-sky-300/50 bg-sky-50/40">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <GlassCard variant="selected" className="overflow-hidden border-sky-300/50 bg-sky-50/40">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <div className={cx(mistClasses.sectionLabel, "text-sky-700")}>Onboarding pipeline</div>
           <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">Your dashboard is live while the agents work.</h2>
@@ -621,11 +621,11 @@ function AsyncOnboardingBanner({
             You can inspect jobs and logs now. Tailored resumes and PDFs will appear here as each top match completes.
           </p>
         </div>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-5 lg:min-w-[620px]">
+        <div className="-mx-1 grid min-w-0 grid-cols-1 gap-2 overflow-x-auto px-1 pb-1 sm:grid-cols-2 lg:grid-cols-5 xl:min-w-[600px]">
           {steps.map((step, index) => {
             const tone = step.complete ? "success" : step.active ? "active" : "neutral";
             return (
-              <div key={step.label} className="rounded-[18px] border border-white/55 bg-white/36 px-3 py-2">
+              <div key={step.label} className="min-w-[150px] rounded-[16px] border border-white/55 bg-white/36 px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span
                     className={cx(
@@ -1762,7 +1762,7 @@ function buildDashboardSeed(
       : [
           { label: "Applications", value: String(run.recommendedCount || sortedRecommendations.length), detail: `${run.rawJobCount} jobs scraped`, tone: "accent", progress: Math.min(100, sortedRecommendations.length * 12) },
           { label: "Active runs", value: run.status === "completed" || run.status === "failed" ? "0" : "1", detail: run.status, tone: run.status === "failed" ? "danger" : "active", progress },
-          { label: "DLQ pending", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
+          { label: "Needs review", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
           { label: "Cache reuse", value: "0%", detail: "live ingestion", tone: "neutral", progress: 0 },
           { label: "Time saved", value: "0h", detail: "tracking soon", tone: "neutral", progress: 0 },
         ],
