@@ -10,8 +10,10 @@ import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/roo
 import { BOUNDS, playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
 import { useRoomStore } from "./room-store";
 
-const PLAYER_BODY_HUE = "#94A3B8";
+const PLAYER_BODY_HUE = "#F5E9D0";
 const PLAYER_CAP_HUE = "#F97316";
+const PLAYER_SHIRT_HUE = "#0891B2";
+const PLAYER_PANTS_HUE = "#1E3A5F";
 const NEAREST_AGENT_RADIUS = 1.8;
 const PLAYER_SPEED = WALK_SPEED * 1.35;
 const JUMP_VELOCITY = 4.2;
@@ -216,34 +218,40 @@ function PlayerCharacterActive() {
     <group ref={groupRef}>
       <group ref={legLRef} position={[-0.11, 0.22, 0]}>
         <RoundedBox args={[0.15, 0.22, 0.2]} radius={0.038} smoothness={4} position={[0, -0.11, 0]} castShadow>
-          <meshStandardMaterial color={palette.leg} roughness={0.78} />
+          <meshStandardMaterial color={PLAYER_PANTS_HUE} roughness={0.82} />
         </RoundedBox>
       </group>
       <group ref={legRRef} position={[0.11, 0.22, 0]}>
         <RoundedBox args={[0.15, 0.22, 0.2]} radius={0.038} smoothness={4} position={[0, -0.11, 0]} castShadow>
-          <meshStandardMaterial color={palette.leg} roughness={0.78} />
+          <meshStandardMaterial color={PLAYER_PANTS_HUE} roughness={0.82} />
         </RoundedBox>
       </group>
       <group ref={bodyRef} position={[0, 0.47, 0]}>
         <RoundedBox args={[0.44, 0.52, 0.36]} radius={0.07} smoothness={5} castShadow>
-          <meshStandardMaterial color={palette.body} roughness={0.6} />
-          <Outlines thickness={0.012} color={PLAYER_CAP_HUE} opacity={0.6} transparent />
+          <meshStandardMaterial color={PLAYER_SHIRT_HUE} roughness={0.62} />
+          <Outlines thickness={0.012} color="#0E5E73" opacity={0.55} transparent />
         </RoundedBox>
-        <mesh position={[0, 0.03, 0.184]}>
-          <planeGeometry args={[0.3, 0.1]} />
-          <meshBasicMaterial color={PLAYER_CAP_HUE} transparent opacity={0.7} />
+        <mesh position={[0, 0.22, 0.184]}>
+          <planeGeometry args={[0.32, 0.05]} />
+          <meshBasicMaterial color="#F5E9D0" transparent opacity={0.95} />
         </mesh>
         <group ref={armLRef} position={[-0.25, 0.2, 0]}>
-          <RoundedBox args={[0.13, 0.4, 0.15]} radius={0.04} smoothness={4} position={[0, -0.2, 0]} castShadow>
-            <meshStandardMaterial color={palette.body} roughness={0.65} />
+          <RoundedBox args={[0.13, 0.18, 0.15]} radius={0.04} smoothness={4} position={[0, -0.09, 0]} castShadow>
+            <meshStandardMaterial color={PLAYER_SHIRT_HUE} roughness={0.65} />
+          </RoundedBox>
+          <RoundedBox args={[0.13, 0.22, 0.15]} radius={0.04} smoothness={4} position={[0, -0.29, 0]} castShadow>
+            <meshStandardMaterial color={palette.hand} roughness={0.7} />
           </RoundedBox>
           <RoundedBox args={[0.12, 0.12, 0.13]} radius={0.036} smoothness={4} position={[0, -0.46, 0]} castShadow>
             <meshStandardMaterial color={palette.hand} roughness={0.7} />
           </RoundedBox>
         </group>
         <group ref={armRRef} position={[0.25, 0.2, 0]}>
-          <RoundedBox args={[0.13, 0.4, 0.15]} radius={0.04} smoothness={4} position={[0, -0.2, 0]} castShadow>
-            <meshStandardMaterial color={palette.body} roughness={0.65} />
+          <RoundedBox args={[0.13, 0.18, 0.15]} radius={0.04} smoothness={4} position={[0, -0.09, 0]} castShadow>
+            <meshStandardMaterial color={PLAYER_SHIRT_HUE} roughness={0.65} />
+          </RoundedBox>
+          <RoundedBox args={[0.13, 0.22, 0.15]} radius={0.04} smoothness={4} position={[0, -0.29, 0]} castShadow>
+            <meshStandardMaterial color={palette.hand} roughness={0.7} />
           </RoundedBox>
           <RoundedBox args={[0.12, 0.12, 0.13]} radius={0.036} smoothness={4} position={[0, -0.46, 0]} castShadow>
             <meshStandardMaterial color={palette.hand} roughness={0.7} />
@@ -291,8 +299,11 @@ function NearestPrompt({ agentName }: { agentName: string }) {
       style={{ pointerEvents: "none" }}
       zIndexRange={[40, 0]}
     >
-      <div className="pointer-events-none -translate-y-1 select-none rounded-full border border-white/55 bg-[#101827]/90 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white shadow-[0_8px_18px_-10px_rgba(15,23,42,0.4)]">
-        E · talk to {agentName}
+      <div className="pointer-events-none flex -translate-y-1 select-none items-center gap-1.5 rounded-full border border-white/55 bg-[#FBF9F4]/95 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-[#6B7A90] shadow-[0_10px_22px_-12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-md">
+        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md border border-[#0891B2]/35 bg-[#0891B2]/12 px-1 text-[#0891B2]">
+          E
+        </span>
+        <span>talk to <span className="text-[#101827]">{agentName}</span></span>
       </div>
     </Html>
   );
