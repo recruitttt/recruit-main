@@ -200,6 +200,7 @@ export const latestIngestionRunSummary = query({
     const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
     const tailoringInProgress = run.status !== "failed" &&
       (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
+    const applyMetrics = await collectApplyMetrics(ctx, run._id, tailoringTargetCount);
 
     return {
       ...run,
@@ -210,6 +211,7 @@ export const latestIngestionRunSummary = query({
       tailoringTargetCount,
       tailoringInProgress,
       hasCompletedTailoring: tailoredCount > 0,
+      ...applyMetrics,
     };
   },
 });
@@ -243,6 +245,7 @@ export const ingestionRunSummary = query({
     const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
     const tailoringInProgress = run.status !== "failed" &&
       (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
+    const applyMetrics = await collectApplyMetrics(ctx, run._id, tailoringTargetCount);
 
     return {
       ...run,
@@ -252,9 +255,37 @@ export const ingestionRunSummary = query({
       tailoringTargetCount,
       tailoringInProgress,
       hasCompletedTailoring: tailoredCount > 0,
+      ...applyMetrics,
     };
   },
 });
+
+async function collectApplyMetrics(
+  ctx: { db: { query: (table: string) => any } },
+  ingestionRunId: any,
+  tailoringTargetCount: number,
+): Promise<{
+  appliedCount: number;
+  appliedAttemptedCount: number;
+  appliedTargetCount: number;
+  applyInProgress: boolean;
+}> {
+  const fillRuns = await ctx.db
+    .query("ashbyFormFillRuns")
+    .withIndex("by_ingestion_run", (q: any) => q.eq("ingestionRunId", ingestionRunId))
+    .collect() as Array<{ status?: string; outcome?: string; submitCompleted?: boolean }>;
+  const appliedAttemptedCount = fillRuns.length;
+  const appliedCount = fillRuns.filter(
+    (row) => row.outcome === "confirmed" || row.submitCompleted === true,
+  ).length;
+  const applyInProgress = fillRuns.some((row) => row.status === "running");
+  return {
+    appliedCount,
+    appliedAttemptedCount,
+    appliedTargetCount: tailoringTargetCount,
+    applyInProgress,
+  };
+}
 
 export const listRecommendationsForRun = internalQuery({
   args: { runId: v.id("ingestionRuns") },
@@ -651,6 +682,7 @@ export const createAshbyFormFillRun = internalMutation({
   args: {
     demoUserId: v.optional(v.string()),
     jobId: v.optional(v.id("ingestedJobs")),
+    ingestionRunId: v.optional(v.id("ingestionRuns")),
     targetUrl: v.string(),
     organizationSlug: v.optional(v.string()),
     profileIdentity: v.any(),
@@ -662,6 +694,7 @@ export const createAshbyFormFillRun = internalMutation({
     return await ctx.db.insert("ashbyFormFillRuns", omitUndefined({
       demoUserId,
       jobId: args.jobId,
+      ingestionRunId: args.ingestionRunId,
       targetUrl: args.targetUrl,
       organizationSlug: args.organizationSlug,
       status: "running",

@@ -89,7 +89,7 @@ function PipelineFlow({ stages }: { stages: Stage[] }) {
     <div
       className={cn(
         "grid grid-cols-1 gap-3",
-        "md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] md:items-stretch md:gap-0",
+        "md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] md:items-stretch md:gap-0",
       )}
       role="list"
       aria-label="Pipeline progress"
@@ -253,6 +253,10 @@ function buildStages(
   const fetchedCount = run?.fetchedCount ?? 0;
   const rawJobCount = run?.rawJobCount ?? 0;
   const recommendedCount = run?.recommendedCount ?? recommendationCount;
+  const appliedCount = run?.appliedCount ?? 0;
+  const appliedAttemptedCount = run?.appliedAttemptedCount ?? 0;
+  const appliedTargetCount = run?.appliedTargetCount ?? tailoringTargetCount;
+  const applyInProgress = run?.applyInProgress ?? false;
 
   const status = run?.status;
   const failed = status === "failed";
@@ -289,9 +293,19 @@ function buildStages(
       ? "active"
       : tailoredCount > 0
         ? "done"
-        : status === "completed"
-          ? "idle"
-          : "idle";
+        : "idle";
+
+  const appliedState: StageState = !run
+    ? "idle"
+    : applyInProgress
+      ? "active"
+      : appliedAttemptedCount > 0 && appliedCount === appliedAttemptedCount
+        ? "done"
+        : appliedAttemptedCount > 0
+          ? "done"
+          : tailoredState === "done" && status === "completed"
+            ? "idle"
+            : "idle";
 
   return [
     {
@@ -331,8 +345,20 @@ function buildStages(
           : tailoredCount > 0
             ? String(tailoredCount)
             : "—",
-      caption: "Applications ready",
+      caption: "Resumes ready",
       state: tailoredState,
+    },
+    {
+      id: "applied",
+      label: "Applied",
+      value:
+        appliedTargetCount > 0
+          ? `${appliedCount}/${appliedTargetCount}`
+          : appliedCount > 0
+            ? String(appliedCount)
+            : "—",
+      caption: "Auto-submitted (dry-run)",
+      state: appliedState,
     },
   ];
 }

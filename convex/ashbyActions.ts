@@ -350,6 +350,7 @@ export const runAshbyFormFill = action({
     targetUrl: v.string(),
     demoUserId: v.optional(v.string()),
     jobId: v.optional(v.id("ingestedJobs")),
+    ingestionRunId: v.optional(v.id("ingestionRuns")),
     submit: v.optional(v.boolean()),
     submitPolicy: v.optional(v.union(v.literal("dry_run"), v.literal("submit"))),
     openAiBestEffort: v.optional(v.boolean()),
@@ -370,6 +371,7 @@ export const runAshbyFormFill = action({
     const runId = await ctx.runMutation(anyApi.ashby.createAshbyFormFillRun, {
       demoUserId,
       jobId: args.jobId,
+      ingestionRunId: args.ingestionRunId,
       targetUrl: normalizedUrl,
       organizationSlug,
       profileIdentity,
@@ -533,6 +535,7 @@ export const runOnboardingPipeline = internalAction({
       });
 
       let tailoredCount = 0;
+      const tailoredJobIds: string[] = [];
       for (const recommendation of topJobs) {
         if (!recommendation.jobId) continue;
         const result = await tailorJobForOnboarding(ctx, {
@@ -540,7 +543,10 @@ export const runOnboardingPipeline = internalAction({
           jobId: recommendation.jobId,
           profile,
         });
-        if (result.ok) tailoredCount++;
+        if (result.ok) {
+          tailoredCount++;
+          tailoredJobIds.push(recommendation.jobId);
+        }
       }
 
       await appendPipelineLog(ctx, {
@@ -552,7 +558,19 @@ export const runOnboardingPipeline = internalAction({
         payload: { tailoredCount, targetCount: topJobs.length },
       });
 
-      return { ingestion, ranking, tailoredCount };
+      const appliedSummary = await runAutoApplyForTailoredJobs(ctx, {
+        demoUserId,
+        runId: args.runId,
+        tailoredJobIds,
+      });
+
+      return {
+        ingestion,
+        ranking,
+        tailoredCount,
+        appliedCount: appliedSummary.appliedCount,
+        appliedAttempted: appliedSummary.attempted,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await ctx.runMutation(anyApi.ashby.markRunFailed, {
@@ -1028,6 +1046,101 @@ export const rankIngestionRun = action({
     }
   },
 });
+
+function isAshbyApplyUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.endsWith("ashbyhq.com");
+  } catch {
+    return false;
+  }
+}
+
+async function runAutoApplyForTailoredJobs(
+  ctx: any,
+  {
+    demoUserId,
+    runId,
+    tailoredJobIds,
+  }: { demoUserId: string; runId: string; tailoredJobIds: string[] },
+): Promise<{ attempted: number; appliedCount: number }> {
+  if (tailoredJobIds.length === 0) {
+    return { attempted: 0, appliedCount: 0 };
+  }
+
+  const autoApplyEnabled = process.env.PIPELINE_AUTO_APPLY !== "false";
+  if (!autoApplyEnabled) {
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId,
+      stage: "apply",
+      level: "info",
+      message: "Auto-apply is disabled (PIPELINE_AUTO_APPLY=false).",
+    });
+    return { attempted: 0, appliedCount: 0 };
+  }
+
+  let attempted = 0;
+  let appliedCount = 0;
+
+  for (const jobId of tailoredJobIds) {
+    const detail = await ctx.runQuery(anyApi.ashby.jobDetail, { demoUserId, jobId });
+    const job = detail?.job;
+    const targetUrl = job?.applyUrl ?? job?.jobUrl;
+    if (!isAshbyApplyUrl(targetUrl)) {
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "apply",
+        level: "info",
+        message: "Skipping auto-apply: non-Ashby job (only Ashby form-fill is wired).",
+        payload: { jobId, company: job?.company, targetUrl },
+      });
+      continue;
+    }
+
+    attempted++;
+    try {
+      const result = await ctx.runAction(anyApi.ashbyActions.runAshbyFormFill, {
+        demoUserId,
+        jobId,
+        ingestionRunId: runId,
+        targetUrl,
+        submitPolicy: "dry_run",
+        openAiBestEffort: true,
+      });
+      if (result?.outcome === "confirmed" || result?.submitCompleted) {
+        appliedCount++;
+      }
+    } catch (err) {
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId,
+        stage: "apply",
+        level: "warning",
+        message: `Auto-apply failed for ${job?.company ?? "job"}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        payload: { jobId, error: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  }
+
+  await appendPipelineLog(ctx, {
+    demoUserId,
+    runId,
+    stage: "apply",
+    level: appliedCount === attempted && attempted > 0 ? "success" : "info",
+    message:
+      attempted === 0
+        ? "No Ashby-eligible jobs to auto-apply."
+        : `Auto-apply (dry-run) finished: ${appliedCount}/${attempted} confirmed.`,
+    payload: { attempted, appliedCount, tailoredCount: tailoredJobIds.length },
+  });
+
+  return { attempted, appliedCount };
+}
 
 async function tailorJobForOnboarding(
   ctx: any,
