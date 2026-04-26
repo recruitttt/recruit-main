@@ -1015,20 +1015,60 @@ export const storeFetchedJobs = internalMutation({
 });
 
 export const getRunForRanking = internalQuery({
-  args: { runId: v.id("ingestionRuns"), demoUserId: v.optional(v.string()) },
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+    userId: v.optional(v.string()),
+  },
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
     const run = await ctx.db.get(args.runId);
-    const profile = await ctx.db
-      .query("demoProfiles")
-      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
-      .unique();
+
+    let rawProfile: unknown = null;
+    let repoSummaries: Array<{ repoFullName: string; summary: unknown }> = [];
+    let profileSource: "userProfiles" | "demoProfiles" | null = null;
+
+    if (args.userId) {
+      const userId = args.userId;
+      const userProfileRow = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      if (userProfileRow?.profile) {
+        rawProfile = userProfileRow.profile;
+        profileSource = "userProfiles";
+        const repoRows = await ctx.db
+          .query("repoSummaries")
+          .withIndex("by_user_repo", (q) => q.eq("userId", userId))
+          .take(50);
+        repoSummaries = repoRows.map((row) => ({
+          repoFullName: row.repoFullName,
+          summary: row.summary,
+        }));
+      }
+    }
+
+    if (!rawProfile) {
+      const demoRow = await ctx.db
+        .query("demoProfiles")
+        .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+        .unique();
+      rawProfile = demoRow?.profile ?? null;
+      if (rawProfile) profileSource = "demoProfiles";
+    }
+
     const jobs = await ctx.db
       .query("ingestedJobs")
       .withIndex("by_run", (q) => q.eq("runId", args.runId))
       .collect();
-    return { run, profile: profile?.profile ?? {}, jobs };
+    return {
+      run,
+      profile: rawProfile ?? {},
+      repoSummaries,
+      profileSource,
+      jobs,
+    };
   },
 });
 
@@ -1087,14 +1127,18 @@ export const writeRankingResults = internalMutation({
 
     const now = new Date().toISOString();
     for (const decision of args.decisions) {
-      await ctx.db.insert("jobFilterDecisions", {
-        runId: args.runId,
-        jobId: decision.jobId,
-        status: decision.status,
-        reasons: decision.reasons,
-        ruleScore: decision.ruleScore,
-        createdAt: now,
-      });
+      await ctx.db.insert(
+        "jobFilterDecisions",
+        omitUndefined({
+          runId: args.runId,
+          jobId: decision.jobId,
+          status: decision.status,
+          reasons: decision.reasons,
+          softSignals: decision.softSignals,
+          ruleScore: decision.ruleScore,
+          createdAt: now,
+        })
+      );
     }
 
     for (const score of args.scores) {
@@ -1193,6 +1237,10 @@ export const upsertTailoredApplication = mutation({
     job: v.any(),
     research: v.optional(v.any()),
     tailoredResume: v.optional(v.any()),
+    jsonResume: v.optional(v.any()),
+    templateId: v.optional(v.string()),
+    consolidatorVersion: v.optional(v.string()),
+    pipelineVersion: v.optional(v.string()),
     tailoringScore: v.optional(v.number()),
     keywordCoverage: v.optional(v.number()),
     durationMs: v.optional(v.number()),
@@ -1221,6 +1269,10 @@ export const upsertTailoredApplication = mutation({
       job: args.job,
       research: args.research,
       tailoredResume: args.tailoredResume,
+      jsonResume: args.jsonResume,
+      templateId: args.templateId,
+      consolidatorVersion: args.consolidatorVersion,
+      pipelineVersion: args.pipelineVersion,
       tailoringScore: args.tailoringScore,
       keywordCoverage: args.keywordCoverage,
       durationMs: args.durationMs,
