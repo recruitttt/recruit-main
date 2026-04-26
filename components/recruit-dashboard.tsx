@@ -190,35 +190,30 @@ function ConnectedRecruitDashboard() {
     setDetailError(undefined);
   }
 
-  async function runFirstThreeSources() {
+  async function runPipeline() {
     if (busy || !canStartRun(liveData?.run)) return;
 
     try {
       setRunError(undefined);
-      setRunMessage("Preparing Ashby sources...");
+      setRunMessage("Queueing the mixed-provider pipeline...");
       setRunState("syncing");
 
-      setRunMessage("Fetching jobs from the first 3 Ashby sources...");
-      setRunState("ingesting");
-
-      setRunMessage("Ranking scraped jobs...");
-      setRunState("ranking");
-
-      const response = await fetch("/api/dashboard/run-first-3", { method: "POST" });
+      const profile = readProfile();
+      const response = await fetch("/api/dashboard/start-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile }),
+      });
       const body = await response.json().catch(() => null) as
-        | { error?: string; rankingWarning?: string | null }
+        | { ok?: boolean; reason?: string; runId?: string; status?: "started" }
         | null;
 
       if (!response.ok) {
-        throw new Error(body?.error ?? `dashboard_run_${response.status}`);
+        throw new Error(body?.reason ?? `dashboard_pipeline_${response.status}`);
       }
 
-      setRunState("done");
-      setRunMessage(
-        body?.rankingWarning
-          ? `Ingestion completed with a ranking warning: ${body.rankingWarning}`
-          : "Pipeline run complete. Board refreshed from live data.",
-      );
+      setRunState("ingesting");
+      setRunMessage(body?.runId ? `Pipeline queued: ${body.runId}` : "Pipeline queued.");
       await refreshLiveDataOnce();
     } catch (error) {
       setRunState("error");
@@ -330,7 +325,7 @@ function ConnectedRecruitDashboard() {
     label: runButtonLabel(liveData?.run),
     message: runMessage ?? runGuardMessage(liveData?.run),
     error: runError ?? liveError,
-    onRunFirst3: () => void runFirstThreeSources(),
+    onRunPipeline: () => void runPipeline(),
   };
   const readyCount = boardRows.filter((row) => row.statusLabel === "Ready").length;
   const needsReviewCount = boardRows.filter((row) => row.statusLabel === "Needs review").length;
@@ -376,11 +371,11 @@ function ConnectedRecruitDashboard() {
 
           <ThinAction
             disabled={!controls.canRun || controls.busy}
-            onClick={controls.onRunFirst3}
+            onClick={controls.onRunPipeline}
             className="self-start lg:self-end"
           >
             {controls.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            {controls.busy ? "Running" : "Start search"}
+            {controls.busy ? "Running" : "Run pipeline"}
           </ThinAction>
         </motion.header>
 
@@ -1469,15 +1464,14 @@ function artifactOf(
 function canStartRun(run: LiveRunSummary | null | undefined) {
   if (!run) return true;
   if (run.tailoringInProgress) return false;
-  return !["fetching", "fetched", "ranking", "failed"].includes(run.status);
+  return !["fetching", "fetched", "ranking"].includes(run.status);
 }
 
 function runButtonLabel(run: LiveRunSummary | null | undefined) {
-  if (!run) return "Run first 3";
+  if (!run) return "Run pipeline";
   if (run.tailoringInProgress) return "Tailoring active";
   if (["fetching", "fetched", "ranking"].includes(run.status)) return "Run active";
-  if (run.status === "failed") return "Reset required";
-  return "Run first 3";
+  return "Run pipeline";
 }
 
 function runGuardMessage(run: LiveRunSummary | null | undefined) {
@@ -1487,9 +1481,6 @@ function runGuardMessage(run: LiveRunSummary | null | undefined) {
   }
   if (["fetching", "fetched", "ranking"].includes(run.status)) {
     return "A live ingestion run is already active. Wait for it to finish before starting another.";
-  }
-  if (run.status === "failed") {
-    return "Latest run failed. Review the board state before starting another ingestion.";
   }
   return undefined;
 }
