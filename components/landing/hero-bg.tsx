@@ -72,6 +72,7 @@ export function HeroBg() {
         style={{
           background: "radial-gradient(circle, rgba(255,255,255,0.34), transparent 62%)",
           animation: "drift-a 18s ease-in-out infinite",
+          mixBlendMode: "soft-light",
         }}
       />
       <div
@@ -79,6 +80,7 @@ export function HeroBg() {
         style={{
           background: "radial-gradient(circle, rgba(14,165,233,0.16), transparent 62%)",
           animation: "drift-b 22s ease-in-out infinite",
+          mixBlendMode: "soft-light",
         }}
       />
     </div>

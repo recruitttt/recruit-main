@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, type Variants } from "motion/react";
+import { AnimatePresence, motion, useInView, type Variants } from "motion/react";
 import { Search, Pencil, Send, Mail, CalendarCheck } from "lucide-react";
 import { Mark } from "@/components/ui/logo";
 import { mistColors } from "@/components/design-system";
@@ -26,12 +26,12 @@ const T = {
 
 const container: Variants = {
   hidden: {},
-  show:   { transition: { staggerChildren: 0.3, delayChildren: 0.2 } },
+  show:   { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 4 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 12 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 };
 
 function collapseTargetFor(i: number) {
@@ -52,6 +52,7 @@ function collapseTargetFor(i: number) {
 export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
   const [phase, setPhase] = useState<Phase>("reveal");
   const rowRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(rowRef, { once: true, margin: "-100px" });
   const [center, setCenter] = useState<{ x: number; y: number } | null>(null);
   const [logoTarget, setLogoTarget] = useState<{ x: number; y: number } | null>(null);
 
@@ -117,7 +118,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
         <motion.div
           ref={rowRef}
           initial="hidden"
-          animate="show"
+          animate={inView ? "show" : "hidden"}
           variants={container}
           className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-[12px] text-slate-600"
         >

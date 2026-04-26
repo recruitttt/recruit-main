@@ -74,7 +74,7 @@ export function JobPrompt() {
               rows={1}
               // native placeholder stays empty — we render our own animated one
               placeholder=""
-              className="relative z-10 block max-h-32 min-h-[40px] w-full resize-none bg-transparent py-2 text-[15px] leading-relaxed text-slate-900 outline-none"
+              className="relative z-10 block max-h-32 min-h-[40px] w-full resize-none bg-transparent py-2 text-[15px] leading-snug text-slate-900 outline-none placeholder:leading-snug"
               autoFocus={false}
             />
 
@@ -90,7 +90,7 @@ export function JobPrompt() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: -22, opacity: 0 }}
                     transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full truncate text-[15px] leading-relaxed text-slate-500"
+                    className="w-full truncate text-[15px] leading-snug text-slate-500"
                   >
                     {ROTATION[index]}
                   </motion.div>
