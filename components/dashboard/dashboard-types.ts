@@ -2,7 +2,18 @@ import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
 export type LiveRunSummary = {
   _id: string;
+  provider?: string;
   status: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+  originalStatus?: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+  stale?: boolean;
+  staleReason?: string;
+  suppressedLatestRun?: {
+    _id: string;
+    provider?: string;
+    status: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+    startedAt: string;
+    stale?: boolean;
+  };
   startedAt: string;
   completedAt?: string;
   sourceCount: number;

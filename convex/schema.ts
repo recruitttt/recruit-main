@@ -75,6 +75,16 @@ export default defineSchema({
 
   ingestionRuns: defineTable({
     demoUserId: v.string(),
+    provider: v.optional(
+      v.union(
+        v.literal("ashby"),
+        v.literal("greenhouse"),
+        v.literal("lever"),
+        v.literal("mixed"),
+        v.literal("workday"),
+        v.literal("workable")
+      )
+    ),
     status: v.union(
       v.literal("fetching"),
       v.literal("fetched"),
@@ -100,7 +110,6 @@ export default defineSchema({
     ),
     model: v.optional(v.string()),
     scoringMode: v.optional(v.string()),
-    provider: v.optional(v.string()),
   })
     .index("by_demo_user_started", ["demoUserId", "startedAt"])
     .index("by_status", ["status"]),

@@ -13,6 +13,7 @@ type FollowUpAction =
       jobUrl?: string;
       metadata?: Record<string, unknown>;
     }
+  | { action: "mark-test-applied" }
   | {
       action: "transition";
       applicationId: string;
@@ -98,6 +99,27 @@ export async function POST(req: Request) {
         status: "applied",
         appliedAt: new Date().toISOString(),
         metadata: body.metadata,
+      });
+      return Response.json({ ok: true, applicationId });
+    }
+
+    if (body.action === "mark-test-applied") {
+      if (process.env.RECRUIT_E2E_FIXTURES !== "1") {
+        return Response.json({ ok: false, reason: "fixtures_disabled" }, { status: 403 });
+      }
+      const applicationId = await client.mutation(api.followups.upsertApplication, {
+        company: "Recruit E2E Fixture",
+        title: "Dry-run staged application",
+        provider: "Ashby",
+        jobUrl: "https://jobs.ashbyhq.com/recruit-e2e/test-posting",
+        status: "applied",
+        appliedAt: new Date().toISOString(),
+        metadata: {
+          e2e: true,
+          submitPolicy: "dry_run",
+          submitAttempted: false,
+          submitCompleted: false,
+        },
       });
       return Response.json({ ok: true, applicationId });
     }

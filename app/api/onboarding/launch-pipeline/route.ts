@@ -1,26 +1,16 @@
 // Onboarding launch-pipeline route.
 //
-// Boots the job-search / resume-tailoring pipeline with the freshest
-// `UserProfile` we can assemble from every Convex intake source. The client
-// no longer ships its localStorage cache here — we read all data straight
-// from Convex (where the GitHub/LinkedIn/Resume adapters write):
-//
-//   1. Resolve the better-auth session → userId.        (401 on miss)
-//   2. Inspect intake state via `api.intakeRuns.summary`.
-//      If any kind is still `running` and `force !== true`, return 409.
-//   3. Assemble the merged profile via `api.userProfiles.assembleForPipeline`.
-//   4. Hand it to the existing `ashby:startOnboardingPipeline` mutation.
-//   5. Reply with `{ ok, runId, status, message, used }` — `used` flags
-//      which sources made it in so the UI can surface a confirmation.
-//
-// Spec: docs/superpowers/specs/2026-04-25-recruit-merge-design.md (this
-// route was the missing seam between intake adapters and Ashby).
+// Normal users launch from Convex intake state assembled by the profile
+// adapters. Production smoke tests may also pass an explicit test profile
+// payload so the E2E runner can verify the pipeline without depending on
+// browser-local onboarding state.
 
 import { makeFunctionReference } from "convex/server";
 
 import { api } from "@/convex/_generated/api";
 import { getSessionUserId } from "@/lib/auth-server";
 import { getConvexClient } from "@/lib/convex-http";
+import type { UserProfile } from "@/lib/profile";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,6 +18,9 @@ export const maxDuration = 120;
 
 interface LaunchBody {
   force?: boolean;
+  profile?: UserProfile;
+  limitSources?: number;
+  tailorLimit?: number;
   runConfig?: {
     limitSources?: number;
     tailorLimit?: number;
@@ -60,103 +53,116 @@ function jsonError(reason: string, status: number, extra?: Record<string, unknow
 }
 
 export async function POST(req: Request) {
-  // ---- 1. Auth ----------------------------------------------------------
   const userId = await getSessionUserId();
   if (!userId) return jsonError("unauthorized", 401);
 
-  // ---- 2. Convex client -------------------------------------------------
   const client = await getConvexClient();
   if (!client) return jsonError("missing_convex_url", 503);
 
-  // ---- 3. Body (force flag + optional run config) -----------------------
   let body: LaunchBody = {};
-  if (req.headers.get("content-length") !== "0") {
-    try {
-      const raw = await req.text();
-      if (raw.trim().length > 0) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object") {
-          body = parsed as LaunchBody;
-        }
+  try {
+    const raw = await req.text();
+    if (raw.trim().length > 0) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object") {
+        body = parsed as LaunchBody;
       }
-    } catch {
-      return jsonError("bad_request", 400);
     }
+  } catch {
+    return jsonError("bad_request", 400);
   }
-  const force = body.force === true;
-  const limitSources = body.runConfig?.limitSources ?? 3;
-  const tailorLimit = body.runConfig?.tailorLimit ?? 3;
 
-  // ---- 4. Intake gate: refuse if anything is still running --------------
+  const limitSources = parseOptionalPositiveInteger(
+    body.runConfig?.limitSources ?? body.limitSources,
+    1,
+    10,
+  );
+  const tailorLimit = parseOptionalPositiveInteger(
+    body.runConfig?.tailorLimit ?? body.tailorLimit,
+    1,
+    10,
+  );
+  if (!limitSources.ok) return jsonError("invalid_limit_sources", 400);
+  if (!tailorLimit.ok) return jsonError("invalid_tailor_limit", 400);
+
   let intakeSummary: IntakeSummaryEntry[];
   try {
     intakeSummary = (await client.query(api.intakeRuns.summary, {
       userId,
     })) as IntakeSummaryEntry[];
   } catch (err) {
-    // Auth / convex error — surface but don't crash the pipeline call.
     return jsonError(
       err instanceof Error ? err.message : "intake_summary_failed",
       500,
     );
   }
+
   const running = intakeSummary
     .filter((row) => row.status === "running")
     .map((row) => row.kind);
-  if (running.length > 0 && !force) {
+  if (running.length > 0 && body.force !== true) {
     return Response.json(
       { ok: false, reason: "intake_in_progress", running },
       { status: 409 },
     );
   }
 
-  // ---- 5. Assemble the merged profile ----------------------------------
-  let assembled: AssembledPipelinePayload | null;
-  try {
-    assembled = (await client.query(api.userProfiles.assembleForPipeline, {
-      userId,
-    })) as AssembledPipelinePayload | null;
-  } catch (err) {
-    return jsonError(
-      err instanceof Error ? err.message : "assemble_failed",
-      500,
-    );
+  const suppliedProfile = body.profile && typeof body.profile === "object"
+    ? body.profile
+    : undefined;
+  let assembled: AssembledPipelinePayload | null = null;
+
+  if (!suppliedProfile) {
+    try {
+      assembled = (await client.query(api.userProfiles.assembleForPipeline, {
+        userId,
+      })) as AssembledPipelinePayload | null;
+    } catch (err) {
+      return jsonError(
+        err instanceof Error ? err.message : "assemble_failed",
+        500,
+      );
+    }
+
+    if (!assembled) {
+      return jsonError("no_profile_data", 409, {
+        hint: "complete at least one intake source before launching the pipeline",
+      });
+    }
   }
 
-  // No profile data anywhere — let the caller decide whether to redirect
-  // back to onboarding. We do NOT silently start the pipeline against an
-  // empty profile (that would burn LLM tokens for nothing).
-  if (!assembled) {
-    return jsonError("no_profile_data", 409, {
-      hint: "complete at least one intake source before launching the pipeline",
-    });
-  }
-
-  // ---- 6. Kick off the Ashby pipeline ----------------------------------
   try {
     const started = (await client.mutation(startOnboardingPipeline, {
-      // The mutation derives demoUserId from the better-auth identity when
-      // unspecified (`auth:${subject}`), but we forward it explicitly so the
-      // demoUserId always matches the userId the launch route resolved.
       demoUserId: `auth:${userId}`,
-      profile: assembled.profile,
-      limitSources,
-      tailorLimit,
-    })) as { runId: string; status: "started"; message: string };
+      profile: suppliedProfile ?? assembled?.profile,
+      limitSources: limitSources.value ?? 3,
+      tailorLimit: tailorLimit.value ?? 3,
+    })) as { demoUserId: string; runId: string; status: "started"; message: string };
 
     return Response.json({
       ok: true,
+      demoUserId: started.demoUserId,
       runId: started.runId,
       status: started.status,
       message: started.message,
-      used: {
-        userProfile: assembled.sources.userProfile,
-        github: assembled.sources.github,
-        linkedin: assembled.sources.linkedin,
-        resume: assembled.sources.resume,
-        repoSummaryCount: assembled.sources.repoSummaryCount,
-        experienceSummaryCount: assembled.sources.experienceSummaryCount,
-      },
+      used: assembled
+        ? {
+            userProfile: assembled.sources.userProfile,
+            github: assembled.sources.github,
+            linkedin: assembled.sources.linkedin,
+            resume: assembled.sources.resume,
+            repoSummaryCount: assembled.sources.repoSummaryCount,
+            experienceSummaryCount: assembled.sources.experienceSummaryCount,
+          }
+        : {
+            suppliedProfile: true,
+            userProfile: false,
+            github: false,
+            linkedin: false,
+            resume: false,
+            repoSummaryCount: 0,
+            experienceSummaryCount: 0,
+          },
     });
   } catch (err) {
     return jsonError(
@@ -164,4 +170,16 @@ export async function POST(req: Request) {
       500,
     );
   }
+}
+
+function parseOptionalPositiveInteger(
+  value: unknown,
+  min: number,
+  max: number,
+): { ok: true; value?: number } | { ok: false } {
+  if (value === undefined) return { ok: true };
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+    return { ok: false };
+  }
+  return { ok: true, value };
 }

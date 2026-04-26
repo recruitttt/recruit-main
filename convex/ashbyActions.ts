@@ -213,6 +213,7 @@ export const runAshbyIngestion = action({
 
     const runId = args.runId ?? await ctx.runMutation(anyApi.ashby.createIngestionRun, {
       demoUserId,
+      provider: "ashby",
       sourceCount: sources.length,
     });
     await appendPipelineLog(ctx, {
@@ -339,12 +340,16 @@ export const runAshbyFormFill = action({
     demoUserId: v.optional(v.string()),
     jobId: v.optional(v.id("ingestedJobs")),
     submit: v.optional(v.boolean()),
+    submitPolicy: v.optional(v.union(v.literal("dry_run"), v.literal("submit"))),
     openAiBestEffort: v.optional(v.boolean()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
     const { normalizedUrl, organizationSlug } = validateDirectAshbyApplicationUrl(args.targetUrl);
+    const requestedSubmitPolicy =
+      args.submitPolicy ?? (args.submit === true ? "submit" : "dry_run");
+    const submitPolicy = resolveAshbySubmitPolicy(normalizedUrl, requestedSubmitPolicy);
     const context = await ctx.runQuery(anyApi.ashby.getAshbyFormFillContext, {
       demoUserId,
       organizationSlug,
@@ -368,11 +373,27 @@ export const runAshbyFormFill = action({
         runId,
         targetUrl: normalizedUrl,
         organizationSlug,
-        submit: args.submit === true,
+        requestedSubmitPolicy,
+        submitPolicy,
+        submit: submitPolicy === "submit",
         openAiBestEffort: args.openAiBestEffort === true,
         profileIdentity,
       },
     });
+    if (requestedSubmitPolicy === "submit" && submitPolicy !== "submit") {
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        stage: "ashby-fill",
+        level: "warning",
+        message: "Ashby submit request downgraded to dry-run because no test submit gate matched.",
+        payload: {
+          runId,
+          targetUrl: normalizedUrl,
+          requestedSubmitPolicy,
+          submitPolicy,
+        },
+      });
+    }
 
     let page: any = null;
     try {
@@ -389,8 +410,9 @@ export const runAshbyFormFill = action({
         openAiApiKey: args.openAiBestEffort === true ? process.env.OPENAI_API_KEY : null,
         openAiModel: process.env.OPENAI_ASHBY_FILL_MODEL ?? "gpt-4o-mini",
         draftAnswerMode: args.openAiBestEffort === true ? "fill" : "review_only",
-        submit: args.submit === true,
+        submit: submitPolicy === "submit",
       });
+      const stagingEvidence = summarizeAshbyStagingEvidence(result, submitPolicy);
 
       await ctx.runMutation(anyApi.ashby.finalizeAshbyFormFillRun, {
         runId,
@@ -403,6 +425,8 @@ export const runAshbyFormFill = action({
         submitCompleted: result.submitCompleted,
         blockerCount: result.blockers.length,
         runGrade: result.runGrade,
+        submitPolicy,
+        evidence: stagingEvidence,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -966,6 +990,7 @@ async function runProviderIngestion(
 
   const runId = await ctx.runMutation(anyApi.ashby.createIngestionRun, {
     demoUserId,
+    provider: args.provider,
     sourceCount: sources.length,
   });
   await appendPipelineLog(ctx, {
@@ -1726,6 +1751,131 @@ function profileIdentityForAshbyRun(profile: unknown) {
     linkedin: typeof links.linkedin === "string" ? links.linkedin : null,
     hasResumePath: typeof record.resumePath === "string" || typeof record.files?.resumePath === "string",
   };
+}
+
+function resolveAshbySubmitPolicy(
+  targetUrl: string,
+  requested: "dry_run" | "submit"
+): "dry_run" | "submit" {
+  if (requested !== "submit") return "dry_run";
+  if (process.env.RECRUIT_ASHBY_SUBMIT_GATE !== "1") return "dry_run";
+  const allowedUrls = (process.env.RECRUIT_ASHBY_ALLOWED_SUBMIT_URLS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const singleAllowedUrl = process.env.RECRUIT_ASHBY_TEST_POSTING_URL?.trim();
+  if (singleAllowedUrl) allowedUrls.push(singleAllowedUrl);
+  const normalizedAllowedUrls = allowedUrls.flatMap((value) => {
+    try {
+      return [validateDirectAshbyApplicationUrl(value).normalizedUrl];
+    } catch {
+      return [];
+    }
+  });
+  return normalizedAllowedUrls.includes(targetUrl) ? "submit" : "dry_run";
+}
+
+function summarizeAshbyStagingEvidence(
+  result: any,
+  submitPolicy: "dry_run" | "submit"
+) {
+  const questions = Array.isArray(result.finalSnapshot?.questions)
+    ? result.finalSnapshot.questions
+    : [];
+  const operations = Array.isArray(result.fillOperations) ? result.fillOperations : [];
+  const mappingDecisions = Array.isArray(result.plan?.mapping_decisions)
+    ? result.plan.mapping_decisions
+    : [];
+  const pendingReview = Array.isArray(result.plan?.pending_review)
+    ? result.plan.pending_review
+    : [];
+  const skippedFields = operations.filter((operation: any) =>
+    ["skipped", "missing", "blocked", "failed"].includes(String(operation?.status ?? ""))
+  );
+  const filledFields = operations.filter((operation: any) => operation?.status === "filled");
+  const uploadOperations = operations.filter((operation: any) => operation?.key === "resume_file");
+
+  return {
+    provider: "ashby",
+    submitPolicy,
+    submitAttempted: Boolean(result.submitAttempted),
+    submitCompleted: Boolean(result.submitCompleted),
+    outcome: result.outcome,
+    finalStagedStatus: submitPolicy === "dry_run" ? "blocked_before_submit" : result.outcome,
+    discoveredQuestions: questions.map((question: any) => ({
+      promptHash: question.prompt_hash ?? null,
+      questionText: question.question_text ?? null,
+      required: Boolean(question.required),
+      controlKind: question.control_kind ?? null,
+    })),
+    mappedFields: mappingDecisions
+      .filter((decision: any) => decision?.canonical_key)
+      .map((decision: any) => ({
+        promptHash: decision.prompt_hash ?? null,
+        questionText: decision.question_text ?? null,
+        canonicalKey: decision.canonical_key,
+        confidence: decision.confidence ?? null,
+        source: decision.source ?? null,
+        autoAccepted: Boolean(decision.auto_accepted),
+      })),
+    filledSafeFields: filledFields.map((operation: any) => ({
+      key: operation.key,
+      verified: Boolean(operation.verified),
+      detail: operation.detail ?? null,
+    })),
+    skippedFields: skippedFields.map((operation: any) => ({
+      key: operation.key,
+      status: operation.status,
+      blocking: Boolean(operation.blocking),
+      detail: operation.detail ?? null,
+    })),
+    sensitiveSkippedFields: skippedFields
+      .filter((operation: any) => isSensitiveAshbyKey(operation?.key))
+      .map((operation: any) => ({
+        key: operation.key,
+        status: operation.status,
+        detail: operation.detail ?? null,
+      })),
+    uploadState: {
+      attempted: uploadOperations.length > 0,
+      verified: uploadOperations.some((operation: any) => operation?.verified === true),
+      operations: uploadOperations.map((operation: any) => ({
+        status: operation.status,
+        detail: operation.detail ?? null,
+        verified: Boolean(operation.verified),
+      })),
+    },
+    pendingReviewItems: pendingReview.map((item: any) => ({
+      promptHash: item.prompt_hash ?? null,
+      questionText: item.question_text ?? null,
+      reason: item.reason ?? null,
+      answerabilityClass: item.answerability_class ?? null,
+      canonicalKeyCandidate: item.canonical_key_candidate ?? null,
+    })),
+    blockers: Array.isArray(result.blockers) ? result.blockers : [],
+    screenshots: Array.isArray(result.screenshots) ? result.screenshots : [],
+    notes: Array.isArray(result.notes) ? result.notes : [],
+    finalSnapshot: result.finalSnapshot
+      ? {
+          url: result.finalSnapshot.url ?? null,
+          validationErrors: result.finalSnapshot.validation_errors ?? [],
+          confirmationTexts: result.finalSnapshot.confirmation_texts ?? [],
+          submitControls: result.finalSnapshot.submit_controls ?? 0,
+          unexpectedVerificationGate: Boolean(result.finalSnapshot.unexpected_verification_gate),
+        }
+      : null,
+  };
+}
+
+function isSensitiveAshbyKey(key: unknown) {
+  return [
+    "work_authorized_us",
+    "visa_sponsorship_required",
+    "commute_or_relocate",
+    "earliest_start_date",
+    "notice_period",
+    "salary_expectations",
+  ].includes(String(key));
 }
 
 function parseYamlScalar(value: string): string | boolean | undefined {
