@@ -37,7 +37,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     name: "Scout",
     label: "Agent · lead",
     tagline: "Your lead agent. She speaks for the squad.",
-    hue: "#3F7A56",
+    hue: "#0891B2",
     ownsSource: "conductor",
     voiceId: "tnSpp4vdxKPjI9w0GnoV", // user-provided library voice
   },

@@ -80,7 +80,7 @@ function BubbleBody({ text, thinking }: { text: string; thinking: boolean }) {
       className="relative w-[460px] max-w-[88vw] -translate-y-4 rounded-[22px] border border-white/55 bg-[#F8FBFF]/92 px-6 py-5 shadow-[0_22px_42px_-20px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.80)] backdrop-blur-xl"
     >
       <div className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#6B7A90]">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#3F7A56", boxShadow: "0 0 8px rgba(63,122,86,0.45)" }} />
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#0891B2", boxShadow: "0 0 8px rgba(8,145,178,0.45)" }} />
         Scout · Agent · lead
       </div>
       {thinking ? (

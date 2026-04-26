@@ -61,7 +61,7 @@ export const STATIONS: readonly Station[] = [
     stand: [5.17, 0, -0.55],
     rotation: -Math.PI / 2,
     facing: Math.PI / 2,
-    accent: "#3F7A56",
+    accent: "#0891B2",
     wanderRadius: 0.18,
   },
   {
