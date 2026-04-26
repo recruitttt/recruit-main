@@ -29,10 +29,8 @@ import {
 } from "./atsIngestion";
 import { textToPdf, toBase64 } from "../lib/tailor/simple-pdf";
 import { researchJob } from "../lib/tailor/research";
-import { computeKeywordCoverage } from "../lib/tailor/score";
-import { consolidateResume } from "../lib/resume/consolidator";
-import { CONSOLIDATOR_VERSION } from "../lib/resume/consolidator-prompt";
-import { jsonResumeToLegacy } from "../lib/resume/legacy-adapter";
+import { computeTailoringScore } from "../lib/tailor/score";
+import { tailorResume } from "../lib/tailor/tailor";
 import type { Job, TailoredResume } from "../lib/tailor/types";
 import { getPuppeteerBrowser } from "../lib/pdf";
 import { runAshbyFormFillOnPage } from "../lib/ashby-fill/browser";
@@ -1196,29 +1194,15 @@ async function tailorJobForOnboarding(
       return { ok: false, reason: researched.reason };
     }
 
-    const consolidated = await withAbortTimeout(60_000, (signal) =>
-      consolidateResume({
-        profile,
-        research: researched.research,
-        jobId,
-        apiKey,
-        signal,
-      })
-    );
-    if (!consolidated.ok) {
-      await failTailoring(ctx, demoUserId, jobId, job, consolidated.reason);
-      return { ok: false, reason: consolidated.reason };
+    const tailored = await withAbortTimeout(60_000, (signal) => tailorResume(profile, researched.research, apiKey, signal));
+    if (!tailored.ok) {
+      await failTailoring(ctx, demoUserId, jobId, job, tailored.reason);
+      return { ok: false, reason: tailored.reason };
     }
 
-    const legacy = jsonResumeToLegacy(consolidated.resume);
-    const pdfBytes = textToPdf(resumeFallbackText(legacy));
+    const pdfBytes = textToPdf(resumeFallbackText(tailored.resume));
     const pdfBase64 = toBase64(pdfBytes);
-    const coverage = computeKeywordCoverage(legacy, researched.research);
-    const confidence = consolidated.resume.meta.tailoredFor?.confidence ?? 0;
-    const tailoringScore = Math.max(
-      0,
-      Math.min(100, Math.round(0.6 * confidence + 0.4 * coverage.coverage))
-    );
+    const scoring = computeTailoringScore(tailored.resume, researched.research);
 
     await ctx.runMutation(anyApi.ashby.upsertTailoredApplication, {
       demoUserId,
@@ -1226,12 +1210,9 @@ async function tailorJobForOnboarding(
       status: "completed",
       job,
       research: researched.research,
-      tailoredResume: legacy,
-      jsonResume: consolidated.resume,
-      consolidatorVersion: CONSOLIDATOR_VERSION,
-      pipelineVersion: "v2",
-      tailoringScore,
-      keywordCoverage: coverage.coverage,
+      tailoredResume: tailored.resume,
+      tailoringScore: scoring.score,
+      keywordCoverage: scoring.coverage,
       durationMs: Date.now() - startedAt,
       pdfReady: true,
       pdfFilename: pdfName(job.company),
