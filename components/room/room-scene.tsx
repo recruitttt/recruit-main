@@ -13,6 +13,7 @@ import { RoomFurniture } from "./room-furniture";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
+import RoomPostprocessing from "./room-postprocessing";
 
 export type RoomSceneProps = {
   introPhase?: RoomIntroPhase;
@@ -33,7 +34,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
       dpr={[1, 2]}
       gl={{
         antialias: true,
-        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMapping: THREE.NoToneMapping,
         outputColorSpace: THREE.SRGBColorSpace,
       }}
       camera={{ position: [0, 6.8, 12.4], fov: 46, near: 0.1, far: 80 }}
@@ -79,6 +80,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
           <ScoutSpeechBubble />
         </>
       )}
+      <RoomPostprocessing />
     </Canvas>
   );
 }
