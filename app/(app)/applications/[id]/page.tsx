@@ -114,8 +114,13 @@ export default async function ApplicationDetailPage({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="secondary" size="sm" disabled={app.artifacts.every((artifact) => artifact.kind !== "file")}>
-            <Download className="h-3.5 w-3.5" /> Resume PDF
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled
+            title={app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata is persisted, but downloadable bytes are not exposed from this detail view yet." : "No tailored resume PDF is available."}
+          >
+            <Download className="h-3.5 w-3.5" /> {app.artifacts.some((artifact) => artifact.kind === "file") ? "PDF metadata stored" : "Resume PDF unavailable"}
           </Button>
           <Button variant="secondary" size="sm" disabled={app.browserEvidence.tone !== "Recorded"}>
             <Play className="h-3.5 w-3.5" /> Replay run
@@ -235,7 +240,11 @@ export default async function ApplicationDetailPage({
             </CardHeader>
             <CardBody className="p-0">
               <div className="divide-y divide-[var(--color-border)]">
-                {app.questions.map((q) => (
+                {app.questions.length === 0 ? (
+                  <div className="px-5 py-4 text-[12px] leading-5 text-[var(--color-fg-muted)]">
+                    Live provider questions have not been captured for this application.
+                  </div>
+                ) : app.questions.map((q) => (
                   <div key={q.id} className="px-5 py-3.5">
                     <div className="mb-1.5 flex items-start justify-between gap-3">
                       <div className="text-[13px] text-[var(--color-fg)]">{q.label}</div>
@@ -296,7 +305,11 @@ export default async function ApplicationDetailPage({
             </CardHeader>
             <CardBody className="p-0">
               <div className="divide-y divide-[var(--color-border)]">
-                {app.personaReviews.map((r) => (
+                {app.personaReviews.length === 0 ? (
+                  <div className="px-5 py-4 text-[12px] leading-5 text-[var(--color-fg-muted)]">
+                    Live persona review is not captured for this application.
+                  </div>
+                ) : app.personaReviews.map((r) => (
                   <div key={r.persona} className="px-5 py-4">
                     <div className="mb-2 flex items-center justify-between">
                       <div className="text-[12px] font-medium text-[var(--color-fg)]">{r.persona}</div>

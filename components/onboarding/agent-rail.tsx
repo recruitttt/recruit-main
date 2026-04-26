@@ -4,7 +4,8 @@ import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AGENT_ORDER, AGENTS, type AgentId } from "@/lib/agents";
 import { AgentCharacter } from "@/components/onboarding/characters";
-import { rgba, cn } from "@/lib/utils";
+import { cx, mistClasses } from "@/components/design-system";
+import { rgba } from "@/lib/utils";
 
 type Props = {
   awake: Set<AgentId>;
@@ -15,12 +16,12 @@ type Props = {
 
 export function AgentRail({ awake, speaking, waking, className }: Props) {
   return (
-    <aside className={cn("flex flex-col", className)}>
+    <aside className={cx("flex flex-col", className)}>
       <div className="mb-5 hidden lg:block">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-fg-subtle)] font-mono">
+        <div className={mistClasses.sectionLabel}>
           Your squad
         </div>
-        <div className="mt-1 text-[12px] text-[var(--color-fg-muted)] leading-relaxed">
+        <div className="mt-1 text-[12px] leading-relaxed text-slate-600">
           5 agents, each applying to a different role in parallel
         </div>
       </div>
@@ -67,14 +68,14 @@ export function AgentRail({ awake, speaking, waking, className }: Props) {
                 <div className="min-w-0">
                   <div
                     className="text-[13px] font-medium tracking-tight transition-colors"
-                    style={{ color: isAwake ? a.hue : "var(--color-fg-subtle)" }}
+                    style={{ color: isAwake ? a.hue : "#6B7A90" }}
                   >
                     {a.name}
                   </div>
                   <div
-                    className={cn(
+                    className={cx(
                       "text-[10px] font-mono uppercase tracking-[0.1em] transition-colors",
-                      isAwake ? "text-[var(--color-fg-subtle)]" : "text-[var(--color-fg-subtle)]/50"
+                      isAwake ? "text-slate-500" : "text-slate-400/70"
                     )}
                   >
                     {a.label}
@@ -106,7 +107,7 @@ function Connector({
 }) {
   return (
     <div className="relative h-6" aria-hidden>
-      <div className="absolute left-[27px] top-0 bottom-0 w-[2px] overflow-hidden rounded-full bg-[var(--color-border)]">
+      <div className="absolute bottom-0 left-[27px] top-0 w-[2px] overflow-hidden rounded-full bg-white/45">
         <motion.div
           className="w-full rounded-full"
           style={{

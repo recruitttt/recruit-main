@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import { AgentCharacter } from "@/components/onboarding/characters";
-import { cn } from "@/lib/utils";
+import { cx, mistClasses } from "@/components/design-system";
 
 function Avatar({ from, size = 32 }: { from: AgentId; size?: number }) {
   return (
@@ -45,12 +45,12 @@ export function AgentMessage({
             >
               {a.name}
             </span>
-            <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-[var(--color-fg-subtle)]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-slate-500">
               {a.label}
             </span>
           </div>
         )}
-        <div className="text-[15px] leading-relaxed text-[var(--color-fg)]">
+        <div className="text-[15px] leading-relaxed text-slate-950">
           {children}
         </div>
       </div>
@@ -66,7 +66,7 @@ export function UserMessage({ children }: { children: React.ReactNode }) {
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="flex justify-end"
     >
-      <div className="max-w-[80%] rounded-2xl rounded-tr-md border border-[var(--color-border-strong)] bg-[var(--color-surface-1)] px-4 py-2.5 text-[14px] leading-relaxed text-[var(--color-fg)]">
+      <div className={cx("max-w-[80%] rounded-[22px] rounded-tr-md border px-4 py-2.5 text-[14px] leading-relaxed text-slate-800", mistClasses.card)}>
         {children}
       </div>
     </motion.div>
@@ -85,7 +85,7 @@ export function TypingIndicator({ from }: { from: AgentId }) {
       <div className="w-8 shrink-0 flex justify-center">
         <Avatar from={from} />
       </div>
-      <div className="flex h-8 items-center gap-1 rounded-full bg-[var(--color-surface-1)] border border-[var(--color-border)] px-3 mt-1">
+      <div className="mt-1 flex h-8 items-center gap-1 rounded-full border border-white/55 bg-white/34 px-3 backdrop-blur-xl">
         <Dot delay={0} />
         <Dot delay={160} />
         <Dot delay={320} />
@@ -97,8 +97,8 @@ export function TypingIndicator({ from }: { from: AgentId }) {
 function Dot({ delay }: { delay: number }) {
   return (
     <span
-      className={cn(
-        "inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-fg-subtle)]"
+      className={cx(
+        "inline-block h-1.5 w-1.5 rounded-full bg-slate-500"
       )}
       style={{
         animation: `pulse-soft 1.2s ease-in-out ${delay}ms infinite`,
