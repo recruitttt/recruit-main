@@ -96,6 +96,44 @@ The fill policy is intentionally conservative:
   board integrations remain ingestion or preview paths unless verified for fill.
 - Final submit is gated. Dry runs and staged evidence are the default posture.
 
+### Recruit2 Apply Engine Integration
+
+Recruit Main now exposes an Apply Service boundary that lets the product
+workflow use the Recruit2 computer-use pipeline without copying the whole
+Recruit2 app into this repo.
+
+- Recruit Main owns discovery, shortlisting, profile memory, resume tailoring,
+  grouped review questions, and the dashboard Apply Hub.
+- Recruit2 owns browser perception, Browserbase cloud sessions, AI
+  computer-use actions, file upload dexterity, deferred field repair, and final
+  application state.
+- `POST /api/applications/batch/start` accepts shortlisted jobs, the candidate
+  profile, tailored resume metadata, model/mode settings, and consent. If
+  `RECRUIT2_APPLY_API_URL` or `APPLY_LAB_PUBLIC_BASE_URL` is configured, it
+  forwards the batch to Recruit2's `/api/apply-lab/v4/runs` endpoint. Without
+  that URL, local development uses a deterministic mock run so the dashboard
+  can be tested without touching real job sites.
+- The dashboard Apply Hub supports top-N jobs plus pasted external URLs, Nano /
+  Mini / Sonnet computer-use selection, up to 20 active applications, grouped
+  deferred questions, review items, and development-mode approval that marks a
+  job submitted without clicking the real external submit button.
+- U.S. citizenship and work authorization are mapped into the Recruit2 profile
+  as profile-backed facts, including `authorizedUS: true`,
+  `needsSponsorshipNow: false`, and `needsSponsorshipFuture: false`, so those
+  fields should not become user questions.
+
+Apply Service route handlers:
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/applications/batch/start` | Start a multi-job application batch. |
+| `GET /api/applications/runs/:runId` | Read the current run, job states, review items, and question groups. |
+| `GET /api/applications/runs/:runId/events` | Read the run event timeline. |
+| `GET /api/applications/runs/:runId/questions` | Read grouped deferred questions. |
+| `POST /api/applications/runs/:runId/questions/resolve-batch` | Apply one set of answers across matching fields/jobs. |
+| `POST /api/applications/runs/:runId/jobs/:jobId/approve` | Approve a job; local dev marks it `submitted_dev`. |
+| `POST /api/applications/runs/:runId/jobs/:jobId/cancel` | Cancel one job in the batch. |
+
 ## Provider Status
 
 | Provider | Current role | Status |
@@ -140,6 +178,7 @@ Useful optional environment variables:
 | GitHub intake | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_OWNER` |
 | AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAILOR_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL`, `RESEARCH_MODEL` |
 | LinkedIn/browser intake | `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `COOKIE_ENCRYPTION_KEY` |
+| Recruit2 apply engine | `RECRUIT2_APPLY_API_URL` or `APPLY_LAB_PUBLIC_BASE_URL`, `MAX_APPLICATIONS_PER_RUN`, `MAX_CONCURRENT_APPLICATIONS`, `MAX_CONCURRENT_PER_DOMAIN`, `DEV_SKIP_REAL_SUBMIT` |
 | Scraping fallbacks | `FIRECRAWL_API_KEY`, `PROXYCURL_API_KEY` |
 | Checkout | `STRIPE_SECRET_KEY`, `STRIPE_CHECKOUT_MOCK`, `NEXT_PUBLIC_APP_URL` |
 | Browser/PDF runtime | `LOCAL_CHROME_PATH`, `LOCAL_CHROME_HEADLESS`, `LOCAL_CHROME_USER_DATA_DIR`, `CHROMIUM_PACK_URL` |
@@ -153,6 +192,8 @@ production evidence.
 npm run lint
 npm run test:core
 npm run test:api
+npm run test:apply-service
+npm run test:apply-service-api
 npm run build
 ```
 
