@@ -1,6 +1,10 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import { mockActivityFeed, type ActivityEvent } from "@/lib/mock-data";
 import { formatRelative } from "@/lib/utils";
 import { Workflow, Sparkles, Eye, MousePointerClick, Send, Database } from "lucide-react";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 const iconByKind: Record<ActivityEvent["kind"], React.ComponentType<{ className?: string }>> = {
   discover: Workflow,
@@ -21,8 +25,15 @@ const colorByKind: Record<ActivityEvent["kind"], string> = {
 };
 
 export function ActivityFeed() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={fadeUp}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
+    >
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3.5">
         <h3 className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
           Live activity
@@ -32,12 +43,21 @@ export function ActivityFeed() {
         </span>
       </div>
       <div className="px-5 py-4">
-        <ol className="relative space-y-4">
+        <motion.ol
+          variants={staggerContainer(0.06)}
+          initial={reduceMotion ? false : "hidden"}
+          animate="visible"
+          className="relative space-y-4"
+        >
           <div className="absolute left-[7px] top-2 bottom-2 w-px bg-[var(--color-border)]" />
           {mockActivityFeed.map((ev) => {
             const Icon = iconByKind[ev.kind];
             return (
-              <li key={ev.id} className="relative flex items-start gap-3">
+              <motion.li
+                key={ev.id}
+                variants={reduceMotion ? undefined : staggerItem}
+                className="relative flex items-start gap-3"
+              >
                 <div className="relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] mt-0.5">
                   <Icon className={`h-2.5 w-2.5 ${colorByKind[ev.kind]}`} />
                 </div>
@@ -54,11 +74,11 @@ export function ActivityFeed() {
                     {ev.text}
                   </div>
                 </div>
-              </li>
+              </motion.li>
             );
           })}
-        </ol>
+        </motion.ol>
       </div>
-    </div>
+    </motion.div>
   );
 }

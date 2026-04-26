@@ -6,6 +6,7 @@
 // preserves prior runs.
 
 import * as React from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowDown,
   CheckCircle2,
@@ -32,6 +33,7 @@ import type {
   TailoredApplication,
 } from "@/lib/tailor/types";
 import { cn } from "@/lib/utils";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 type RowStatus = "queued" | "researching" | "tailoring" | "done" | "error" | "cached";
 
@@ -72,6 +74,7 @@ function StatusIcon({ status }: { status: RowStatus }) {
 }
 
 export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
+  const reduceMotion = useReducedMotion();
   const [profile, setProfile] = React.useState(() => readProfile());
   const [running, setRunning] = React.useState(false);
   const [rows, setRows] = React.useState<RowState[]>(() =>
@@ -171,7 +174,12 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
   }, [jobs, onRun]);
 
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={fadeUp}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
+    >
       <div className="flex items-center justify-between gap-4 border-b border-[var(--color-border)] px-5 py-3.5">
         <div>
           <h3 className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
@@ -210,13 +218,27 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
         </div>
       </div>
 
-      {!profileReady && (
-        <div className="border-b border-amber-500/40 bg-amber-500/10 px-5 py-2.5 text-[12px] text-[var(--color-fg-muted)]">
-          Complete onboarding so the tailor agent has a profile to work from.
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {!profileReady ? (
+          <motion.div
+            key="profile-warn"
+            initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            className="border-b border-amber-500/40 bg-amber-500/10 px-5 py-2.5 text-[12px] text-[var(--color-fg-muted)]"
+          >
+            Complete onboarding so the tailor agent has a profile to work from.
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      <ul className="divide-y divide-[var(--color-border)]">
+      <motion.ul
+        variants={reduceMotion ? undefined : staggerContainer(0.07)}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        className="divide-y divide-[var(--color-border)]"
+      >
         {rows.map((row, i) => {
           const score = row.application?.tailoringScore;
           const coverage = row.application?.keywordCoverage;
@@ -226,7 +248,11 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
           const fallbackText = row.job.logoText ?? row.job.company.slice(0, 1).toUpperCase();
 
           return (
-            <li key={row.job.id} className="px-5 py-3.5">
+            <motion.li
+              key={row.job.id}
+              variants={reduceMotion ? undefined : staggerItem}
+              className="px-5 py-3.5"
+            >
               <div className="flex items-start gap-3">
                 <div className="text-[10px] font-mono text-[var(--color-fg-subtle)] pt-1.5 w-5 shrink-0">
                   {(i + 1).toString().padStart(2, "0")}
@@ -243,10 +269,16 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={cn("flex items-center gap-1.5 text-[11px] font-mono", STATUS_COLOR[row.status])}>
+                      <motion.span
+                        key={row.status}
+                        initial={reduceMotion ? false : { opacity: 0, y: -2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                        className={cn("flex items-center gap-1.5 text-[11px] font-mono", STATUS_COLOR[row.status])}
+                      >
                         <StatusIcon status={row.status} />
                         {STATUS_LABEL[row.status]}
-                      </span>
+                      </motion.span>
                       {row.application && (
                         <Button
                           variant="secondary"
@@ -279,9 +311,19 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                     {typeof score === "number" && (
                       <>
                         <span>·</span>
-                        <span className="text-[var(--color-fg-muted)]">
+                        <motion.span
+                          key={score}
+                          initial={reduceMotion ? false : { scale: 0.92, opacity: 0 }}
+                          animate={{ scale: [0.92, 1.06, 1], opacity: 1 }}
+                          transition={
+                            reduceMotion
+                              ? { duration: 0 }
+                              : { duration: 0.45, ease: [0.22, 1, 0.36, 1], times: [0, 0.5, 1] }
+                          }
+                          className="text-[var(--color-fg-muted)]"
+                        >
                           tailoring {score}
-                        </span>
+                        </motion.span>
                       </>
                     )}
                     {typeof coverage === "number" && (
@@ -334,10 +376,10 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                   )}
                 </div>
               </div>
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
-    </div>
+      </motion.ul>
+    </motion.div>
   );
 }

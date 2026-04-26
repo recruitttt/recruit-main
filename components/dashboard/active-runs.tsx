@@ -1,11 +1,22 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import { mockApplications } from "@/lib/mock-data";
 import { CompanyLogo } from "@/components/ui/logo";
 import { StageBadge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/utils";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 export function ActiveRuns() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={fadeUp}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
+    >
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3.5">
         <div className="flex items-center gap-3">
           <h3 className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
@@ -20,10 +31,16 @@ export function ActiveRuns() {
           3 live
         </span>
       </div>
-      <div className="divide-y divide-[var(--color-border)]">
+      <motion.div
+        variants={staggerContainer(0.07)}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        className="divide-y divide-[var(--color-border)]"
+      >
         {mockApplications.map((app) => (
-          <div
+          <motion.div
             key={app.id}
+            variants={reduceMotion ? undefined : staggerItem}
             className="block px-5 py-4"
           >
             <div className="flex items-start gap-3.5">
@@ -57,9 +74,9 @@ export function ActiveRuns() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

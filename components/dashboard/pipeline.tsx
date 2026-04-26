@@ -1,5 +1,9 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import { mockApplications, stageOrder, stageLabels, type Stage } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 const stageColors: Record<Stage, string> = {
   queued: "bg-zinc-400",
@@ -11,6 +15,7 @@ const stageColors: Record<Stage, string> = {
 };
 
 export function Pipeline() {
+  const reduceMotion = useReducedMotion();
   const counts = stageOrder.reduce<Record<Stage, number>>(
     (acc, s) => {
       acc[s] = mockApplications.filter((a) => a.stage === s).length;
@@ -22,7 +27,12 @@ export function Pipeline() {
   const total = stageOrder.reduce((s, st) => s + counts[st], 0);
 
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={fadeUp}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
           Pipeline
@@ -36,19 +46,35 @@ export function Pipeline() {
         {stageOrder.map((s) => {
           const w = total > 0 ? (counts[s] / total) * 100 : 0;
           if (w === 0) return null;
+          if (reduceMotion) {
+            return (
+              <div
+                key={s}
+                className={cn("h-full transition-all", stageColors[s])}
+                style={{ width: `${w}%` }}
+              />
+            );
+          }
           return (
-            <div
+            <motion.div
               key={s}
-              className={cn("h-full transition-all", stageColors[s])}
-              style={{ width: `${w}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${w}%` }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              className={cn("h-full", stageColors[s])}
             />
           );
         })}
       </div>
 
-      <div className="mt-4 grid grid-cols-5 gap-2">
+      <motion.div
+        variants={staggerContainer(0.06)}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        className="mt-4 grid grid-cols-5 gap-2"
+      >
         {stageOrder.map((s) => (
-          <div key={s}>
+          <motion.div key={s} variants={reduceMotion ? undefined : staggerItem}>
             <div className="flex items-center gap-1.5">
               <div className={cn("h-1.5 w-1.5 rounded-full", stageColors[s])} />
               <div className="text-[10px] uppercase tracking-[0.12em] font-mono text-[var(--color-fg-subtle)]">
@@ -58,9 +84,9 @@ export function Pipeline() {
             <div className="mt-1 text-[18px] font-serif tracking-tight text-[var(--color-fg)] tabular-nums">
               {counts[s]}
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

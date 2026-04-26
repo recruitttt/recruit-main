@@ -1,10 +1,25 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import { mockKPIs } from "@/lib/mock-data";
+import { fadeUp, staggerContainer } from "@/lib/motion-presets";
 
 export function KPIStrip() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="grid grid-cols-2 gap-px bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg overflow-hidden md:grid-cols-3 lg:grid-cols-6">
+    <motion.div
+      variants={staggerContainer(0.07)}
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      className="grid grid-cols-2 gap-px bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg overflow-hidden md:grid-cols-3 lg:grid-cols-6"
+    >
       {mockKPIs.map((kpi) => (
-        <div key={kpi.label} className="bg-[var(--color-surface)] p-4">
+        <motion.div
+          key={kpi.label}
+          variants={reduceMotion ? undefined : fadeUp}
+          className="bg-[var(--color-surface)] p-4"
+        >
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-[10px] uppercase tracking-[0.15em] text-[var(--color-fg-subtle)] font-mono">
               {kpi.label}
@@ -23,8 +38,8 @@ export function KPIStrip() {
               {kpi.delta}
             </div>
           )}
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }

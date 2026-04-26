@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useMutation, useQuery } from "convex/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +20,7 @@ import { convexRefs } from "@/lib/convex-refs";
 import { readProfile } from "@/lib/profile";
 import { downloadPdf, runTailorJob } from "@/lib/tailor/client";
 import type { Job, JobResearch, PipelineEvent, TailoredApplication } from "@/lib/tailor/types";
+import { staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 type Recommendation = {
   _id: string;
@@ -251,120 +253,192 @@ function JobDetailDrawer({
   onClose: () => void;
   onTailor: () => void;
 }) {
-  if (!selected) {
-    return (
-      <GlassCard className="flex min-h-[420px] items-center justify-center text-center">
-        <div>
-          <FileText className="mx-auto h-8 w-8 text-slate-400" />
-          <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
-            Run the first 3 Ashby sources, then click a ranked recommendation to inspect the captured job description and artifacts.
-          </p>
-        </div>
-      </GlassCard>
-    );
-  }
+  const reduceMotion = useReducedMotion();
+  const slideTransition = reduceMotion
+    ? { duration: 0 }
+    : ({ type: "spring" as const, stiffness: 240, damping: 28, mass: 0.7 });
+  const slideInitial = reduceMotion ? false : { opacity: 0, x: 24 };
+  const slideExit = reduceMotion ? undefined : { opacity: 0, x: 24 };
 
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {!selected ? (
+        <motion.div
+          key="empty-drawer"
+          initial={slideInitial}
+          animate={{ opacity: 1, x: 0 }}
+          exit={slideExit}
+          transition={slideTransition}
+        >
+          <GlassCard className="flex min-h-[420px] items-center justify-center text-center">
+            <div>
+              <FileText className="mx-auto h-8 w-8 text-slate-400" />
+              <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
+                Run the first 3 Ashby sources, then click a ranked recommendation to inspect the captured job description and artifacts.
+              </p>
+            </div>
+          </GlassCard>
+        </motion.div>
+      ) : (
+        <FilledDrawerBody
+          key={selected.jobId}
+          detail={detail}
+          selected={selected}
+          tailorState={tailorState}
+          onClose={onClose}
+          onTailor={onTailor}
+          reduceMotion={Boolean(reduceMotion)}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
+function FilledDrawerBody({
+  detail,
+  selected,
+  tailorState,
+  onClose,
+  onTailor,
+  reduceMotion,
+}: {
+  detail: JobDetail | null | undefined;
+  selected: Recommendation;
+  tailorState: TailorState;
+  onClose: () => void;
+  onTailor: () => void;
+  reduceMotion: boolean;
+}) {
   const loading = detail === undefined;
   const job = detail?.job;
   const artifacts = detail?.artifacts ?? [];
   const tailored = detail?.tailoredApplication;
+  const slideTransition = reduceMotion
+    ? { duration: 0 }
+    : ({ type: "spring" as const, stiffness: 240, damping: 28, mass: 0.7 });
+  const score = detail?.score?.totalScore;
 
   return (
-    <GlassCard className="min-h-[420px] p-0">
-      <div className="flex items-start justify-between gap-4 border-b border-white/45 px-5 py-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill tone="active">selected job</Pill>
-            {detail?.score && <Pill tone="success">score {Math.round(detail.score.totalScore)}</Pill>}
-          </div>
-          <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">
-            {job?.title ?? selected.title}
-          </h3>
-          <p className="mt-1 text-sm text-slate-600">{job?.company ?? selected.company}</p>
-          <a
-            href={job?.jobUrl ?? selected.jobUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-[var(--color-accent)]"
-          >
-            original job <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-white/60 bg-white/50 p-2 text-slate-600 hover:text-slate-950"
-          aria-label="Close job detail"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="space-y-4 px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={onTailor} disabled={loading || tailorState.running}>
-            {tailorState.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Tailor this job
-          </Button>
-          {tailorState.downloadable && (
-            <Button size="sm" variant="secondary" onClick={() => downloadPdf(tailorState.downloadable!)}>
-              <Download className="h-3.5 w-3.5" />
-              Download PDF
-            </Button>
-          )}
-          {tailored?.pdfReady && !tailorState.downloadable && (
-            <Pill tone="neutral">{tailored.pdfFilename ?? "PDF generated"}</Pill>
-          )}
-        </div>
-
-        <div className="rounded-[18px] border border-white/45 bg-white/28 px-4 py-3 text-sm text-slate-600">
-          {tailorState.error ? (
-            <span className="inline-flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-4 w-4" />
-              {tailorState.error}
-            </span>
-          ) : (
-            tailorState.message
-          )}
-        </div>
-
-        {loading ? (
-          <div className="rounded-[18px] border border-white/45 bg-white/24 p-4 text-sm text-slate-500">
-            Loading job artifacts...
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <TimelineItem title="Ingested job description" complete={Boolean(job?.descriptionPlain)}>
-              <ArtifactText text={job?.descriptionPlain ?? "No captured description for this job yet."} />
-            </TimelineItem>
-            <TimelineItem title="Ranking and recommendation" complete={Boolean(detail?.score)}>
-              <p className="text-sm leading-6 text-slate-600">{detail?.score?.rationale ?? selected.rationale ?? "No ranking rationale recorded."}</p>
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0, x: 24 }}
+      transition={slideTransition}
+    >
+      <GlassCard className="min-h-[420px] p-0">
+        <div className="flex items-start justify-between gap-4 border-b border-white/45 px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill tone="active">selected job</Pill>
               {detail?.score && (
-                <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
-                  <Metric label="Total" value={Math.round(detail.score.totalScore)} />
-                  <Metric label="LLM" value={detail.score.llmScore ?? "n/a"} />
-                  <Metric label="Mode" value={detail.score.scoringMode} />
-                </div>
+                <motion.span
+                  key={score}
+                  initial={reduceMotion ? false : { scale: 0.92, opacity: 0 }}
+                  animate={{ scale: [0.92, 1.06, 1], opacity: 1 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 0.5, ease: [0.22, 1, 0.36, 1], times: [0, 0.5, 1] }
+                  }
+                >
+                  <Pill tone="success">score {Math.round(detail.score.totalScore)}</Pill>
+                </motion.span>
               )}
-            </TimelineItem>
-            <TimelineItem title="Research snapshot" complete={Boolean(tailored?.research || artifactOf(artifacts, "research_snapshot"))}>
-              <ArtifactText text={researchText(tailored?.research ?? artifactOf(artifacts, "research_snapshot")?.payload)} />
-            </TimelineItem>
-            <TimelineItem title="Tailored resume" complete={Boolean(tailored?.tailoredResume || artifactOf(artifacts, "tailored_resume"))}>
-              <ArtifactText text={resumeText(tailored?.tailoredResume ?? artifactOf(artifacts, "tailored_resume")?.payload)} />
-            </TimelineItem>
-            <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)}>
-              <p className="text-sm leading-6 text-slate-600">
-                {tailored?.pdfReady
-                  ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
-                  : "Run tailoring to generate a downloadable PDF for this session."}
-              </p>
-            </TimelineItem>
+            </div>
+            <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">
+              {job?.title ?? selected.title}
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">{job?.company ?? selected.company}</p>
+            <a
+              href={job?.jobUrl ?? selected.jobUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-[var(--color-accent)]"
+            >
+              original job <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
-        )}
-      </div>
-    </GlassCard>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/60 bg-white/50 p-2 text-slate-600 hover:text-slate-950"
+            aria-label="Close job detail"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={onTailor} disabled={loading || tailorState.running}>
+              {tailorState.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Tailor this job
+            </Button>
+            {tailorState.downloadable && (
+              <Button size="sm" variant="secondary" onClick={() => downloadPdf(tailorState.downloadable!)}>
+                <Download className="h-3.5 w-3.5" />
+                Download PDF
+              </Button>
+            )}
+            {tailored?.pdfReady && !tailorState.downloadable && (
+              <Pill tone="neutral">{tailored.pdfFilename ?? "PDF generated"}</Pill>
+            )}
+          </div>
+
+          <div className="rounded-[18px] border border-white/45 bg-white/28 px-4 py-3 text-sm text-slate-600">
+            {tailorState.error ? (
+              <span className="inline-flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                {tailorState.error}
+              </span>
+            ) : (
+              tailorState.message
+            )}
+          </div>
+
+          {loading ? (
+            <div className="rounded-[18px] border border-white/45 bg-white/24 p-4 text-sm text-slate-500">
+              Loading job artifacts...
+            </div>
+          ) : (
+            <motion.div
+              variants={reduceMotion ? undefined : staggerContainer(0.06)}
+              initial={reduceMotion ? false : "hidden"}
+              animate="visible"
+              className="space-y-3"
+            >
+              <TimelineItem title="Ingested job description" complete={Boolean(job?.descriptionPlain)} reduceMotion={reduceMotion}>
+                <ArtifactText text={job?.descriptionPlain ?? "No captured description for this job yet."} />
+              </TimelineItem>
+              <TimelineItem title="Ranking and recommendation" complete={Boolean(detail?.score)} reduceMotion={reduceMotion}>
+                <p className="text-sm leading-6 text-slate-600">{detail?.score?.rationale ?? selected.rationale ?? "No ranking rationale recorded."}</p>
+                {detail?.score && (
+                  <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                    <Metric label="Total" value={Math.round(detail.score.totalScore)} />
+                    <Metric label="LLM" value={detail.score.llmScore ?? "n/a"} />
+                    <Metric label="Mode" value={detail.score.scoringMode} />
+                  </div>
+                )}
+              </TimelineItem>
+              <TimelineItem title="Research snapshot" complete={Boolean(tailored?.research || artifactOf(artifacts, "research_snapshot"))} reduceMotion={reduceMotion}>
+                <ArtifactText text={researchText(tailored?.research ?? artifactOf(artifacts, "research_snapshot")?.payload)} />
+              </TimelineItem>
+              <TimelineItem title="Tailored resume" complete={Boolean(tailored?.tailoredResume || artifactOf(artifacts, "tailored_resume"))} reduceMotion={reduceMotion}>
+                <ArtifactText text={resumeText(tailored?.tailoredResume ?? artifactOf(artifacts, "tailored_resume")?.payload)} />
+              </TimelineItem>
+              <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)} reduceMotion={reduceMotion}>
+                <p className="text-sm leading-6 text-slate-600">
+                  {tailored?.pdfReady
+                    ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
+                    : "Run tailoring to generate a downloadable PDF for this session."}
+                </p>
+              </TimelineItem>
+            </motion.div>
+          )}
+        </div>
+      </GlassCard>
+    </motion.div>
   );
 }
 
@@ -372,19 +446,24 @@ function TimelineItem({
   title,
   complete,
   children,
+  reduceMotion = false,
 }: {
   title: string;
   complete: boolean;
   children: React.ReactNode;
+  reduceMotion?: boolean;
 }) {
   return (
-    <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
+    <motion.div
+      variants={reduceMotion ? undefined : staggerItem}
+      className="rounded-[18px] border border-white/45 bg-white/24 p-4"
+    >
       <div className="mb-3 flex items-center gap-2">
         <CheckCircle2 className={complete ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-slate-400"} />
         <div className="text-sm font-semibold text-slate-950">{title}</div>
       </div>
       {children}
-    </div>
+    </motion.div>
   );
 }
 

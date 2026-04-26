@@ -1,5 +1,9 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import { mockProviderCoverage } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion-presets";
 
 const statusStyles = {
   live: "border-emerald-500/40 bg-emerald-500/10",
@@ -20,8 +24,15 @@ const statusColor = {
 };
 
 export function ProviderCoverage() {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={fadeUp}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
           Provider coverage
@@ -30,10 +41,16 @@ export function ProviderCoverage() {
           1 of 4 live
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <motion.div
+        variants={staggerContainer(0.06)}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        className="grid grid-cols-2 gap-2"
+      >
         {mockProviderCoverage.map((p) => (
-          <div
+          <motion.div
             key={p.name}
+            variants={reduceMotion ? undefined : staggerItem}
             className={cn(
               "rounded-md border px-3 py-2.5",
               statusStyles[p.status]
@@ -44,7 +61,17 @@ export function ProviderCoverage() {
                 {p.name}
               </div>
               <div className={cn("text-[10px] uppercase tracking-[0.12em] font-mono", statusColor[p.status])}>
-                {statusLabels[p.status]}
+                {p.status === "live" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                      style={reduceMotion ? undefined : { animation: "pulse-soft 2s ease-in-out infinite" }}
+                    />
+                    {statusLabels[p.status]}
+                  </span>
+                ) : (
+                  statusLabels[p.status]
+                )}
               </div>
             </div>
             {p.successRate !== undefined && (
@@ -52,9 +79,9 @@ export function ProviderCoverage() {
                 {p.successRate}% success
               </div>
             )}
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -600,7 +600,19 @@ function JobListRow({
       </div>
 
       <div className="flex min-h-11 flex-col items-end justify-between">
-        <span className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[#71806F]" : "text-[#234B32]")}>{row.score}</span>
+        <motion.span
+          key={row.score}
+          initial={reduceMotion ? false : { scale: 0.92, opacity: 0 }}
+          animate={{ scale: [0.92, 1.06, 1], opacity: 1 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.5, ease: [0.22, 1, 0.36, 1], times: [0, 0.5, 1] }
+          }
+          className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[#71806F]" : "text-[#234B32]")}
+        >
+          {row.score}
+        </motion.span>
         <span className={cn("text-[11px] font-semibold", statusClasses(row.statusTone, active))}>
           {loading ? "Loading" : row.statusLabel}
         </span>
@@ -945,13 +957,26 @@ function StatTile({
   value: string;
   detail: string;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7D68]">{label}</div>
         <Icon className="h-4 w-4 text-[#3F7A56]" />
       </div>
-      <div className="mt-1.5 text-2xl font-semibold text-[#102016]">{value}</div>
+      <motion.div
+        key={value}
+        initial={reduceMotion ? false : { scale: 0.94, opacity: 0 }}
+        animate={{ scale: [0.94, 1.05, 1], opacity: 1 }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { duration: 0.5, ease: [0.22, 1, 0.36, 1], times: [0, 0.5, 1] }
+        }
+        className="mt-1.5 text-2xl font-semibold text-[#102016]"
+      >
+        {value}
+      </motion.div>
       <div className="mt-1 text-xs text-[#667865]">{detail}</div>
     </div>
   );

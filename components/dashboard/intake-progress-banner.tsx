@@ -13,6 +13,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useQuery } from "convex/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/convex/_generated/api";
 
@@ -33,6 +34,7 @@ const KIND_LABEL: Record<IntakeKind, string> = {
 };
 
 export function IntakeProgressBanner() {
+  const reduceMotion = useReducedMotion();
   const session = authClient.useSession();
   const userId = session.data?.user?.id ?? null;
   const args = userId ? { userId } : "skip";
@@ -60,26 +62,36 @@ export function IntakeProgressBanner() {
   if (isInFlight(reRun)) inFlight.push(KIND_LABEL.resume);
   if (isInFlight(webRun)) inFlight.push(KIND_LABEL.web);
 
-  if (inFlight.length === 0) return null;
+  const visible = inFlight.length > 0;
 
-  const summary =
-    inFlight.length === 1
+  const summary = visible
+    ? inFlight.length === 1
       ? `${inFlight[0]} intake is still pulling`
       : inFlight.length === 2
         ? `${inFlight.join(" and ")} intakes are still pulling`
-        : `${inFlight.slice(0, -1).join(", ")}, and ${inFlight[inFlight.length - 1]} intakes are still pulling`;
+        : `${inFlight.slice(0, -1).join(", ")}, and ${inFlight[inFlight.length - 1]} intakes are still pulling`
+    : "";
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-center gap-2 rounded-2xl border border-sky-200/60 bg-sky-50/55 px-3 py-2 text-[12px] leading-5 text-sky-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
-    >
-      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-600" />
-      <span className="min-w-0 truncate">
-        {summary}. Your dashboard will fill in as each source finishes.
-      </span>
-    </div>
+    <AnimatePresence initial={false}>
+      {visible ? (
+        <motion.div
+          key="intake-progress-banner"
+          role="status"
+          aria-live="polite"
+          initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+          className="flex items-center gap-2 rounded-2xl border border-sky-200/60 bg-sky-50/55 px-3 py-2 text-[12px] leading-5 text-sky-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+        >
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-600" />
+          <span className="min-w-0 truncate">
+            {summary}. Your dashboard will fill in as each source finishes.
+          </span>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }
 
