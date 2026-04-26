@@ -423,6 +423,15 @@ async function continueWithTopRecommendation(
   const expectedEmail = stringOrNull(tailoredResume?.email ?? process.env.E2E_AUTH_EMAIL);
   if (tailor.status === 200 && tailor.json?.ok === true) {
     ctx.metrics.tailoredCompletedCount = 1;
+    if (application?.research) {
+      addStage(
+        ctx,
+        "Research",
+        "PASS",
+        "results/tailor_top_job.json",
+        `source=${String(application.research.source ?? "tailor")}`
+      );
+    }
   }
 
   const pdf = await requestPdfArtifact(
