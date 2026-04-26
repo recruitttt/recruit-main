@@ -15,10 +15,10 @@ const ICONS: Record<ToastVariant, typeof CheckCircle2> = {
 };
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  default: "border-slate-200 bg-white/95 text-slate-900",
+  default: "border-[var(--color-border)] bg-white/95 text-[var(--color-fg)]",
   success: "border-emerald-200 bg-emerald-50/95 text-emerald-900",
   error: "border-rose-200 bg-rose-50/95 text-rose-900",
-  info: "border-sky-200 bg-sky-50/95 text-sky-900",
+  info: "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
   warning: "border-amber-200 bg-amber-50/95 text-amber-900",
 };
 

@@ -135,5 +135,8 @@ export type LeaderboardRow = {
   providerLabel: string;
   score: number;
   secondaryLine: string;
+  statusLabel: string;
+  statusTone: "neutral" | "active" | "success" | "warning" | "danger";
+  actionLabel: string;
   recommendation: LiveRecommendation;
 };

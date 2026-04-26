@@ -203,7 +203,7 @@ function ConnectedJobIngestionPanel({
                 onClick={() => onSelectJob?.(job)}
                 className={cn(
                   "group block w-full px-4 py-3 text-left transition-colors hover:bg-[var(--color-surface-1)]",
-                  selected && "bg-cyan-500/10"
+                  selected && "bg-[var(--color-accent-soft)]"
                 )}
               >
                 <div className="flex items-start justify-between gap-4">

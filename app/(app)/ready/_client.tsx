@@ -296,7 +296,7 @@ export function ReadyRoom({
           transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           className="space-y-1.5"
         >
-          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>
+          <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
             Ready Room
           </div>
           <h1 className="font-serif text-[34px] leading-[1.05] tracking-tight text-slate-950">

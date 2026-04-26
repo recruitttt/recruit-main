@@ -19,7 +19,12 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { Wordmark, CompanyLogo } from "@/components/ui/logo";
+import { CompanyLogo } from "@/components/ui/logo";
+import {
+  RecruitBrandLink,
+  TopLine,
+  topLineIconButtonClass,
+} from "@/components/shell/top-line";
 import { GithubIcon, LinkedinIcon } from "@/components/ui/brand-icons";
 import {
   ActionButton,
@@ -649,30 +654,29 @@ function OnboardingChatContent() {
 
   return (
     <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
-      <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-5 py-4 md:px-8">
-          <Link href="/">
-            <Wordmark size="sm" />
-          </Link>
-          <div className="flex items-center gap-3">
+      <TopLine
+        brand={<RecruitBrandLink />}
+        maxWidthClassName="max-w-6xl"
+        actions={
+          <>
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
               {completeCount} saved
             </span>
-            <Link href="/" aria-label="Close">
-              <ActionButton variant="ghost" size="icon">
-                <X className="h-4 w-4" />
-              </ActionButton>
+            <Link href="/" aria-label="Close onboarding" className={topLineIconButtonClass()}>
+              <X className="h-4 w-4" />
             </Link>
-          </div>
-        </div>
-        <ProgressBar
-          stepIndex={stepIndex}
-          totalSteps={totalSteps}
-          currentStep={step}
-          canGoBack={stepIndex > 0 && !typing && !activating}
-          onBack={handleBack}
-        />
-      </header>
+          </>
+        }
+        bottomSlot={
+          <ProgressBar
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            currentStep={step}
+            canGoBack={stepIndex > 0 && !typing && !activating}
+            onBack={handleBack}
+          />
+        }
+      />
 
       <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pt-6 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0">
@@ -680,7 +684,7 @@ function OnboardingChatContent() {
             <div className="mb-6 flex items-start gap-4 border-b border-white/45 pb-6">
               <AgentCharacter id="scout" awake size={52} />
               <div className="min-w-0">
-                <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
+                <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>Scout intake</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
                   Quick setup, one question at a time.
                 </h1>
@@ -812,7 +816,7 @@ function ProgressBar({
           aria-hidden="true"
         >
           <motion.div
-            className="absolute inset-y-0 left-0 rounded-full bg-sky-500/80"
+            className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-accent)]"
             initial={false}
             animate={{ width: `${progress * 100}%` }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
@@ -842,7 +846,7 @@ function ScoutMessage({ children }: { children: React.ReactNode }) {
         <AgentCharacter id="scout" awake size={38} />
       </div>
       <div className="min-w-0 flex-1 pt-0.5">
-        <div className="mb-1 text-[13px] font-medium tracking-tight text-sky-700">
+        <div className="mb-1 text-[13px] font-medium tracking-tight text-[var(--color-accent)]">
           Scout
         </div>
         <div className="text-[15px] leading-snug text-slate-950">
@@ -1015,7 +1019,7 @@ function AccountStepCard({
   };
 
   return (
-    <ChatCard icon={<GithubIcon className="h-4 w-4 text-sky-600" />}>
+    <ChatCard icon={<GithubIcon className="h-4 w-4 text-[var(--color-accent)]" />}>
       {isAuthenticated ? (
         <div className="space-y-4">
           <p className="text-sm leading-6 text-slate-700">
@@ -1220,7 +1224,7 @@ function ConnectStepCard({
   const connectedSources = linkCount + (githubConnected ? 1 : 0);
 
   return (
-    <ChatCard icon={<Link2 className="h-4 w-4 text-sky-600" />}>
+    <ChatCard icon={<Link2 className="h-4 w-4 text-[var(--color-accent)]" />}>
       <div className="space-y-4">
         <div className={cx("space-y-3 border border-white/55 bg-white/30 p-3", mistRadii.nested)}>
           <div className="flex items-center justify-between gap-3">
@@ -1416,7 +1420,7 @@ function PrefsStepCard({
 }) {
   const canAdvance = selectedRoles.length > 0;
   return (
-    <ChatCard icon={<Briefcase className="h-4 w-4 text-sky-600" />}>
+    <ChatCard icon={<Briefcase className="h-4 w-4 text-[var(--color-accent)]" />}>
       <div className="space-y-4">
         <div>
           <div className="mb-2 block text-xs font-semibold text-slate-500">Role focus</div>
@@ -1555,7 +1559,7 @@ function ConnectedConfirmButton({
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
       {stage === "starting" && (
-        <div className="w-full rounded-[18px] border border-sky-200/70 bg-sky-50/45 px-3 py-2 text-xs leading-5 text-sky-800 sm:w-72">
+        <div className="w-full rounded-[18px] border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2 text-xs leading-5 text-[var(--color-accent)] sm:w-72">
           Saving your profile. We&apos;ll wait for your sources in the Ready Room.
         </div>
       )}
@@ -1589,7 +1593,7 @@ function ProgressBadge({
       ? "border-red-200/70 bg-red-50/60 text-red-700"
       : status === "completed"
         ? "border-emerald-200/70 bg-emerald-50/60 text-emerald-700"
-        : "border-sky-200/70 bg-sky-50/60 text-sky-700";
+        : "border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]";
 
   const Icon =
     status === "failed"
@@ -1738,7 +1742,7 @@ function IntakeSummary({
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{row.label}</span>
                 {complete && <Check className="h-3.5 w-3.5 text-emerald-700" />}
               </div>
-              <div className={cx("mt-1 truncate text-sm", row.value === "Needed" ? "text-sky-700" : "text-slate-700")}>
+              <div className={cx("mt-1 truncate text-sm", row.value === "Needed" ? "text-[var(--color-accent)]" : "text-slate-700")}>
                 {row.value}
               </div>
             </div>
@@ -1798,7 +1802,7 @@ function ActivationReveal() {
     >
       <GlassCard variant="selected" density="normal">
         <div className="mb-3 flex items-center justify-between">
-          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Starting application</div>
+          <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>Starting application</div>
           <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{ animation: "pulse-soft 1.4s ease-in-out infinite" }} />
             LIVE
@@ -1813,7 +1817,7 @@ function ActivationReveal() {
             <span className="text-[13px] text-slate-900">{match.company}</span>
             <span className="truncate text-[12px] text-slate-500">{match.role}</span>
           </div>
-          <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-600">
+          <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--color-accent)]">
             applying
           </span>
         </div>
@@ -1825,12 +1829,10 @@ function ActivationReveal() {
 function OnboardingFallback() {
   return (
     <main className={cx("min-h-screen", mistClasses.page)}>
-      <header className="flex items-center justify-between px-5 py-4 md:px-8">
-        <Wordmark size="sm" />
-      </header>
+      <TopLine brand={<RecruitBrandLink />} maxWidthClassName="max-w-6xl" />
       <div className="mx-auto max-w-6xl px-5 pb-10 md:px-8">
         <GlassCard density="spacious">
-          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
+          <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>Scout intake</div>
           <div className="mt-3 h-8 w-72 max-w-full rounded-full bg-white/45" />
           <div className="mt-4 h-4 w-96 max-w-full rounded-full bg-white/35" />
         </GlassCard>

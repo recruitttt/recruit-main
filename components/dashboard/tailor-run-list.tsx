@@ -54,7 +54,7 @@ const STATUS_LABEL: Record<RowStatus, string> = {
 
 const STATUS_COLOR: Record<RowStatus, string> = {
   queued: "text-[var(--color-fg-subtle)]",
-  researching: "text-cyan-700",
+  researching: "text-[var(--color-accent)]",
   tailoring: "text-amber-700",
   done: "text-emerald-700",
   cached: "text-emerald-700",
@@ -64,7 +64,7 @@ const STATUS_COLOR: Record<RowStatus, string> = {
 function StatusIcon({ status }: { status: RowStatus }) {
   const cls = "h-3.5 w-3.5";
   if (status === "queued") return <CircleDashed className={cn(cls, "text-[var(--color-fg-subtle)]")} />;
-  if (status === "researching") return <Search className={cn(cls, "text-cyan-700 animate-pulse")} />;
+  if (status === "researching") return <Search className={cn(cls, "text-[var(--color-accent)] animate-pulse")} />;
   if (status === "tailoring") return <Loader2 className={cn(cls, "text-amber-700 animate-spin")} />;
   if (status === "done" || status === "cached")
     return <CheckCircle2 className={cn(cls, "text-emerald-700")} />;
@@ -325,7 +325,7 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                       {qualityIssues.slice(0, 3).map((issue, j) => (
                         <span
                           key={j}
-                          className="rounded-full border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-sky-800"
+                          className="rounded-full border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-2 py-0.5 text-[var(--color-accent)]"
                         >
                           {issue}
                         </span>

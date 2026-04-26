@@ -286,7 +286,7 @@ const STATUS_STYLE: Record<
   running: {
     label: "Running",
     className:
-      "border-sky-400/40 bg-sky-100/50 text-sky-700 shadow-[0_0_0_1px_rgba(56,189,248,0.18)]",
+      "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] shadow-[0_0_0_1px_var(--color-accent-glow)]",
     icon: Loader2,
     spin: true,
   },

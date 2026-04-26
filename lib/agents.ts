@@ -23,7 +23,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     name: "Scout",
     label: "Agent · lead",
     tagline: "Your lead agent. She speaks for the squad.",
-    hue: "#0891B2", // cyan-600
+    hue: "#3F7A56",
   },
   mimi: {
     id: "mimi",

@@ -141,7 +141,7 @@ export function StartSearchCta({
       <GlassCard density="spacious">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
-            <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>
+            <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
               Ready when you are
             </div>
             <p className="mt-1 text-sm leading-6 text-slate-700">
@@ -258,8 +258,8 @@ function ConfirmModal({
         </button>
 
         <div className="mb-3 flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
-          <span className={cx(mistClasses.sectionLabel, "text-sky-600")}>
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--color-accent)]" />
+          <span className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
             Heads up
           </span>
         </div>

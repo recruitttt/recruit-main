@@ -51,10 +51,10 @@ export function JobPrompt() {
         }}
         className="group relative"
       >
-        <div className="absolute -inset-px rounded-[26px] bg-gradient-to-r from-sky-500/0 via-sky-500/22 to-sky-500/0 opacity-0 blur-md transition-opacity group-focus-within:opacity-100" />
-        <div className={cx("relative flex flex-col gap-2 border p-3 transition-colors focus-within:border-sky-400/60 sm:flex-row sm:items-end", mistClasses.panel)}>
+        <div className="absolute -inset-px rounded-[26px] bg-[linear-gradient(to_right,rgba(63,122,86,0),rgba(63,122,86,0.22),rgba(63,122,86,0))] opacity-0 blur-md transition-opacity group-focus-within:opacity-100" />
+        <div className={cx("relative flex flex-col gap-2 border p-3 transition-colors focus-within:border-[var(--color-accent)] sm:flex-row sm:items-end", mistClasses.panel)}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-white/60 bg-white/42 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-            <Sparkles className="h-4 w-4 text-sky-600" />
+            <Sparkles className="h-4 w-4 text-[var(--color-accent)]" />
           </div>
 
           {/* input + overlaid rotating placeholder */}

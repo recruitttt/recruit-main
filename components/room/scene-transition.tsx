@@ -42,7 +42,7 @@ export function SceneTransition({ onComplete }: Props) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
-      className="fixed inset-0 z-50 overflow-hidden bg-[#CDD5DF]"
+      className="fixed inset-0 z-50 overflow-hidden bg-[var(--color-bg)]"
     >
       <motion.div
         initial={{ opacity: 0, y: -12 }}

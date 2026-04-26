@@ -106,14 +106,14 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
             role="dialog"
             aria-modal="true"
             aria-label="Site navigation"
-            className="fixed inset-y-0 right-0 z-30 flex w-[80vw] max-w-[320px] flex-col gap-4 border-l border-white/45 bg-[#CDD5DF]/95 px-4 py-5 text-[#101827] shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur-2xl lg:hidden"
+            className="fixed inset-y-0 right-0 z-30 flex w-[80vw] max-w-[320px] flex-col gap-4 border-l border-white/45 bg-[#D5E0D0]/95 px-4 py-5 text-[#102016] shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur-2xl lg:hidden"
             initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
             transition={isOpen ? enterTransition : exitTransition}
           >
             <div className="flex items-center justify-between">
-              <span className="font-serif text-[18px] leading-none text-sky-700">
+              <span className="font-serif text-[18px] leading-none text-[var(--color-accent)]">
                 recruit
               </span>
               <button

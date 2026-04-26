@@ -193,7 +193,7 @@ export function EnrichmentChat({
       <div className="mb-4 flex items-start gap-3 border-b border-white/45 pb-4">
         <AgentCharacter id="scout" awake size={44} />
         <div className="min-w-0 flex-1">
-          <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>
+          <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
             Scout enrichment
           </div>
           <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-slate-950">
@@ -298,7 +298,7 @@ function ScoutLine({
         <AgentCharacter id="scout" awake size={36} />
       </div>
       <div className="min-w-0 flex-1 pt-0.5">
-        <div className="mb-1 text-[13px] font-medium tracking-tight text-sky-700">
+        <div className="mb-1 text-[13px] font-medium tracking-tight text-[var(--color-accent)]">
           Scout
         </div>
         <div className="text-[15px] leading-snug text-slate-950">

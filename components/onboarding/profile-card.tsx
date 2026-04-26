@@ -44,7 +44,7 @@ export function ProfileCard() {
     <GlassCard density="spacious">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+          <Sparkles className="h-3.5 w-3.5 text-[var(--color-accent)]" />
           <span className={mistClasses.sectionLabel}>
             Building your profile
           </span>
@@ -276,7 +276,7 @@ export function ProfileCard() {
                 {profile.prefs.roles.map((r) => (
                   <span
                     key={r}
-                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-600"
+                    className="rounded-full border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-2 py-0.5 text-[11px] text-[var(--color-accent)]"
                   >
                     {r}
                   </span>

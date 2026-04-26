@@ -4,7 +4,6 @@ import { Download, ExternalLink, Eye, FileText, Loader2, Sparkles } from "lucide
 import { ActionButton, StatusBadge } from "@/components/design-system";
 import { cn } from "@/lib/utils";
 import type { JobResearch } from "@/lib/tailor/types";
-import { DashboardScoreCore } from "./dashboard-score-core";
 import type { JobDetail, LiveRecommendation, TailorState } from "./dashboard-types";
 
 type DashboardJobInspectorProps = {
@@ -39,15 +38,15 @@ export function DashboardJobInspector({
   if (!selected) {
     return (
       <section className={shellClasses(inline)}>
-        <div className="rounded-[28px] border border-dashed border-slate-300/80 bg-white/55 p-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white/80">
-            <FileText className="h-6 w-6 text-slate-400" />
+        <div className="rounded-[18px] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-1)]">
+            <FileText className="h-5 w-5 text-[var(--color-fg-subtle)]" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold tracking-[-0.03em] text-slate-950">
-            Pick a job to inspect
+          <h2 className="mt-4 text-lg font-semibold text-[var(--color-fg)]">
+            Pick an application
           </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Click a ranked entry to open the fit rationale, captured job facts, and tailoring controls.
+          <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">
+            Open a row to review the role and next action.
           </p>
         </div>
       </section>
@@ -60,38 +59,36 @@ export function DashboardJobInspector({
   const resolvedTitle = job?.title ?? selected.title;
   const resolvedCompany = job?.company ?? selected.company;
   const resolvedLocation = job?.location ?? selected.location;
-  const resolvedScore = detail?.score?.totalScore ?? selected.score;
   const strengths = detail?.score?.strengths ?? selected.strengths ?? [];
   const risks = detail?.score?.risks ?? selected.risks ?? [];
-  const rationale = detail?.score?.rationale ?? selected.rationale ?? "No ranking rationale recorded yet.";
+  const rationale = detail?.score?.rationale ?? selected.rationale ?? "No fit summary recorded yet.";
   const research = readResearch(detail);
   const tailored = detail?.tailoredApplication;
   const importantFacts = [
+    { label: "Location", value: resolvedLocation },
     { label: "Compensation", value: job?.compensationSummary ?? selected.compensationSummary },
-    { label: "Department", value: detail?.job?.department },
-    { label: "Team", value: detail?.job?.team },
     { label: "Source", value: sourceLabel(selected, detail) },
+    { label: "Team", value: detail?.job?.team ?? detail?.job?.department },
   ].filter((fact) => Boolean(fact.value));
 
   return (
     <section className={shellClasses(inline)}>
       <div className="space-y-4">
-        <div className="rounded-[30px] border border-white/65 bg-white/78 p-5 shadow-[0_28px_72px_-42px_rgba(15,23,42,0.35)] backdrop-blur-xl">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <section className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone="active">Selected</StatusBadge>
                 <StatusBadge tone={state.error ? "danger" : tailored?.status === "completed" ? "success" : "neutral"}>
-                  {state.error ? "Needs attention" : tailored?.status ?? "Ready"}
+                  {state.error ? "Needs attention" : tailored?.status === "completed" ? "Ready" : "Open"}
                 </StatusBadge>
+                {loading ? <Loader2 className="mt-2 h-4 w-4 animate-spin text-[var(--color-accent)]" /> : null}
               </div>
-              <h2 className="mt-4 text-[clamp(1.6rem,2vw,2.3rem)] font-semibold tracking-[-0.05em] text-slate-950">
+              <h2 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-[var(--color-fg)]">
                 {resolvedTitle}
               </h2>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                <span className="font-medium text-slate-900">{resolvedCompany}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--color-fg-muted)]">
+                <span className="font-medium text-[var(--color-fg)]">{resolvedCompany}</span>
                 {resolvedLocation ? <span>{resolvedLocation}</span> : null}
-                <span>{sourceLabel(selected, detail)}</span>
               </div>
             </div>
 
@@ -99,96 +96,26 @@ export function DashboardJobInspector({
               href={resolvedJobUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-sky-200 hover:text-sky-700"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold text-[var(--color-fg-muted)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             >
-              Original role
+              Original
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
-        </div>
+        </section>
 
         {detailError ? (
-          <section className="rounded-[24px] border border-red-200 bg-red-50/85 px-4 py-3 text-sm text-red-700">
+          <section className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {detailError}
           </section>
         ) : null}
 
-        <DashboardScoreCore
-          score={resolvedScore}
-          rank={selected.rank}
-          tailoringScore={tailored?.tailoringScore}
-          keywordCoverage={tailored?.keywordCoverage}
-        />
-
         <section className={sectionClasses()}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className={eyebrowClasses()}>Fit summary</div>
-              <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950">
-                Why it made the board
-              </h3>
-            </div>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
-          </div>
-          <p className="mt-4 text-sm leading-7 text-slate-700">{rationale}</p>
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <BulletColumn title="Strengths" items={strengths} emptyLabel="No strengths captured yet." tone="emerald" />
-            <BulletColumn title="Risks" items={risks} emptyLabel="No risk notes captured yet." tone="amber" />
-          </div>
-        </section>
-
-        {importantFacts.length > 0 ? (
-          <section className={sectionClasses()}>
-            <div className={eyebrowClasses()}>Important job facts</div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {importantFacts.map((fact) => (
-                <div
-                  key={fact.label}
-                  className="rounded-[20px] border border-slate-200/70 bg-white/80 px-4 py-3"
-                >
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    {fact.label}
-                  </div>
-                  <div className="mt-2 text-sm leading-6 text-slate-800">{fact.value}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className={sectionClasses()}>
-          <div className={eyebrowClasses()}>Research snapshot</div>
-          {research ? (
-            <div className="mt-4 space-y-4">
-              {research.jdSummary ? (
-                <p className="text-sm leading-7 text-slate-700">{research.jdSummary}</p>
-              ) : null}
-              <ResearchList title="Requirements" items={research.requirements} />
-              <ResearchList title="Tech stack" items={research.techStack} />
-              <ResearchList title="Culture signals" items={research.cultureSignals} />
-            </div>
-          ) : (
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              Research appears after a tailoring run writes the snapshot artifact.
-            </p>
-          )}
-        </section>
-
-        <section className={sectionClasses()}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className={eyebrowClasses()}>Tailoring</div>
-              <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950">
-                Resume and PDF actions
-              </h3>
-            </div>
-            {pdf.ready ? <StatusBadge tone="success">PDF ready</StatusBadge> : null}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className={eyebrowClasses()}>Next action</div>
+          <div className="mt-3 flex flex-wrap gap-2">
             <ActionButton onClick={onTailor} disabled={loading || state.running}>
               {state.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Tailor selected job
+              Tailor
             </ActionButton>
             <ActionButton variant="secondary" onClick={onOpenPdf} disabled={!pdf.canView}>
               <Eye className="h-4 w-4" />
@@ -196,21 +123,21 @@ export function DashboardJobInspector({
             </ActionButton>
             <ActionButton variant="secondary" onClick={onDownload} disabled={!pdf.canDownload}>
               <Download className="h-4 w-4" />
-              Download PDF
+              Download
             </ActionButton>
           </div>
 
           <div
             className={cn(
-              "mt-4 rounded-[20px] border px-4 py-3 text-sm leading-6",
+              "mt-4 rounded-[14px] border px-4 py-3 text-sm leading-6",
               state.error
-                ? "border-red-200 bg-red-50/85 text-red-700"
-                : "border-slate-200/70 bg-white/80 text-slate-600",
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-fg-muted)]",
             )}
           >
             {state.error ?? state.message}
             {pdf.filename ? (
-              <div className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
+              <div className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-fg-subtle)]">
                 {pdf.filename}
                 {pdf.sizeKb ? ` · ${pdf.sizeKb} KB` : ""}
               </div>
@@ -218,11 +145,54 @@ export function DashboardJobInspector({
           </div>
         </section>
 
-        <details className="rounded-[24px] border border-slate-200/80 bg-white/78 px-5 py-4 shadow-[0_20px_50px_-40px_rgba(15,23,42,0.24)]">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">
-            Raw captured description
+        <section className={sectionClasses()}>
+          <div className={eyebrowClasses()}>Fit summary</div>
+          <p className="mt-3 text-sm leading-7 text-[var(--color-fg-muted)]">{rationale}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <BulletColumn title="Strengths" items={strengths} emptyLabel="No strengths captured yet." tone="emerald" />
+            <BulletColumn title="Risks" items={risks} emptyLabel="No risks captured yet." tone="amber" />
+          </div>
+        </section>
+
+        {importantFacts.length > 0 ? (
+          <section className={sectionClasses()}>
+            <div className={eyebrowClasses()}>Job facts</div>
+            <dl className="mt-4 divide-y divide-[var(--color-border)]">
+              {importantFacts.map((fact) => (
+                <div key={fact.label} className="grid grid-cols-[120px_1fr] gap-3 py-2 text-sm">
+                  <dt className="text-[var(--color-fg-subtle)]">{fact.label}</dt>
+                  <dd className="text-[var(--color-fg)]">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        <details className={detailsClasses()}>
+          <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--color-fg)]">
+            Research notes
           </summary>
-          <div className="mt-4 rounded-[18px] border border-slate-200/70 bg-slate-50/90 p-4 text-sm leading-7 text-slate-700">
+          {research ? (
+            <div className="mt-4 space-y-4">
+              {research.jdSummary ? (
+                <p className="text-sm leading-7 text-[var(--color-fg-muted)]">{research.jdSummary}</p>
+              ) : null}
+              <ResearchList title="Requirements" items={research.requirements} />
+              <ResearchList title="Tech stack" items={research.techStack} />
+              <ResearchList title="Culture signals" items={research.cultureSignals} />
+            </div>
+          ) : (
+            <p className="mt-4 text-sm leading-6 text-[var(--color-fg-subtle)]">
+              Research notes appear after tailoring.
+            </p>
+          )}
+        </details>
+
+        <details className={detailsClasses()}>
+          <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--color-fg)]">
+            Captured description
+          </summary>
+          <div className="mt-4 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-4 text-sm leading-7 text-[var(--color-fg-muted)]">
             {(job?.descriptionPlain ?? selected.job?.descriptionPlain)?.trim() || "No captured description for this role yet."}
           </div>
         </details>
@@ -242,24 +212,22 @@ function BulletColumn({
   emptyLabel: string;
   tone: "emerald" | "amber";
 }) {
-  const toneClasses = tone === "emerald"
-    ? "bg-emerald-500 border-emerald-500/20"
-    : "bg-amber-500 border-amber-500/20";
+  const dotClasses = tone === "emerald" ? "bg-[var(--color-success)]" : "bg-amber-500";
 
   return (
-    <div className="rounded-[20px] border border-slate-200/70 bg-white/80 px-4 py-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</div>
+    <div>
+      <div className="text-xs font-semibold text-[var(--color-fg)]">{title}</div>
       {items.length > 0 ? (
-        <ul className="mt-4 space-y-3">
-          {items.map((item) => (
-            <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700">
-              <span className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", toneClasses)} />
+        <ul className="mt-3 space-y-2">
+          {items.slice(0, 4).map((item) => (
+            <li key={item} className="flex gap-2 text-sm leading-6 text-[var(--color-fg-muted)]">
+              <span className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", dotClasses)} />
               <span>{item}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm leading-6 text-slate-500">{emptyLabel}</p>
+        <p className="mt-3 text-sm leading-6 text-[var(--color-fg-subtle)]">{emptyLabel}</p>
       )}
     </div>
   );
@@ -270,11 +238,11 @@ function ResearchList({ title, items }: { title: string; items: string[] }) {
 
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</div>
-      <ul className="mt-3 space-y-2">
-        {items.map((item) => (
-          <li key={`${title}-${item}`} className="flex gap-3 text-sm leading-6 text-slate-700">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-950" />
+      <div className="text-xs font-semibold text-[var(--color-fg)]">{title}</div>
+      <ul className="mt-2 space-y-1.5">
+        {items.slice(0, 5).map((item) => (
+          <li key={`${title}-${item}`} className="flex gap-2 text-sm leading-6 text-[var(--color-fg-muted)]">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
             <span>{item}</span>
           </li>
         ))}
@@ -329,9 +297,13 @@ function shellClasses(inline: boolean) {
 }
 
 function sectionClasses() {
-  return "rounded-[24px] border border-white/65 bg-white/78 p-5 shadow-[0_20px_50px_-40px_rgba(15,23,42,0.24)] backdrop-blur-xl";
+  return "rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5";
+}
+
+function detailsClasses() {
+  return "rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4";
 }
 
 function eyebrowClasses() {
-  return "text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500";
+  return "text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]";
 }

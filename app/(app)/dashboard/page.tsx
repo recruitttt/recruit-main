@@ -2,7 +2,7 @@ import { RecruitDashboard } from "@/components/recruit-dashboard";
 
 export const metadata = {
   title: "Recruit dashboard",
-  description: "Kinetic ranked jobs board for live recommendations and tailoring.",
+  description: "Minimal application list for jobs in progress.",
 };
 
 export default function DashboardPage() {

@@ -51,7 +51,7 @@ export function DashboardStatusStrip({
   return (
     <section className="relative overflow-hidden rounded-[28px] border border-white/55 bg-white/65 p-4 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.24)] backdrop-blur-xl">
       <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
-      <div className="absolute -top-10 right-12 h-24 w-24 rounded-full bg-sky-200/40 blur-3xl" />
+      <div className="absolute -top-10 right-12 h-24 w-24 rounded-full bg-[var(--color-accent-soft)] blur-3xl" />
       <div className="absolute -bottom-16 left-14 h-24 w-24 rounded-full bg-amber-200/35 blur-3xl" />
 
       <div className="relative flex flex-col gap-4">
@@ -63,7 +63,7 @@ export function DashboardStatusStrip({
               {refreshedAt ? `Live ${formatTime(refreshedAt)}` : "Awaiting first sync"}
             </span>
             {run?.tailoringInProgress ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
                 <Activity className="h-3.5 w-3.5" />
                 Tailoring in flight
               </span>
