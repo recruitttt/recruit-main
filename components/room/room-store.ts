@@ -276,3 +276,8 @@ export function markRoomIntakeDone(): void {
     window.localStorage.setItem("recruit:intake-done", "1");
   } catch {}
 }
+
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  // @ts-expect-error - test hook
+  window.useRoomStore = useRoomStore;
+}
