@@ -42,3 +42,8 @@ export {
 export { authenticate, type AuthInput, type AuthOutcome } from "./auth";
 export { scrapeProfile, type ScrapeProfileInput } from "./scrape";
 export { linkedinAdapter, type LinkedInIntakeInput } from "./adapter";
+export {
+  dedupeLinkedInExperiences,
+  dedupeLinkedInSnapshotExperiences,
+  linkedInExperienceDedupeKey,
+} from "./experience-dedupe";
