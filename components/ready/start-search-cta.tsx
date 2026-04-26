@@ -32,7 +32,7 @@ import {
   mistClasses,
   mistRadii,
 } from "@/components/design-system";
-import { logProfileEvent, readProfile } from "@/lib/profile";
+import { logProfileEvent } from "@/lib/profile";
 import {
   failedSources,
   isAllReady,
@@ -63,19 +63,28 @@ export function StartSearchCta({
   // without us having to setState in an effect.
   const confirmOpen = userOpenedConfirm && pending.length > 0;
 
-  async function startLaunch() {
+  // Pass `force: true` only when we're knowingly starting before all intake
+  // is done — the launch route returns 409 `intake_in_progress` otherwise.
+  // The route now reads the canonical UserProfile from Convex via
+  // `assembleForPipeline`, so we no longer send a profile blob in the body.
+  async function startLaunch(force = false) {
     setStage("starting");
     setError(null);
     try {
-      const profile = readProfile();
       const response = await fetch("/api/onboarding/launch-pipeline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile }),
+        body: JSON.stringify({ force }),
       });
       const body = (await response.json().catch(() => null)) as
-        | { ok: true; runId?: string; status?: "started"; message?: string }
-        | { ok: false; reason?: string }
+        | {
+            ok: true;
+            runId?: string;
+            status?: "started";
+            message?: string;
+            used?: Record<string, unknown>;
+          }
+        | { ok: false; reason?: string; running?: string[] }
         | null;
 
       if (!response.ok || !body?.ok) {
@@ -83,10 +92,19 @@ export function StartSearchCta({
           body && !body.ok
             ? body.reason ?? `launch_${response.status}`
             : `launch_${response.status}`;
+        // The route returns 409 `intake_in_progress` when something is still
+        // running and `force` was false — surface a friendly hint.
+        if (response.status === 409 && reason === "intake_in_progress") {
+          throw new Error(
+            "Some intake is still running. Wait for it, or press Start again to proceed anyway.",
+          );
+        }
         throw new Error(reason);
       }
 
-      logProfileEvent("chat", "Job search pipeline launched", "success");
+      logProfileEvent("chat", "Job search pipeline launched", "success", {
+        used: body.used,
+      });
       router.push("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -101,7 +119,12 @@ export function StartSearchCta({
       setUserOpenedConfirm(true);
       return;
     }
-    void startLaunch();
+    void startLaunch(false);
+  }
+
+  function handleProceedAnyway() {
+    setUserOpenedConfirm(false);
+    void startLaunch(true);
   }
 
   const primaryLabel =
@@ -173,9 +196,8 @@ export function StartSearchCta({
         {confirmOpen && (
           <ConfirmModal
             onClose={() => setUserOpenedConfirm(false)}
-            onProceed={async () => {
-              setUserOpenedConfirm(false);
-              await startLaunch();
+            onProceed={() => {
+              handleProceedAnyway();
             }}
             pending={pending}
             failed={failed}
