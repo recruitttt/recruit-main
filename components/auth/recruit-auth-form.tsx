@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion, useReducedMotion } from "motion/react";
 import { RecruitBrandLink, TopLine } from "@/components/shell/top-line";
 import {
   authErrorMessage,
@@ -11,6 +12,12 @@ import {
   buildOAuthCompletionURL,
 } from "@/lib/auth-flow";
 import { authClient } from "@/lib/auth-client";
+import {
+  fadeUp,
+  scaleIn,
+  staggerContainer,
+  staggerItem,
+} from "@/lib/motion-presets";
 import { ArrowRight, Loader2, Lock, Mail, User } from "lucide-react";
 
 // Inline GitHub octocat mark (lucide-react v1.9 has no Github icon).
@@ -53,6 +60,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 
 export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
   const searchParams = useSearchParams();
+  const reduce = useReducedMotion();
   const oauthErrorCode = searchParams.get("error");
   const oauthError = useMemo(() => {
     if (!oauthErrorCode) return null;
@@ -61,6 +69,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
       `Sign-in failed (${oauthErrorCode}). Try again.`
     );
   }, [oauthErrorCode]);
+  const fieldStagger = useMemo(() => staggerContainer(0.08, 0.05), []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -201,7 +210,22 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
 
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="mx-auto flex w-full max-w-[460px] flex-col items-center gap-5">
-          <section className="w-full rounded-[28px] border border-white/55 bg-white/42 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl sm:p-8">
+          <motion.section
+            initial={reduce ? false : "hidden"}
+            animate="visible"
+            variants={fadeUp}
+            className="relative w-full overflow-hidden rounded-[28px] border border-white/55 bg-white/42 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl sm:p-8"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 animate-pulse-soft"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 80% at 50% 0%, rgba(63,122,86,0.10), transparent 70%)",
+                animationDuration: "5.4s",
+              }}
+            />
+            <div className="relative">
           <div className="text-center">
             <h1 className="font-serif text-[30px] font-normal leading-none text-[#101827]">
               {title}
@@ -209,10 +233,14 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-sm leading-6 text-[#465568]">{subtitle}</p>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={continueWithGitHub}
             disabled={pendingAction !== null}
+            initial={reduce ? false : "hidden"}
+            animate="visible"
+            variants={scaleIn}
+            whileTap={reduce ? undefined : { scale: 0.97 }}
             className="mt-7 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/70 bg-[#101827] px-4 text-[13px] font-semibold text-white shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:bg-[#1C2637] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pendingAction === "github" ? (
@@ -223,7 +251,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
                 Continue with GitHub
               </>
             )}
-          </button>
+          </motion.button>
 
           <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-[#6B7A90]">
             <span className="h-px flex-1 bg-white/55" />
@@ -231,47 +259,60 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             <span className="h-px flex-1 bg-white/55" />
           </div>
 
-          <form className="grid gap-4" onSubmit={submitEmail}>
+          <motion.form
+            className="grid gap-4"
+            onSubmit={submitEmail}
+            initial={reduce ? false : "hidden"}
+            animate="visible"
+            variants={fieldStagger}
+          >
             {isSignUp && (
-              <label className="grid gap-2">
+              <motion.label variants={staggerItem} className="grid gap-2">
                 <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Name</span>
                 <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                   <User className="h-4 w-4 text-[#6B7A90]" />
                   <input value={name} onChange={(event) => setName(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="Your name" autoComplete="name" />
                 </span>
-              </label>
+              </motion.label>
             )}
 
-            <label className="grid gap-2">
+            <motion.label variants={staggerItem} className="grid gap-2">
               <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Email address</span>
               <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                 <Mail className="h-4 w-4 text-[#6B7A90]" />
                 <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="you@example.com" autoComplete="email" />
               </span>
-            </label>
+            </motion.label>
 
-            <label className="grid gap-2">
+            <motion.label variants={staggerItem} className="grid gap-2">
               <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Password</span>
               <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                 <Lock className="h-4 w-4 text-[#6B7A90]" />
                 <input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="At least 8 characters" autoComplete={isSignUp ? "new-password" : "current-password"} />
               </span>
-            </label>
+            </motion.label>
 
             {displayedError && (
-              <p className="rounded-2xl border border-red-300/50 bg-red-50/70 px-3 py-2 text-sm text-red-700">
+              <motion.p
+                initial={reduce ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="rounded-2xl border border-red-300/50 bg-red-50/70 px-3 py-2 text-sm text-red-700"
+              >
                 {displayedError}
-              </p>
+              </motion.p>
             )}
 
-            <button
+            <motion.button
               type="submit"
+              variants={staggerItem}
+              whileTap={reduce ? undefined : { scale: 0.97 }}
               className="mt-1 flex h-11 items-center justify-center gap-2 rounded-full bg-[#101827] px-4 text-[13px] font-semibold text-white shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:bg-[#1C2637] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={pendingAction !== null}
             >
               {pendingAction === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{isSignUp ? "Create account" : "Continue"}<ArrowRight className="h-4 w-4" /></>}
-            </button>
-          </form>
+            </motion.button>
+          </motion.form>
 
           <div className="mt-7 text-center text-sm text-[#465568]">
             {alternateText}{" "}
@@ -280,10 +321,11 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             </Link>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={continueAsDemo}
             disabled={pendingAction !== null}
+            whileTap={reduce ? undefined : { scale: 0.97 }}
             className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-[#6B7A90]/50 bg-transparent px-3 text-[12px] font-medium text-[#465568] transition hover:border-[var(--color-accent)] hover:bg-white/40 hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pendingAction === "demo" ? (
@@ -291,8 +333,9 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             ) : (
               "Continue as demo user — skip auth"
             )}
-          </button>
-          </section>
+          </motion.button>
+            </div>
+          </motion.section>
         </div>
       </div>
     </main>
