@@ -17,7 +17,7 @@
 import { redirect } from "next/navigation";
 
 import { isAuthenticated } from "@/lib/auth-server";
-import { getSessionUser } from "@/app/(app)/profile/_session";
+import { getSessionUser } from "@/app/profile/_session";
 import { ReadyRoom } from "./_client";
 
 export const metadata = {

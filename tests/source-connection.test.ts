@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import {
   canStartSourceRun,
@@ -124,6 +124,17 @@ function main() {
   assert.equal(onboardingPage.includes("CloudBrowserView"), false);
   assert.equal(onboardingPage.includes("liveViewUrl"), false);
   assert.equal(onboardingPage.includes("onLiveView"), false);
+
+  const profilePageUrl = new URL("../app/profile/page.tsx", import.meta.url);
+  const gatedProfilePageUrl = new URL(
+    "../app/(app)/profile/page.tsx",
+    import.meta.url
+  );
+  assert.equal(existsSync(profilePageUrl), true);
+  assert.equal(existsSync(gatedProfilePageUrl), false);
+  const profilePage = readFileSync(profilePageUrl, "utf8");
+  assert.match(profilePage, /<Topnav \/>/);
+  assert.match(profilePage, /not hidden by the onboarding cookie/);
 }
 
 main();
