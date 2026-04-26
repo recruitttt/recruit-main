@@ -5,7 +5,11 @@ import type { AgentId } from "@/lib/agents";
 import { mergeProfile, readProfile, type UserProfile } from "@/lib/profile";
 import type { StationId } from "@/lib/room/stations";
 
-export type CameraMode = "overview" | "focus";
+export type CameraMode = "overview" | "focus" | "first-person-desk";
+
+export type DeskState = "collapsed" | "expanded" | "animating";
+
+export type PlayerPose = "standing" | "walking" | "sitting" | "transitioning";
 
 export type IntakePhase =
   | "inactive"
@@ -50,6 +54,11 @@ type RoomState = {
   playerMode: PlayerMode;
   playerNearestAgentId: AgentId | null;
   chatMode: ChatMode;
+  deskState: DeskState;
+  playerPose: PlayerPose;
+  activeRecruiterId: string | null;
+  terminalActive: boolean;
+  personalizationOpen: boolean;
   setSelected: (id: AgentId | null) => void;
   setHovered: (id: AgentId | null) => void;
   setHoveredObject: (key: string | null) => void;
@@ -60,6 +69,12 @@ type RoomState = {
   setPlayerNearestAgent: (id: AgentId | null) => void;
   setChatMode: (mode: ChatMode) => void;
   toggleChatMode: () => void;
+  setCameraMode: (m: CameraMode) => void;
+  setDeskState: (s: DeskState) => void;
+  setPlayerPose: (p: PlayerPose) => void;
+  setActiveRecruiterId: (id: string | null) => void;
+  setTerminalActive: (a: boolean) => void;
+  setPersonalizationOpen: (o: boolean) => void;
   startIntake: () => void;
   setIntakePhase: (phase: IntakePhase) => void;
   submitIntakeAnswer: (value: string) => Promise<void>;
@@ -154,6 +169,11 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   playerMode: "off",
   playerNearestAgentId: null,
   chatMode: "flat",
+  deskState: "collapsed",
+  playerPose: "standing",
+  activeRecruiterId: null,
+  terminalActive: false,
+  personalizationOpen: false,
   setPlayerMode: (mode) => set({ playerMode: mode }),
   togglePlayerMode: () =>
     set((s) => ({ playerMode: s.playerMode === "walking" ? "off" : "walking" })),
@@ -161,6 +181,12 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   setChatMode: (mode) => set({ chatMode: mode }),
   toggleChatMode: () =>
     set((s) => ({ chatMode: s.chatMode === "3d" ? "flat" : "3d" })),
+  setCameraMode: (m) => set({ cameraMode: m }),
+  setDeskState: (s) => set({ deskState: s }),
+  setPlayerPose: (p) => set({ playerPose: p }),
+  setActiveRecruiterId: (id) => set({ activeRecruiterId: id }),
+  setTerminalActive: (a) => set({ terminalActive: a }),
+  setPersonalizationOpen: (o) => set({ personalizationOpen: o }),
   startIntake: () => {
     if (get().intakePhase !== "inactive") return;
     set({

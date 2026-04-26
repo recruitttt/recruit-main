@@ -2,11 +2,13 @@
 
 import { InteractiveHotspot } from "./interactive-hotspot";
 
-import { useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { useBeachTexture } from "./beach-texture";
+import { tweenValue, updateTweens } from "@/lib/room/animation";
+import { useRoomStore } from "./room-store";
 
 /**
  * Extra room dressing: sofa + coffee table, rug, TV, back-wall windows,
@@ -15,6 +17,7 @@ import { useBeachTexture } from "./beach-texture";
 export function RoomFurniture() {
   return (
     <group>
+      <DeskAnchor />
       <RugArea />
       <Sofa position={[0, 0, 3.0]} />
       <CoffeeTable position={[0, 0, 4.6]} />
@@ -30,6 +33,52 @@ export function RoomFurniture() {
       <FurnitureHotspots />
     </group>
   );
+}
+
+/**
+ * DeskAnchor: subscribes to the shared `deskState` slot in the room store and
+ * drives a collapse/expand scale animation. The desk geometry itself is rendered
+ * by `recruiter-desk.tsx`, but the animation tick + state wiring lives here so
+ * the broader furniture scene owns the global tween pump while it's mounted.
+ *
+ * When `deskState` changes between "collapsed" and "expanded", this component:
+ *  1. Sets state to "animating" (consumers can disable interactions).
+ *  2. Tweens the scale value from 0.4 -> 1 (or vice versa) over 800ms.
+ *  3. Resolves back to the target state on completion.
+ *
+ * The resulting `deskScale` is stored in the zustand snapshot only via the
+ * lifecycle setter; consumers (e.g., the recruiter desk component) read
+ * `deskState` directly and can compute their own scale from it, or this
+ * file can be extended later to host the desk geometry once it migrates here.
+ */
+function DeskAnchor() {
+  const deskState = useRoomStore((s) => s.deskState);
+  const setDeskState = useRoomStore((s) => s.setDeskState);
+  const [scale, setScale] = useState<number>(deskState === "expanded" ? 1 : 0.4);
+  const lastTargetRef = useRef<typeof deskState>(deskState);
+
+  useEffect(() => {
+    if (lastTargetRef.current === deskState && deskState !== "animating") return;
+    if (deskState === "animating") return;
+    lastTargetRef.current = deskState;
+    const target = deskState === "expanded" ? 1 : 0.4;
+    const finalState = deskState;
+    setDeskState("animating");
+    tweenValue(scale, target, 800, "cubicInOut", setScale, () => {
+      setDeskState(finalState);
+      lastTargetRef.current = finalState;
+    });
+    // We intentionally exclude `scale` from deps; reading the latest from state
+    // would re-fire the effect mid-tween and cause a stutter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deskState, setDeskState]);
+
+  useFrame(() => updateTweens(performance.now()));
+
+  // No geometry rendered here yet — the desk lives in `recruiter-desk.tsx`.
+  // This anchor exists to drive the animation tick + expose `scale` for
+  // future migration of desk geometry into this file.
+  return <group scale={[scale, scale, scale]} />;
 }
 
 function FurnitureHotspots() {
