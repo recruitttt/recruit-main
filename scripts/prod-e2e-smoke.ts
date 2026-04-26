@@ -1007,7 +1007,6 @@ function vercelProtectionHeaders(): Record<string, string> {
   if (!secret) return {};
   return {
     "x-vercel-protection-bypass": secret,
-    "x-vercel-set-bypass-cookie": "true",
   };
 }
 
