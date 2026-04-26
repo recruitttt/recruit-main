@@ -90,7 +90,7 @@ export function RoomCamera() {
       smoothTime={0.48}
       draggingSmoothTime={0.25}
       minDistance={4}
-      maxDistance={22}
+      maxDistance={28}
       minPolarAngle={Math.PI * 0.32}
       maxPolarAngle={Math.PI * 0.42}
       minAzimuthAngle={-AZIMUTH_LIMIT}
