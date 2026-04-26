@@ -45,6 +45,12 @@ function statusClass(status: string): string {
   return "bg-gray-100 text-gray-700";
 }
 
+function defaultFilename(row: TailoredAppRow | undefined, fallbackCompany: string | undefined): string {
+  if (row?.pdfFilename) return row.pdfFilename;
+  const company = (fallbackCompany ?? "Tailored").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
+  return `Resume_${company || "Tailored"}.pdf`;
+}
+
 type ViewingTarget = {
   jobId: string;
   filename?: string;
@@ -92,9 +98,12 @@ export function ApplyQueueTab({ userId }: Props) {
       <div className="space-y-2">
         {jobs.map((j) => {
           const tailoredApp = j.jobId ? tailoredByJobId.get(j.jobId) : undefined;
+          // Each row links to its own per-job tailored PDF served by the
+          // dashboard route — never a shared static fallback.
           const downloadHref = tailoredApp?.jobId
             ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(tailoredApp.jobId)}`
             : null;
+          const filename = defaultFilename(tailoredApp, j.company);
           return (
             <div
               key={j._id}
@@ -111,14 +120,14 @@ export function ApplyQueueTab({ userId }: Props) {
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {tailoredApp && tailoredApp.jobId && (
+                {tailoredApp?.jobId ? (
                   <>
                     <button
                       type="button"
                       onClick={() =>
                         setViewing({
                           jobId: tailoredApp.jobId!,
-                          filename: tailoredApp.pdfFilename,
+                          filename: tailoredApp.pdfFilename ?? filename,
                           sizeKb:
                             typeof tailoredApp.pdfByteLength === "number"
                               ? Math.max(1, Math.round(tailoredApp.pdfByteLength / 1024))
@@ -130,17 +139,21 @@ export function ApplyQueueTab({ userId }: Props) {
                     >
                       <FileText className="h-3 w-3" /> View Resume
                     </button>
-                    {downloadHref && (
+                    {downloadHref ? (
                       <a
                         href={downloadHref}
-                        download={tailoredApp.pdfFilename ?? "tailored-resume.pdf"}
+                        download={filename}
                         className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-800 hover:bg-gray-100"
                         aria-label={`Download tailored resume for ${j.company ?? "this company"}`}
                       >
                         <Download className="h-3 w-3" />
                       </a>
-                    )}
+                    ) : null}
                   </>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded">
+                    Tailoring…
+                  </span>
                 )}
                 <button
                   onClick={() => setTerminalActive(true)}

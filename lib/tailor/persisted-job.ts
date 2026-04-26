@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { DEMO_PROFILE, isProfileUsable } from "@/lib/demo-profile";
 import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, textToPdf, toBase64 } from "@/lib/pdf";
-import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
+import { isResumeTemplateId, pickPageSize, renderResumeHtml, type ResumeTemplateId } from "@/lib/resume-html";
 import { resumeFallbackText } from "@/lib/tailor/resume-fallback-text";
 import { hasResearchCredentials, researchJob } from "@/lib/tailor/research";
 import { computeTailoringScore } from "@/lib/tailor/score";
@@ -21,7 +21,38 @@ type PersistedTailorInput = {
   demoUserId?: string;
   profile?: UserProfile;
   pageSize?: "letter" | "a4";
+  templateId?: ResumeTemplateId;
+  userId?: string;
 };
+
+async function loadConvexProfile(
+  client: ConvexHttpClient,
+  userId: string | undefined,
+  demoUserId: string | undefined
+): Promise<UserProfile | undefined> {
+  // Authenticated users keep their canonical profile in `userProfiles`.
+  // The legacy `demoProfiles` table is only populated when an unsigned
+  // demo run uploads a profile snapshot. Prefer the real one.
+  if (userId) {
+    try {
+      const row = (await client.query(api.userProfiles.byUser, { userId })) as
+        | { profile?: UserProfile }
+        | null;
+      if (isProfileUsable(row?.profile)) return row?.profile;
+    } catch {
+      // requireOwner mismatch / unauthenticated — fall through to demo lookup
+    }
+  }
+  try {
+    const ctx = await client.query(api.ashby.getAshbyRuntimeProfileContext, {
+      ...(demoUserId ? { demoUserId } : {}),
+    });
+    const candidate = (ctx as { profile?: UserProfile } | null)?.profile;
+    return isProfileUsable(candidate) ? candidate : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function tailorPersistedJob({
   client,
@@ -29,16 +60,13 @@ export async function tailorPersistedJob({
   demoUserId,
   profile: inputProfile,
   pageSize: inputPageSize,
+  templateId: inputTemplateId,
+  userId,
 }: PersistedTailorInput): Promise<PersistedTailorResult> {
   const startedAt = Date.now();
-  const storedContext = isProfileUsable(inputProfile)
-    ? null
-    : await client.query(api.ashby.getAshbyRuntimeProfileContext, {
-      ...(demoUserId ? { demoUserId } : {}),
-    }).catch(() => null);
-  const storedProfile = isProfileUsable(storedContext?.profile)
-    ? storedContext.profile
-    : undefined;
+  const storedProfile = isProfileUsable(inputProfile)
+    ? undefined
+    : await loadConvexProfile(client, userId, demoUserId);
   const profile = isProfileUsable(inputProfile)
     ? inputProfile
     : storedProfile ?? DEMO_PROFILE;
@@ -47,6 +75,9 @@ export async function tailorPersistedJob({
     : storedProfile
       ? "convex"
       : "demo";
+  const templateId: ResumeTemplateId = isResumeTemplateId(inputTemplateId)
+    ? inputTemplateId
+    : "minimalist";
 
   if (profileSource === "demo") {
     await client.mutation(api.ashby.upsertDemoProfileSnapshot, {
@@ -103,7 +134,7 @@ export async function tailorPersistedJob({
     }
 
     const pageSize = inputPageSize ?? pickPageSize(job.location ?? researched.research.cultureSignals.join(" "));
-    const html = renderResumeHtml(tailored.resume, pageSize);
+    const html = renderResumeHtml(tailored.resume, pageSize, templateId);
     const pdfBytes = await htmlToPdf(html, { format: pageSize }).catch(() =>
       textToPdf(resumeFallbackText(tailored.resume))
     );
@@ -134,6 +165,7 @@ export async function tailorPersistedJob({
       job,
       research: researched.research,
       tailoredResume: tailored.resume,
+      templateId,
       tailoringScore: scoring.score,
       keywordCoverage: scoring.coverage,
       durationMs: application.durationMs,

@@ -7,6 +7,17 @@ import type { TailoredResume } from "./tailor/types";
 
 export type PageSize = "letter" | "a4";
 
+// Visible template variants. The structural layout is identical across
+// templates (so we keep ATS parseability) — only the typographic skin
+// changes. Add a new variant here, then extend `templateOverlay()` below.
+export type ResumeTemplateId = "minimalist" | "classic" | "compact";
+
+export const RESUME_TEMPLATE_IDS: ResumeTemplateId[] = ["minimalist", "classic", "compact"];
+
+export function isResumeTemplateId(value: unknown): value is ResumeTemplateId {
+  return typeof value === "string" && (RESUME_TEMPLATE_IDS as string[]).includes(value);
+}
+
 export function pickPageSize(location?: string): PageSize {
   if (!location) return "letter";
   const lc = location.toLowerCase();
@@ -62,7 +73,35 @@ function contactLabel(value: string): string {
   return compact;
 }
 
-function css(pageSize: PageSize): string {
+function templateOverlay(templateId: ResumeTemplateId): string {
+  if (templateId === "classic") {
+    return `
+    body { font-family: "Georgia", "Times New Roman", "Source Serif Pro", serif; font-size: 10.4pt; }
+    .name { font-family: "Georgia", "Times New Roman", serif; font-weight: 700; letter-spacing: -0.005em; }
+    h2 { font-family: "Georgia", "Times New Roman", serif; letter-spacing: 0.18em; font-weight: 700; }
+    header { border-bottom-width: 0.6pt; border-bottom-color: #1f2937; }
+    .role-title, .education-item .school { font-weight: 700; font-style: normal; }
+    .role-company { font-style: italic; font-weight: 500; }
+    `;
+  }
+  if (templateId === "compact") {
+    return `
+    body { font-size: 9.2pt; line-height: 1.28; }
+    @page { margin: 0.38in; }
+    section { margin-top: 7px; }
+    h2 { font-size: 7.6pt; letter-spacing: 0.2em; }
+    .role { margin-bottom: 6px; }
+    .summary { font-size: 8.8pt; line-height: 1.32; }
+    .role ul { margin: 2px 0 0 0; padding-left: 12px; }
+    .role li { margin: 0; line-height: 1.28; }
+    .skills-line { font-size: 8.6pt; }
+    `;
+  }
+  // minimalist (default) — keep base styling.
+  return "";
+}
+
+function css(pageSize: PageSize, templateId: ResumeTemplateId): string {
   return `
   @page { size: ${pageSize}; margin: 0.48in; }
   * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -159,6 +198,7 @@ function css(pageSize: PageSize): string {
   .skills-line { color: #1e293b; font-size: 9pt; line-height: 1.45; }
   .skills-line .sep { color: #94a3b8; padding: 0 4px; }
   .dot { color: #94a3b8; padding: 0 4px; }
+  ${templateOverlay(templateId)}
   `;
 }
 
@@ -253,14 +293,19 @@ function headerSection(r: TailoredResume): string {
   return `<header><div><h1 class="name">${name}</h1>${headline ? `<div class="headline">${escapeHtml(headline)}</div>` : ""}</div>${contactLine(r)}</header>`;
 }
 
-export function renderResumeHtml(resume: TailoredResume, pageSize: PageSize = "letter"): string {
+export function renderResumeHtml(
+  resume: TailoredResume,
+  pageSize: PageSize = "letter",
+  templateId: ResumeTemplateId = "minimalist"
+): string {
+  const safeTemplate: ResumeTemplateId = isResumeTemplateId(templateId) ? templateId : "minimalist";
   const title = `Resume – ${resume.name || "Tailored"}`;
   return [
     `<!doctype html>`,
     `<html lang="en"><head>`,
     `<meta charset="utf-8" />`,
     `<title>${escapeHtml(title)}</title>`,
-    `<style>${css(pageSize)}</style>`,
+    `<style>${css(pageSize, safeTemplate)}</style>`,
     `</head><body>`,
     `<div class="resume">`,
     headerSection(resume),
