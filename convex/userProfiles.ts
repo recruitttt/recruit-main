@@ -23,6 +23,7 @@ import {
   type ProfileSuggestion,
   type ProvenanceSource,
 } from "../lib/profile";
+import { linkedInExperienceDedupeKey } from "../lib/intake/linkedin/experience-dedupe";
 
 const query = queryGeneric;
 const mutation = mutationGeneric;
@@ -762,10 +763,14 @@ function buildExperienceFromLinkedin(
 ): WorkExperience[] {
   if (!raw?.experiences || !Array.isArray(raw.experiences)) return [];
   const out: WorkExperience[] = [];
+  const seen = new Set<string>();
   for (const exp of raw.experiences) {
     const company = (exp.company ?? "").trim();
     const title = (exp.position_title ?? "").trim();
     if (!company && !title) continue;
+    const key = linkedInExperienceDedupeKey(exp);
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push({
       company: company || "(unknown)",
       title: title || "(unknown)",
