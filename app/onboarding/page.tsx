@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowRight,
   Briefcase,
@@ -34,6 +34,7 @@ import { onboardingMatches } from "@/lib/mock-data";
 import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
 import { logProfileEvent, mergeProfile, readProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
 import { parseResume, scrapeAndExtract, scrapeLinkedIn } from "@/lib/scrapers";
+import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
 
 type Data = {
   name: string;
@@ -107,6 +108,7 @@ function OnboardingChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
+  const { active: transitionActive, trigger: triggerTransition, handleComplete } = useSceneTransition();
   const [data, setData] = useState<Data>(EMPTY);
   const [step, setStep] = useState<Step>("role");
   const [messages, setMessages] = useState<ChatEntry[]>([
@@ -125,7 +127,7 @@ function OnboardingChatContent() {
   }, []);
 
   useEffect(() => {
-    router.prefetch("/dashboard");
+    router.prefetch("/dashboard/room");
   }, [router]);
 
   useEffect(() => {
@@ -279,11 +281,15 @@ function OnboardingChatContent() {
   const handleLaunch = () => {
     setActivating(true);
     playActivate();
-    window.setTimeout(() => router.push("/dashboard"), 900);
+    window.setTimeout(triggerTransition, 900);
   };
 
   return (
-    <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
+    <>
+      <AnimatePresence>
+        {transitionActive && <SceneTransition onComplete={handleComplete} />}
+      </AnimatePresence>
+      <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       <header className="flex items-center justify-between px-5 py-4 md:px-8">
         <Link href="/">
           <Wordmark size="sm" />
@@ -365,7 +371,8 @@ function OnboardingChatContent() {
           <IntakeSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} completeCount={completeCount} />
         </aside>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
 
