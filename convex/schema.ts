@@ -372,6 +372,7 @@ export default defineSchema({
     provider: v.optional(v.string()),
     company: v.optional(v.string()),
     title: v.optional(v.string()),
+    engine: v.optional(v.union(v.literal("deterministic"), v.literal("ai-fill"))),
     submitPolicy: v.union(v.literal("dry_run"), v.literal("submit")),
     llmMode: v.union(
       v.literal("off"),
