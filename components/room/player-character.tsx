@@ -7,10 +7,9 @@ import { RoundedBox, Outlines, Html } from "@react-three/drei";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { agentHomePosition } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
-import { playerActive, playerPosition } from "@/lib/room/player-position";
+import { playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
 import { useRoomStore } from "./room-store";
 
-const SPAWN: readonly [number, number, number] = [0, 0, 4.6];
 const PLAYER_BODY_HUE = "#94A3B8";
 const PLAYER_CAP_HUE = "#F97316";
 const BOUNDS = { minX: -9, maxX: 9, minZ: -1.4, maxZ: 5.6 };
@@ -49,8 +48,8 @@ function PlayerCharacterActive() {
   const legLRef = useRef<THREE.Group>(null);
   const legRRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
-  const positionRef = useRef(new THREE.Vector3(SPAWN[0], 0, SPAWN[2]));
-  const yawRef = useRef(Math.PI);
+  const positionRef = useRef(new THREE.Vector3(SPAWN_POINT[0], SPAWN_POINT[1], SPAWN_POINT[2]));
+  const yawRef = useRef(SPAWN_FACING);
   const keys = useRef<Keys>({ forward: false, back: false, left: false, right: false, interact: false });
   const palette = useMemo(() => makePalette(PLAYER_BODY_HUE), []);
 
