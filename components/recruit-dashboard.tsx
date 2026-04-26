@@ -19,6 +19,7 @@ import {
 import { isProfileUsable } from "@/lib/demo-profile";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
+import type { TemplateId } from "@/lib/resume/schema";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
@@ -59,6 +60,7 @@ function ConnectedRecruitDashboard() {
   const [detailError, setDetailError] = useState<string>();
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [templateId, setTemplateId] = useState<TemplateId>("minimalist");
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
     message: "Select an application to inspect and tailor.",
@@ -262,7 +264,7 @@ function ConnectedRecruitDashboard() {
       const response = await fetch("/api/dashboard/tailor-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: selected.jobId, profile }),
+        body: JSON.stringify({ jobId: selected.jobId, profile, templateId }),
       });
       const body = await response.json().catch(() => null) as
         | { ok: true; application: TailoredApplication; profileSource?: "browser" | "demo" }
@@ -396,16 +398,18 @@ function ConnectedRecruitDashboard() {
         </div>
 
         <div className="grid flex-1 gap-5 lg:grid-cols-2 lg:items-start">
-          <JobList
-            rows={displayRows}
-            selectedJobId={selection.selectedJobId}
-            loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-            reduceMotion={Boolean(reduceMotion)}
-            sorting={listSorting}
-            onSelect={selectRecommendation}
-          />
+          <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+            <JobList
+              rows={displayRows}
+              selectedJobId={selection.selectedJobId}
+              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+              reduceMotion={Boolean(reduceMotion)}
+              sorting={listSorting}
+              onSelect={selectRecommendation}
+            />
+          </div>
 
-          <aside className="lg:sticky lg:top-6">
+          <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selected ? (
                 <JobStatsPanel
