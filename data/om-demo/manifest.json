@@ -1,0 +1,14 @@
+{
+  "demoUserId": "om-demo",
+  "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+  "exportedAt": "2026-04-26T07:15:06.786Z",
+  "source": "Convex production snapshot",
+  "files": [
+    "dashboard-summary.json",
+    "recommendations.json",
+    "job-details.json",
+    "pipeline-logs.json",
+    "verification.json"
+  ],
+  "privacy": "Public job data plus redacted tailoring metadata. Excludes profile raw text and PDF base64."
+}
