@@ -2,7 +2,7 @@
   {
     "company": "Google DeepMind",
     "domain": "google.com",
-    "logoUrl": "https://logo.clearbit.com/google.com",
+    "logoUrl": "/company-logos/google-deepmind.png",
     "logoAlt": "Google logo",
     "brandColor": "#4285F4",
     "backgroundColor": "#EAF2FF",
@@ -24,13 +24,24 @@
       "Interview loop will likely probe distributed systems depth and production ML reliability."
     ],
     "mission": "Google DeepMind turns frontier AI research into reliable products used across Google and by external developers.",
-    "products": ["Gemini", "Vertex AI", "AlphaCode", "AI Studio"],
-    "techStack": ["JAX", "Python", "Kubernetes", "Model serving", "Evaluation pipelines"]
+    "products": [
+      "Gemini",
+      "Vertex AI",
+      "AlphaCode",
+      "AI Studio"
+    ],
+    "techStack": [
+      "JAX",
+      "Python",
+      "Kubernetes",
+      "Model serving",
+      "Evaluation pipelines"
+    ]
   },
   {
     "company": "Apple",
     "domain": "apple.com",
-    "logoUrl": "https://logo.clearbit.com/apple.com",
+    "logoUrl": "/company-logos/apple.svg",
     "logoAlt": "Apple logo",
     "brandColor": "#111827",
     "backgroundColor": "#F2F4F7",
@@ -52,13 +63,24 @@
       "Apple-specific platform APIs and on-device optimization may need ramp-up."
     ],
     "mission": "Apple Intelligence brings personal, private AI assistance into the core operating systems people use every day.",
-    "products": ["Apple Intelligence", "Siri", "Private Cloud Compute", "Core ML"],
-    "techStack": ["Swift", "Core ML", "Python", "Privacy-preserving ML", "On-device inference"]
+    "products": [
+      "Apple Intelligence",
+      "Siri",
+      "Private Cloud Compute",
+      "Core ML"
+    ],
+    "techStack": [
+      "Swift",
+      "Core ML",
+      "Python",
+      "Privacy-preserving ML",
+      "On-device inference"
+    ]
   },
   {
     "company": "NVIDIA",
     "domain": "nvidia.com",
-    "logoUrl": "https://logo.clearbit.com/nvidia.com",
+    "logoUrl": "/company-logos/nvidia.svg",
     "logoAlt": "NVIDIA logo",
     "brandColor": "#76B900",
     "backgroundColor": "#EDF8DF",
@@ -80,13 +102,24 @@
       "CUDA-level performance work may require targeted preparation."
     ],
     "mission": "NVIDIA builds accelerated computing platforms powering AI training, inference, simulation, and robotics.",
-    "products": ["CUDA", "TensorRT", "DGX Cloud", "NIM"],
-    "techStack": ["C++", "CUDA", "Python", "TensorRT", "Distributed inference"]
+    "products": [
+      "CUDA",
+      "TensorRT",
+      "DGX Cloud",
+      "NIM"
+    ],
+    "techStack": [
+      "C++",
+      "CUDA",
+      "Python",
+      "TensorRT",
+      "Distributed inference"
+    ]
   },
   {
     "company": "OpenAI",
     "domain": "openai.com",
-    "logoUrl": "https://logo.clearbit.com/openai.com",
+    "logoUrl": "/company-logos/openai.png",
     "logoAlt": "OpenAI logo",
     "brandColor": "#111827",
     "backgroundColor": "#ECEFED",
@@ -108,13 +141,24 @@
       "Bar for taste, product judgment, and AI safety tradeoffs will be high."
     ],
     "mission": "OpenAI builds useful, safe AI systems and turns frontier model capability into products people can use.",
-    "products": ["ChatGPT", "OpenAI API", "Agents SDK", "Sora"],
-    "techStack": ["TypeScript", "React", "Python", "LLM evals", "Agent orchestration"]
+    "products": [
+      "ChatGPT",
+      "OpenAI API",
+      "Agents SDK",
+      "Sora"
+    ],
+    "techStack": [
+      "TypeScript",
+      "React",
+      "Python",
+      "LLM evals",
+      "Agent orchestration"
+    ]
   },
   {
     "company": "Meta",
     "domain": "meta.com",
-    "logoUrl": "https://logo.clearbit.com/meta.com",
+    "logoUrl": "/company-logos/meta.svg",
     "logoAlt": "Meta logo",
     "brandColor": "#0668E1",
     "backgroundColor": "#E8F1FF",
@@ -136,13 +180,24 @@
       "Large-system design and cross-functional execution examples should be sharpened."
     ],
     "mission": "Meta advances social products, open AI models, and large-scale infrastructure for billions of users.",
-    "products": ["Llama", "Meta AI", "PyTorch", "FAIR tooling"],
-    "techStack": ["Hack", "Python", "PyTorch", "Recommendation systems", "Model serving"]
+    "products": [
+      "Llama",
+      "Meta AI",
+      "PyTorch",
+      "FAIR tooling"
+    ],
+    "techStack": [
+      "Hack",
+      "Python",
+      "PyTorch",
+      "Recommendation systems",
+      "Model serving"
+    ]
   },
   {
     "company": "Microsoft AI",
     "domain": "microsoft.com",
-    "logoUrl": "https://logo.clearbit.com/microsoft.com",
+    "logoUrl": "/company-logos/microsoft-ai.png",
     "logoAlt": "Microsoft logo",
     "brandColor": "#5E5E5E",
     "backgroundColor": "#EEF2F6",
@@ -164,13 +219,24 @@
       "Enterprise scale and accessibility examples should be made explicit."
     ],
     "mission": "Microsoft AI brings copilots into work, software development, operating systems, and cloud platforms.",
-    "products": ["Microsoft Copilot", "GitHub Copilot", "Azure AI", "Semantic Kernel"],
-    "techStack": ["TypeScript", "React", "C#", "Azure", "LLM orchestration"]
+    "products": [
+      "Microsoft Copilot",
+      "GitHub Copilot",
+      "Azure AI",
+      "Semantic Kernel"
+    ],
+    "techStack": [
+      "TypeScript",
+      "React",
+      "C#",
+      "Azure",
+      "LLM orchestration"
+    ]
   },
   {
     "company": "Amazon AGI",
     "domain": "amazon.com",
-    "logoUrl": "https://logo.clearbit.com/amazon.com",
+    "logoUrl": "/company-logos/amazon-agi.png",
     "logoAlt": "Amazon logo",
     "brandColor": "#FF9900",
     "backgroundColor": "#FFF4DF",
@@ -192,13 +258,24 @@
       "Applied scientist loop may require stronger experimental-methods framing."
     ],
     "mission": "Amazon AGI develops assistant systems and model capabilities for shopping, logistics, cloud, and consumer experiences.",
-    "products": ["Alexa", "Amazon Q", "Rufus", "Bedrock"],
-    "techStack": ["Python", "Retrieval", "Ranking", "Experimentation", "Distributed systems"]
+    "products": [
+      "Alexa",
+      "Amazon Q",
+      "Rufus",
+      "Bedrock"
+    ],
+    "techStack": [
+      "Python",
+      "Retrieval",
+      "Ranking",
+      "Experimentation",
+      "Distributed systems"
+    ]
   },
   {
     "company": "Anthropic",
     "domain": "anthropic.com",
-    "logoUrl": "https://logo.clearbit.com/anthropic.com",
+    "logoUrl": "/company-logos/anthropic.svg",
     "logoAlt": "Anthropic logo",
     "brandColor": "#CC785C",
     "backgroundColor": "#F5E9E2",
@@ -220,13 +297,24 @@
       "Safety and eval examples should be brought to the front of the resume."
     ],
     "mission": "Anthropic builds helpful, honest, harmless AI systems and developer products around Claude.",
-    "products": ["Claude", "Claude Code", "MCP", "Artifacts"],
-    "techStack": ["TypeScript", "React", "Python", "LLM evaluation", "Agent tools"]
+    "products": [
+      "Claude",
+      "Claude Code",
+      "MCP",
+      "Artifacts"
+    ],
+    "techStack": [
+      "TypeScript",
+      "React",
+      "Python",
+      "LLM evaluation",
+      "Agent tools"
+    ]
   },
   {
     "company": "Tesla",
     "domain": "tesla.com",
-    "logoUrl": "https://logo.clearbit.com/tesla.com",
+    "logoUrl": "/company-logos/tesla.svg",
     "logoAlt": "Tesla logo",
     "brandColor": "#E82127",
     "backgroundColor": "#FCEBEC",
@@ -248,7 +336,18 @@
       "Autonomy-specific perception and robotics depth may require focused prep."
     ],
     "mission": "Tesla builds autonomy, robotics, energy, and vehicle software deployed into physical products at global scale.",
-    "products": ["FSD", "Optimus", "Dojo", "Energy platform"],
-    "techStack": ["Python", "C++", "Data pipelines", "Computer vision", "Evaluation systems"]
+    "products": [
+      "FSD",
+      "Optimus",
+      "Dojo",
+      "Energy platform"
+    ],
+    "techStack": [
+      "Python",
+      "C++",
+      "Data pipelines",
+      "Computer vision",
+      "Evaluation systems"
+    ]
   }
 ]
