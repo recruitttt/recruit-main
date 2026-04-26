@@ -331,7 +331,7 @@ function ConnectedRecruitDashboard() {
     label: runButtonLabel(liveData?.run),
     message: runMessage ?? runGuardMessage(liveData?.run),
     error: runError ?? liveError,
-    onRunFirst3: () => void runFirstThreeSources(),
+    onRunPipeline: () => void runFirstThreeSources(),
   };
   const readyCount = boardRows.filter((row) => row.statusLabel === "Ready").length;
   const needsReviewCount = boardRows.filter((row) => row.statusLabel === "Needs review").length;
@@ -377,7 +377,7 @@ function ConnectedRecruitDashboard() {
 
           <ThinAction
             disabled={!controls.canRun || controls.busy}
-            onClick={controls.onRunFirst3}
+            onClick={controls.onRunPipeline}
             className="self-start lg:self-end"
           >
             {controls.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
