@@ -1,17 +1,9 @@
 import { createHash } from "node:crypto";
 import type { JobKeywords } from "./types";
 
-// Structural fetch signature so test fixtures and other inline
-// implementations don't have to match the full `typeof fetch` interface
-// (which now requires `preconnect` under newer DOM lib types).
-export type ResumeMatcherFetch = (
-  input: URL | RequestInfo,
-  init?: RequestInit,
-) => Promise<Response>;
-
 export type ResumeMatcherClientOptions = {
   baseUrl: string;
-  fetchFn?: ResumeMatcherFetch;
+  fetchFn?: typeof fetch;
 };
 
 export type ResumeMatcherAnalysis = {
@@ -33,7 +25,7 @@ type JsonObject = Record<string, unknown>;
 
 export class ResumeMatcherClient {
   private readonly baseUrl: string;
-  private readonly fetchFn: ResumeMatcherFetch;
+  private readonly fetchFn: typeof fetch;
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(options: ResumeMatcherClientOptions) {
