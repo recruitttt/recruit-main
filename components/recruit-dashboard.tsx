@@ -19,7 +19,7 @@ import {
 import { isProfileUsable } from "@/lib/demo-profile";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
-import type { TemplateId } from "@/lib/resume/schema";
+type TemplateId = "minimalist" | "classic" | "compact";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
