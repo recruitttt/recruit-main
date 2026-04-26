@@ -11,6 +11,7 @@ import { RoomAgents } from "./room-agents";
 import { RoomCamera } from "./room-camera";
 import { RoomFurniture } from "./room-furniture";
 import { RoomRecruiters } from "./room-recruiters";
+import { DeskHub } from "./desk-hub";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
@@ -60,6 +61,8 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
         {/* Phase C will plumb the real signed-in userId through this prop. */}
         <RoomRecruiters userId={null} />
+        {/* Phase C will plumb the real signed-in userId through DeskHub too. */}
+        <DeskHub userId={null} />
         {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows
           position={[0, 0.004, -0.4]}
