@@ -66,11 +66,16 @@ function snapshot(fields: AshbyFieldObservation[]): AshbyFormSnapshot {
 
 assert.equal(detectProviderFromUrl("https://jobs.ashbyhq.com/acme/123"), "ashby");
 assert.equal(detectProviderFromUrl("https://boards.greenhouse.io/acme/jobs/123"), "greenhouse");
+assert.equal(detectProviderFromUrl("https://jobs.lever.co/acme/11111111-1111-4111-8111-111111111111"), "lever");
 assert.equal(detectProviderFromUrl("https://example.com/jobs/123"), "generic");
 
 assert.equal(
   canonicalizeJobUrl("https://jobs.ashbyhq.com/acme/123?utm_source=x#top"),
   "https://jobs.ashbyhq.com/acme/123/application"
+);
+assert.equal(
+  canonicalizeJobUrl("https://jobs.lever.co/acme/11111111-1111-4111-8111-111111111111?utm_source=x#top"),
+  "https://jobs.lever.co/acme/11111111-1111-4111-8111-111111111111/apply"
 );
 assert.equal(
   computeApplicationIdempotencyKey({
