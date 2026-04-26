@@ -75,8 +75,33 @@ export const linkedinAdapter: IntakeAdapter<LinkedInIntakeInput> = {
     const challengePinPathOverride =
       (process.env.LINKEDIN_CHALLENGE_PIN_FILE ?? "").trim() || undefined;
     const liEnv = (process.env.LINKEDIN_LI_AT ?? "").trim() || undefined;
-    const emailEnv = (process.env.LINKEDIN_EMAIL ?? "").trim() || undefined;
-    const passwordEnv = (process.env.LINKEDIN_PASSWORD ?? "").trim() || undefined;
+    let emailEnv = (process.env.LINKEDIN_EMAIL ?? "").trim() || undefined;
+    let passwordEnv = (process.env.LINKEDIN_PASSWORD ?? "").trim() || undefined;
+
+    // Fall back to shared credentials stored in Convex env. This lets devs
+    // running locally pick up the team-shared LinkedIn account without
+    // populating their own `.env.local` — and keeps a single source of truth
+    // for the credential rotation. The query is auth-gated.
+    if (!emailEnv || !passwordEnv) {
+      try {
+        const shared = (await ctx.ctx.runQuery(
+          api.linkedinCookies.getSharedLoginCredentials,
+          {},
+        )) as { email?: string; password?: string } | null;
+        if (shared?.email && shared?.password) {
+          emailEnv = emailEnv || shared.email;
+          passwordEnv = passwordEnv || shared.password;
+        }
+      } catch (err) {
+        // Don't fail the run if the fallback query errors — just log and
+        // continue; downstream auth code will surface a clearer message if
+        // both env and cookie paths are empty.
+        console.warn(
+          "[linkedin] shared credential fallback failed:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
 
     // ---- Saved cookie from Convex ----------------------------------------
     // `linkedinCookies.byUser` no longer returns the plaintext li_at — it's
