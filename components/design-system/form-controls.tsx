@@ -196,8 +196,12 @@ export function ChoiceChip({
       )}
       style={{
         borderColor: selected ? `${color}55` : "rgba(255,255,255,0.62)",
-        background: selected ? `linear-gradient(180deg, rgba(255,255,255,0.64), ${color}18)` : "linear-gradient(180deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24))",
-        boxShadow: selected ? `inset 0 1px 0 rgba(255,255,255,0.82), 0 10px 22px ${color}10` : "inset 0 1px 0 rgba(255,255,255,0.72), 0 8px 18px rgba(15,23,42,0.04)",
+        background: selected
+          ? `linear-gradient(180deg, ${color}24, ${color}0c)`
+          : "linear-gradient(180deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24))",
+        boxShadow: selected
+          ? `inset 0 2px 4px rgba(15,23,42,0.10), inset 0 0 0 1px ${color}20`
+          : "inset 0 1px 0 rgba(255,255,255,0.72), 0 8px 18px rgba(15,23,42,0.04)",
         color: selected ? color : "#465568",
       }}
     >

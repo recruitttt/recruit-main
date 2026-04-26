@@ -11,12 +11,9 @@ import {
   Check,
   ChevronLeft,
   Clock3,
-  FileText,
   Link2,
   Mail,
   MapPin,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import { Wordmark, CompanyLogo } from "@/components/ui/logo";
@@ -33,7 +30,7 @@ import {
 import { UserMessage, TypingIndicator } from "@/components/onboarding/chat";
 import { AgentCharacter } from "@/components/onboarding/characters";
 import { onboardingMatches } from "@/lib/mock-data";
-import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
+import { playActivate, playReceive, playSend } from "@/lib/sounds";
 import { logProfileEvent, mergeProfile, readProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
 import { parseResume, scrapeAndExtract, scrapeLinkedIn } from "@/lib/scrapers";
 import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
@@ -127,7 +124,6 @@ function OnboardingChatContent() {
   const [messages, setMessages] = useState<ChatEntry[]>([
     { id: "a-role", kind: "agent", text: STEP_PROMPTS.role },
   ]);
-  const [muted, setMutedState] = useState(false);
   const [parsingResume, setParsingResume] = useState(false);
   const [typing, setTyping] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -137,11 +133,6 @@ function OnboardingChatContent() {
 
   const stepIndex = STEP_ORDER.indexOf(step);
   const totalSteps = STEP_ORDER.length;
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setMutedState(isMuted()), 0);
-    return () => window.clearTimeout(id);
-  }, []);
 
   useEffect(() => {
     router.prefetch("/dashboard/room");
@@ -219,12 +210,6 @@ function OnboardingChatContent() {
       links: { ...current.links, ...(updates.links ?? {}) },
       prefs: { ...current.prefs, ...(updates.prefs ?? {}) },
     }));
-  };
-
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
   };
 
   const toggleRole = (role: string) => {
@@ -345,15 +330,6 @@ function OnboardingChatContent() {
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
               {completeCount} saved
             </span>
-            <ActionButton
-              variant="ghost"
-              size="icon"
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-              title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-            >
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </ActionButton>
             <Link href="/" aria-label="Close">
               <ActionButton variant="ghost" size="icon">
                 <X className="h-4 w-4" />
@@ -370,10 +346,10 @@ function OnboardingChatContent() {
         />
       </header>
 
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pt-6 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0">
-          <GlassCard density="spacious" className="flex h-[calc(100vh-172px)] min-h-[600px] flex-col">
-            <div className="mb-5 flex items-start gap-4 border-b border-white/45 pb-5">
+          <GlassCard density="spacious" className="flex h-[calc(100vh-196px)] min-h-[600px] flex-col">
+            <div className="mb-6 flex items-start gap-4 border-b border-white/45 pb-6">
               <AgentCharacter id="scout" awake size={52} />
               <div className="min-w-0">
                 <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
@@ -568,7 +544,7 @@ function StepCard({
 
   if (step === "resume") {
     return (
-      <ChatCard icon={<FileText className="h-4 w-4 text-sky-600" />}>
+      <div className="mt-2">
         <FileUploadControl
           fileName={data.resumeFilename || undefined}
           parsing={parsingResume}
@@ -582,7 +558,7 @@ function StepCard({
           className="hidden"
           onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
         />
-      </ChatCard>
+      </div>
     );
   }
 
