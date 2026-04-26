@@ -40,6 +40,12 @@ export type Application = {
   logoText: string;
 };
 
+const MOCK_NOW = "2026-04-25T19:00:00.000Z";
+const minutesAgo = (minutes: number) =>
+  new Date(Date.parse(MOCK_NOW) - minutes * 60_000).toISOString();
+const secondsAgo = (seconds: number) =>
+  new Date(Date.parse(MOCK_NOW) - seconds * 1000).toISOString();
+
 export const mockApplications: Application[] = [
   {
     id: "app_anthropic_swe",
@@ -50,8 +56,8 @@ export const mockApplications: Application[] = [
     stage: "submitted",
     matchScore: 94,
     tailoringScore: 91,
-    startedAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-    lastEventAt: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
+    startedAt: minutesAgo(18),
+    lastEventAt: minutesAgo(4),
     salaryRange: "$210k – $290k",
     jobUrl: "https://jobs.ashbyhq.com/anthropic/swe-product",
     logoBg: "#d97757",
@@ -66,8 +72,8 @@ export const mockApplications: Application[] = [
     stage: "submitting",
     matchScore: 89,
     tailoringScore: 87,
-    startedAt: new Date(Date.now() - 1000 * 60 * 9).toISOString(),
-    lastEventAt: new Date(Date.now() - 1000 * 22).toISOString(),
+    startedAt: minutesAgo(9),
+    lastEventAt: secondsAgo(22),
     salaryRange: "$180k – $240k",
     jobUrl: "https://jobs.ashbyhq.com/linear/design-engineer",
     logoBg: "#5e6ad2",
@@ -82,8 +88,8 @@ export const mockApplications: Application[] = [
     stage: "reviewing",
     matchScore: 92,
     tailoringScore: 88,
-    startedAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
-    lastEventAt: new Date(Date.now() - 1000 * 14).toISOString(),
+    startedAt: minutesAgo(6),
+    lastEventAt: secondsAgo(14),
     salaryRange: "$200k – $260k",
     jobUrl: "https://jobs.ashbyhq.com/vercel/product-engineer",
     logoBg: "#000000",
@@ -98,8 +104,8 @@ export const mockApplications: Application[] = [
     stage: "tailoring",
     matchScore: 86,
     tailoringScore: 0,
-    startedAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
-    lastEventAt: new Date(Date.now() - 1000 * 8).toISOString(),
+    startedAt: minutesAgo(3),
+    lastEventAt: secondsAgo(8),
     salaryRange: "$220k – $300k",
     jobUrl: "https://jobs.ashbyhq.com/perplexity/senior-frontend",
     logoBg: "#1d4944",
@@ -114,8 +120,8 @@ export const mockApplications: Application[] = [
     stage: "queued",
     matchScore: 84,
     tailoringScore: 0,
-    startedAt: new Date(Date.now() - 1000 * 60 * 1).toISOString(),
-    lastEventAt: new Date(Date.now() - 1000 * 30).toISOString(),
+    startedAt: minutesAgo(1),
+    lastEventAt: secondsAgo(30),
     salaryRange: "$160k – $220k",
     jobUrl: "https://jobs.ashbyhq.com/supabase/fullstack",
     logoBg: "#3ecf8e",
@@ -177,7 +183,7 @@ export const mockDLQItems: DLQItem[] = [
       "Free-form long-answer field. The agent has no cached answer and the question is too specific to infer from your resume.",
     suggestedAnswer:
       "Draft from your GitHub: the rails-to-next migration on /repos/mo/orbit. Want me to expand?",
-    raisedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
+    raisedAt: minutesAgo(8),
   },
   {
     id: "dlq_2",
@@ -189,7 +195,7 @@ export const mockDLQItems: DLQItem[] = [
     context:
       "Required date field. We never guess sensitive timing facts. Your answer will be cached for every future Ashby application.",
     suggestedAnswer: "Suggest: 4 weeks from offer.",
-    raisedAt: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
+    raisedAt: minutesAgo(22),
   },
   {
     id: "dlq_3",
@@ -199,7 +205,7 @@ export const mockDLQItems: DLQItem[] = [
     type: "unanswerable_question",
     question: "Are you comfortable being on-call once per quarter?",
     context: "Yes/No field. Conservative posture: we never say yes on your behalf.",
-    raisedAt: new Date(Date.now() - 1000 * 60 * 41).toISOString(),
+    raisedAt: minutesAgo(41),
   },
   {
     id: "dlq_4",
@@ -209,7 +215,7 @@ export const mockDLQItems: DLQItem[] = [
     type: "submission_error",
     context:
       "Browserbase session timed out at the final submit step. Form state is preserved, retry will resume from PreSubmitDiscovery.",
-    raisedAt: new Date(Date.now() - 1000 * 60 * 64).toISOString(),
+    raisedAt: minutesAgo(64),
   },
 ];
 
@@ -228,7 +234,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_linear_design_eng",
     company: "Linear",
     text: "Submit-readiness gate passed. Submitting…",
-    timestamp: new Date(Date.now() - 1000 * 18).toISOString(),
+    timestamp: secondsAgo(18),
     kind: "submit",
   },
   {
@@ -236,7 +242,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_vercel_pe",
     company: "Vercel",
     text: "Reused 7 cached answers from prior Ashby runs.",
-    timestamp: new Date(Date.now() - 1000 * 34).toISOString(),
+    timestamp: secondsAgo(34),
     kind: "cache",
   },
   {
@@ -244,7 +250,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_vercel_pe",
     company: "Vercel",
     text: "3-persona review complete. Tailoring score 88.",
-    timestamp: new Date(Date.now() - 1000 * 52).toISOString(),
+    timestamp: secondsAgo(52),
     kind: "review",
   },
   {
@@ -252,7 +258,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_perplexity_fe",
     company: "Perplexity",
     text: "Tailoring resume against JD: emphasizing realtime + perf work.",
-    timestamp: new Date(Date.now() - 1000 * 71).toISOString(),
+    timestamp: secondsAgo(71),
     kind: "tailor",
   },
   {
@@ -260,7 +266,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_supabase_swe",
     company: "Supabase",
     text: "Discovered job at jobs.ashbyhq.com/supabase/fullstack. Queued.",
-    timestamp: new Date(Date.now() - 1000 * 95).toISOString(),
+    timestamp: secondsAgo(95),
     kind: "discover",
   },
   {
@@ -268,7 +274,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_anthropic_swe",
     company: "Anthropic",
     text: "Submission classified as Confirmed. Run grade: A.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
+    timestamp: minutesAgo(4),
     kind: "submit",
   },
   {
@@ -276,7 +282,7 @@ export const mockActivityFeed: ActivityEvent[] = [
     applicationId: "app_linear_design_eng",
     company: "Linear",
     text: "Filled 14 of 14 mapped questions. Verifying values…",
-    timestamp: new Date(Date.now() - 1000 * 60 * 1).toISOString(),
+    timestamp: minutesAgo(1),
     kind: "fill",
   },
 ];
