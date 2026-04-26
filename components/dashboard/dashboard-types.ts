@@ -41,6 +41,10 @@ export type LiveRunSummary = {
   tailoringTargetCount?: number;
   tailoringInProgress?: boolean;
   hasCompletedTailoring?: boolean;
+  appliedCount?: number;
+  appliedAttemptedCount?: number;
+  appliedTargetCount?: number;
+  applyInProgress?: boolean;
   recommendations?: LiveRecommendation[];
 };
 

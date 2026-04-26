@@ -20,6 +20,7 @@ import { isProfileUsable } from "@/lib/demo-profile";
 import { resolveCompanyLogoAsset } from "@/lib/company-logos";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
+type TemplateId = "minimalist" | "classic" | "compact";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
@@ -60,6 +61,7 @@ function ConnectedRecruitDashboard() {
   const [detailError, setDetailError] = useState<string>();
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [templateId, setTemplateId] = useState<TemplateId>("minimalist");
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
     message: "Select an application to inspect and tailor.",
@@ -263,7 +265,7 @@ function ConnectedRecruitDashboard() {
       const response = await fetch("/api/dashboard/tailor-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: selected.jobId, profile }),
+        body: JSON.stringify({ jobId: selected.jobId, profile, templateId }),
       });
       const body = await response.json().catch(() => null) as
         | { ok: true; application: TailoredApplication; profileSource?: "browser" | "demo" }
@@ -329,7 +331,7 @@ function ConnectedRecruitDashboard() {
     label: runButtonLabel(liveData?.run),
     message: runMessage ?? runGuardMessage(liveData?.run),
     error: runError ?? liveError,
-    onRunFirst3: () => void runFirstThreeSources(),
+    onRunPipeline: () => void runFirstThreeSources(),
   };
   const readyCount = boardRows.filter((row) => row.statusLabel === "Ready").length;
   const needsReviewCount = boardRows.filter((row) => row.statusLabel === "Needs review").length;
@@ -375,7 +377,7 @@ function ConnectedRecruitDashboard() {
 
           <ThinAction
             disabled={!controls.canRun || controls.busy}
-            onClick={controls.onRunFirst3}
+            onClick={controls.onRunPipeline}
             className="self-start lg:self-end"
           >
             {controls.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -397,16 +399,18 @@ function ConnectedRecruitDashboard() {
         </div>
 
         <div className="grid flex-1 gap-5 lg:grid-cols-2 lg:items-start">
-          <JobList
-            rows={displayRows}
-            selectedJobId={selection.selectedJobId}
-            loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-            reduceMotion={Boolean(reduceMotion)}
-            sorting={listSorting}
-            onSelect={selectRecommendation}
-          />
+          <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+            <JobList
+              rows={displayRows}
+              selectedJobId={selection.selectedJobId}
+              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+              reduceMotion={Boolean(reduceMotion)}
+              sorting={listSorting}
+              onSelect={selectRecommendation}
+            />
+          </div>
 
-          <aside className="lg:sticky lg:top-6">
+          <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selected ? (
                 <JobStatsPanel
