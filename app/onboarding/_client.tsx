@@ -223,7 +223,7 @@ export function OnboardingClient() {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages, typing, step, activating]);
+  }, [messages, typing, step]);
 
   useEffect(() => {
     if (!userId) return;
@@ -646,7 +646,7 @@ export function OnboardingClient() {
                   ),
                 )}
                 {typing && <TypingIndicator from="scout" />}
-                {!typing && !activating && (
+                {!typing && (
                   <div className="pl-11">
                     <AnimatePresence mode="wait">
                       <motion.div
@@ -717,7 +717,6 @@ export function OnboardingClient() {
                     </AnimatePresence>
                   </div>
                 )}
-                {activating && <ActivationOrbit />}
               </div>
             </div>
           </GlassCard>
@@ -739,6 +738,23 @@ export function OnboardingClient() {
           <TrustRow />
         </aside>
       </div>
+
+      <AnimatePresence>
+        {activating && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-white/70 px-5 backdrop-blur-xl"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.2,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <ActivationOrbit />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScoutDock userId={userId} surface="onboarding" />
     </main>
