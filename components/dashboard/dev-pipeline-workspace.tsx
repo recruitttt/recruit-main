@@ -423,15 +423,25 @@ function resumeText(value: unknown): string {
   if (!value || typeof value !== "object") return "No tailored resume yet.";
   const resume = value as TailoredApplication["tailoredResume"];
   return [
-    resume.headline,
-    resume.summary,
-    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : "",
     resume.experience?.length
-      ? resume.experience
+      ? `Experience:\n${resume.experience
           .map((item) => `${item.title} · ${item.company}\n- ${item.bullets.join("\n- ")}`)
-          .join("\n\n")
+          .join("\n\n")}`
       : "",
-    resume.coverLetterBlurb ? `Why this role:\n${resume.coverLetterBlurb}` : "",
+    resume.education?.length
+      ? `Education:\n${resume.education
+          .map((item) => [item.school, item.degree, item.field].filter(Boolean).join(" · "))
+          .join("\n")}`
+      : "",
+    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : "",
+    resume.projects?.length
+      ? `Projects:\n${resume.projects
+          .map((item) => `${item.name}\n- ${item.bullets.join("\n- ")}`)
+          .join("\n\n")}`
+      : "",
+    resume.tailoringNotes?.qualityIssues?.length
+      ? `Quality checks:\n- ${resume.tailoringNotes.qualityIssues.join("\n- ")}`
+      : "",
   ].filter(Boolean).join("\n\n");
 }
 
