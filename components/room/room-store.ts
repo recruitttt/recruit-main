@@ -3,7 +3,10 @@
 import { create } from "zustand";
 import type { AgentId } from "@/lib/agents";
 import { mergeProfile, readProfile, type UserProfile } from "@/lib/profile";
+import type { PipelineEvent } from "@/lib/room/use-pipeline-events";
 import type { StationId } from "@/lib/room/stations";
+
+const PIPELINE_EVENT_TTL_MS = 30_000;
 
 export type CameraMode = "overview" | "focus";
 
@@ -50,6 +53,8 @@ type RoomState = {
   playerMode: PlayerMode;
   playerNearestAgentId: AgentId | null;
   chatMode: ChatMode;
+  pipelineEvents: PipelineEvent[];
+  pushEvent: (event: PipelineEvent) => void;
   setSelected: (id: AgentId | null) => void;
   setHovered: (id: AgentId | null) => void;
   setHoveredObject: (key: string | null) => void;
@@ -127,6 +132,14 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   intakeMessages: [],
   intakePending: false,
   intakeError: null,
+  pipelineEvents: [],
+  pushEvent: (event) => {
+    const now = Date.now();
+    const cutoff = now - PIPELINE_EVENT_TTL_MS;
+    set((s) => ({
+      pipelineEvents: [...s.pipelineEvents.filter((e) => e.at >= cutoff), event],
+    }));
+  },
   setSelected: (id) => {
     if (get().intakePhase !== "inactive") return;
     set({

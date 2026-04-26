@@ -19,28 +19,90 @@ export type AgentTask = {
   rank: number;
 };
 
+export type IngestionStatus = "idle" | "fetching" | "ranking" | "completed" | "failed";
+
+export type IngestionState = {
+  status: IngestionStatus;
+  fetchedCount: number;
+  survivorCount: number;
+  llmScoredCount: number;
+  recommendedCount: number;
+};
+
+export type TailoringJob = {
+  company: string;
+  role: string;
+  rank: number;
+  matchScore?: number;
+};
+
+export type TailoringState = {
+  inProgress: boolean;
+  completed: number;
+  target: number;
+  jobs: TailoringJob[];
+};
+
+export type SubmissionsState = {
+  byStatus: Partial<Record<string, number>>;
+};
+
+export type FollowUpsState = {
+  applicationCount: number;
+  appliedCount: number;
+  interviewCount: number;
+  offerCount: number;
+};
+
 export type LiveRoom = {
   byAgent: Partial<Record<AgentId, AgentTask>>;
   isBusy: boolean;
   hasData: boolean;
+  ingestion: IngestionState;
+  tailoring: TailoringState;
+  submissions: SubmissionsState;
+  followUps: FollowUpsState;
+};
+
+type LiveRunSummary = {
+  status?: string;
+  tailoringInProgress?: boolean;
+  tailoredCount?: number;
+  tailoringTargetCount?: number;
+  fetchedCount?: number;
+  survivorCount?: number;
+  llmScoredCount?: number;
+  recommendedCount?: number;
+};
+
+type LiveRecommendation = {
+  rank: number;
+  company: string;
+  title: string;
+  location?: string;
+  jobUrl?: string;
+  totalScore?: number;
+  llmScore?: number;
+  score?: number;
+};
+
+type FollowUpsSummary = {
+  applications?: ReadonlyArray<{ status?: string }>;
+  counts?: {
+    applications?: number;
+    applied?: number;
+    interviews?: number;
+    responses?: number;
+    rejectedClosed?: number;
+    due?: number;
+  };
 };
 
 type LiveResponse = {
-  run?: {
-    status?: string;
-    tailoringInProgress?: boolean;
-    tailoredCount?: number;
-    tailoringTargetCount?: number;
-  } | null;
-  recommendations?: Array<{
-    rank: number;
-    company: string;
-    title: string;
-    location?: string;
-    jobUrl?: string;
-    totalScore?: number;
-    llmScore?: number;
-  }> | null;
+  run?: LiveRunSummary | null;
+  recommendations?: LiveRecommendation[] | null;
+  logs?: unknown;
+  followUps?: FollowUpsSummary | null;
 };
 
 type LiveStore = {
@@ -165,7 +227,7 @@ const initialsFor = (company: string): string => {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 };
 
-function deriveStage(run: LiveResponse["run"], rank: number): Stage {
+function deriveStage(run: LiveRunSummary | null | undefined, rank: number): Stage {
   if (!run) return "queued";
   const tailored = run.tailoredCount ?? 0;
   const target = run.tailoringTargetCount ?? 0;
@@ -179,7 +241,114 @@ function deriveStage(run: LiveResponse["run"], rank: number): Stage {
   return "queued";
 }
 
-const EMPTY: LiveRoom = { byAgent: {}, isBusy: false, hasData: false };
+const KNOWN_INGESTION_STATUSES: ReadonlySet<IngestionStatus> = new Set([
+  "idle",
+  "fetching",
+  "ranking",
+  "completed",
+  "failed",
+]);
+
+function normalizeIngestionStatus(raw: string | undefined): IngestionStatus {
+  if (!raw) return "idle";
+  if (KNOWN_INGESTION_STATUSES.has(raw as IngestionStatus)) return raw as IngestionStatus;
+  // Unknown statuses (e.g. "started", "fetched") map to "fetching" if mid-pipeline,
+  // otherwise treat as idle so we don't overstate progress.
+  if (raw === "started" || raw === "fetched") return "fetching";
+  return "idle";
+}
+
+const EMPTY_INGESTION: IngestionState = {
+  status: "idle",
+  fetchedCount: 0,
+  survivorCount: 0,
+  llmScoredCount: 0,
+  recommendedCount: 0,
+};
+
+const EMPTY_TAILORING: TailoringState = {
+  inProgress: false,
+  completed: 0,
+  target: 0,
+  jobs: [],
+};
+
+const EMPTY_SUBMISSIONS: SubmissionsState = { byStatus: {} };
+
+const EMPTY_FOLLOW_UPS: FollowUpsState = {
+  applicationCount: 0,
+  appliedCount: 0,
+  interviewCount: 0,
+  offerCount: 0,
+};
+
+const EMPTY: LiveRoom = {
+  byAgent: {},
+  isBusy: false,
+  hasData: false,
+  ingestion: EMPTY_INGESTION,
+  tailoring: EMPTY_TAILORING,
+  submissions: EMPTY_SUBMISSIONS,
+  followUps: EMPTY_FOLLOW_UPS,
+};
+
+function buildIngestion(run: LiveRunSummary | null | undefined): IngestionState {
+  if (!run) return EMPTY_INGESTION;
+  return {
+    status: normalizeIngestionStatus(run.status),
+    fetchedCount: run.fetchedCount ?? 0,
+    survivorCount: run.survivorCount ?? 0,
+    llmScoredCount: run.llmScoredCount ?? 0,
+    recommendedCount: run.recommendedCount ?? 0,
+  };
+}
+
+function buildTailoring(
+  run: LiveRunSummary | null | undefined,
+  recommendations: LiveRecommendation[]
+): TailoringState {
+  const jobs: TailoringJob[] = recommendations.map((rec) => ({
+    company: rec.company,
+    role: rec.title,
+    rank: rec.rank,
+    matchScore: typeof rec.totalScore === "number"
+      ? Math.round(rec.totalScore)
+      : typeof rec.score === "number"
+        ? Math.round(rec.score)
+        : undefined,
+  }));
+  return {
+    inProgress: Boolean(run?.tailoringInProgress),
+    completed: run?.tailoredCount ?? 0,
+    target: run?.tailoringTargetCount ?? 0,
+    jobs,
+  };
+}
+
+function buildSubmissions(followUps: FollowUpsSummary | null | undefined): SubmissionsState {
+  const apps = followUps?.applications;
+  if (!Array.isArray(apps) || apps.length === 0) return EMPTY_SUBMISSIONS;
+  const byStatus: Record<string, number> = {};
+  for (const app of apps) {
+    const status = typeof app.status === "string" ? app.status : "unknown";
+    byStatus[status] = (byStatus[status] ?? 0) + 1;
+  }
+  return { byStatus };
+}
+
+function buildFollowUps(followUps: FollowUpsSummary | null | undefined): FollowUpsState {
+  const counts = followUps?.counts;
+  if (!counts) return EMPTY_FOLLOW_UPS;
+  // `offer` isn't in the API counts, so derive it from applications array.
+  const apps = followUps?.applications ?? [];
+  const offerCount = apps.filter((app) => app.status === "offer").length;
+  return {
+    applicationCount: counts.applications ?? 0,
+    appliedCount: counts.applied ?? 0,
+    interviewCount: counts.interviews ?? 0,
+    offerCount,
+  };
+}
 
 export function useLiveRoom(): LiveRoom {
   const data = useLiveStore((s) => s.data);
@@ -193,10 +362,30 @@ export function useLiveRoom(): LiveRoom {
   }, [retain, release]);
 
   return useMemo<LiveRoom>(() => {
-    if (!data || !data.recommendations || data.recommendations.length === 0) {
-      return { ...EMPTY, hasData };
+    if (!data) return { ...EMPTY, hasData };
+
+    const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+    const run = data.run ?? null;
+    const followUps = data.followUps ?? null;
+
+    const ingestion = buildIngestion(run);
+    const tailoring = buildTailoring(run, recommendations);
+    const submissions = buildSubmissions(followUps);
+    const followUpsState = buildFollowUps(followUps);
+
+    if (recommendations.length === 0) {
+      return {
+        ...EMPTY,
+        hasData,
+        ingestion,
+        tailoring,
+        submissions,
+        followUps: followUpsState,
+        isBusy: isBusyResponse(data),
+      };
     }
-    const recs = data.recommendations.slice(0, AGENT_ORDER.length);
+
+    const recs = recommendations.slice(0, AGENT_ORDER.length);
     const byAgent: Partial<Record<AgentId, AgentTask>> = {};
     recs.forEach((rec, idx) => {
       const agentId = AGENT_ORDER[idx];
@@ -205,7 +394,7 @@ export function useLiveRoom(): LiveRoom {
       byAgent[agentId] = {
         company: rec.company,
         role: rec.title,
-        stage: deriveStage(data.run, idx),
+        stage: deriveStage(run, idx),
         jobUrl: rec.jobUrl,
         matchScore: typeof rec.totalScore === "number" ? Math.round(rec.totalScore) : undefined,
         tailoringScore: typeof rec.llmScore === "number" ? Math.round(rec.llmScore) : undefined,
@@ -216,6 +405,15 @@ export function useLiveRoom(): LiveRoom {
         rank: rec.rank,
       };
     });
-    return { byAgent, isBusy: isBusyResponse(data), hasData: true };
+
+    return {
+      byAgent,
+      isBusy: isBusyResponse(data),
+      hasData: true,
+      ingestion,
+      tailoring,
+      submissions,
+      followUps: followUpsState,
+    };
   }, [data, hasData]);
 }
