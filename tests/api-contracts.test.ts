@@ -179,7 +179,11 @@ await withEnvAsync({ DASHBOARD_DATA_SOURCE: undefined, NEXT_PUBLIC_CONVEX_URL: u
   assert.equal((replayJson.ingestion as { runId?: string }).runId, "m973fa2ppmrpg4fxwz5kwdjzq185jszp");
   assert.equal((replayJson.fixture as { source?: string }).source, "data/om-demo");
 
-  const liveJson = await assertJsonResponse(await getDashboardLive(), 200, {});
+  const liveJson = await assertJsonResponse(
+    await getDashboardLive(new Request("http://test.local/api/dashboard/live")),
+    200,
+    {}
+  );
   assert.equal((liveJson.recommendations as unknown[]).length, 100);
   assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
   const firstRecommendation = (liveJson.recommendations as Array<{

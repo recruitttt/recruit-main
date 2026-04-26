@@ -1666,7 +1666,7 @@ async function fetchAshbyBoard(slug: string): Promise<{ jobs?: AshbyApiJob[] }> 
   return (await res.json()) as { jobs?: AshbyApiJob[] };
 }
 
-function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string) {
+function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string): NormalizedAtsJob | null {
   const title = job.title?.trim();
   const jobUrl = job.jobUrl?.trim();
   if (!title || !jobUrl) return null;
