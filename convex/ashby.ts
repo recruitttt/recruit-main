@@ -73,7 +73,10 @@ export const startOnboardingPipeline = mutation({
   args: {
     demoUserId: v.optional(v.string()),
     profile: v.any(),
+    mode: v.optional(v.union(v.literal("ashby"), v.literal("mixed"))),
     limitSources: v.optional(v.number()),
+    targetJobs: v.optional(v.number()),
+    maxJobs: v.optional(v.number()),
     tailorLimit: v.optional(v.number()),
   },
   returns: v.object({
@@ -85,7 +88,10 @@ export const startOnboardingPipeline = mutation({
   handler: async (ctx, args) => {
     const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = new Date().toISOString();
+    const mode = args.mode ?? "ashby";
     const limitSources = args.limitSources ?? 3;
+    const targetJobs = args.targetJobs ?? 150;
+    const maxJobs = args.maxJobs ?? 175;
     const tailorLimit = args.tailorLimit ?? 3;
     const profile = normalizeConvexObjectKeys(args.profile);
     const existing = await ctx.db
@@ -105,10 +111,10 @@ export const startOnboardingPipeline = mutation({
 
     const runId = await ctx.db.insert("ingestionRuns", {
       demoUserId,
-      provider: "ashby",
+      provider: mode === "mixed" ? "mixed" : "ashby",
       status: "fetching",
       startedAt: now,
-      sourceCount: limitSources,
+      sourceCount: mode === "mixed" ? 0 : limitSources,
       fetchedCount: 0,
       rawJobCount: 0,
       filteredCount: 0,
@@ -133,15 +139,18 @@ export const startOnboardingPipeline = mutation({
       runId,
       stage: "queue",
       level: "info",
-      message: `Started async onboarding pipeline. Tailoring top ${tailorLimit} jobs in the background.`,
-      payload: { limitSources, tailorLimit },
+      message: `Started async ${mode} onboarding pipeline. Tailoring top ${tailorLimit} jobs in the background.`,
+      payload: { mode, limitSources, targetJobs, maxJobs, tailorLimit },
       createdAt: now,
     });
 
     await ctx.scheduler.runAfter(0, anyApi.ashbyActions.runOnboardingPipeline, {
       demoUserId,
       runId,
+      mode,
       limitSources,
+      targetJobs,
+      maxJobs,
       tailorLimit,
     });
 
@@ -191,6 +200,7 @@ export const latestIngestionRunSummary = query({
     const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
     const tailoringInProgress = run.status !== "failed" &&
       (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
+    const applyMetrics = await collectApplyMetrics(ctx, run._id, tailoringTargetCount);
 
     return {
       ...run,
@@ -201,6 +211,7 @@ export const latestIngestionRunSummary = query({
       tailoringTargetCount,
       tailoringInProgress,
       hasCompletedTailoring: tailoredCount > 0,
+      ...applyMetrics,
     };
   },
 });
@@ -234,6 +245,7 @@ export const ingestionRunSummary = query({
     const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
     const tailoringInProgress = run.status !== "failed" &&
       (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
+    const applyMetrics = await collectApplyMetrics(ctx, run._id, tailoringTargetCount);
 
     return {
       ...run,
@@ -243,9 +255,37 @@ export const ingestionRunSummary = query({
       tailoringTargetCount,
       tailoringInProgress,
       hasCompletedTailoring: tailoredCount > 0,
+      ...applyMetrics,
     };
   },
 });
+
+async function collectApplyMetrics(
+  ctx: { db: { query: (table: string) => any } },
+  ingestionRunId: any,
+  tailoringTargetCount: number,
+): Promise<{
+  appliedCount: number;
+  appliedAttemptedCount: number;
+  appliedTargetCount: number;
+  applyInProgress: boolean;
+}> {
+  const fillRuns = await ctx.db
+    .query("ashbyFormFillRuns")
+    .withIndex("by_ingestion_run", (q: any) => q.eq("ingestionRunId", ingestionRunId))
+    .collect() as Array<{ status?: string; outcome?: string; submitCompleted?: boolean }>;
+  const appliedAttemptedCount = fillRuns.length;
+  const appliedCount = fillRuns.filter(
+    (row) => row.outcome === "confirmed" || row.submitCompleted === true,
+  ).length;
+  const applyInProgress = fillRuns.some((row) => row.status === "running");
+  return {
+    appliedCount,
+    appliedAttemptedCount,
+    appliedTargetCount: tailoringTargetCount,
+    applyInProgress,
+  };
+}
 
 export const listRecommendationsForRun = internalQuery({
   args: { runId: v.id("ingestionRuns") },
@@ -642,6 +682,7 @@ export const createAshbyFormFillRun = internalMutation({
   args: {
     demoUserId: v.optional(v.string()),
     jobId: v.optional(v.id("ingestedJobs")),
+    ingestionRunId: v.optional(v.id("ingestionRuns")),
     targetUrl: v.string(),
     organizationSlug: v.optional(v.string()),
     profileIdentity: v.any(),
@@ -653,6 +694,7 @@ export const createAshbyFormFillRun = internalMutation({
     return await ctx.db.insert("ashbyFormFillRuns", omitUndefined({
       demoUserId,
       jobId: args.jobId,
+      ingestionRunId: args.ingestionRunId,
       targetUrl: args.targetUrl,
       organizationSlug: args.organizationSlug,
       status: "running",
@@ -915,6 +957,7 @@ export const createIngestionRun = internalMutation({
         v.literal("ashby"),
         v.literal("greenhouse"),
         v.literal("lever"),
+        v.literal("mixed"),
         v.literal("workday"),
         v.literal("workable")
       )
@@ -1015,20 +1058,60 @@ export const storeFetchedJobs = internalMutation({
 });
 
 export const getRunForRanking = internalQuery({
-  args: { runId: v.id("ingestionRuns"), demoUserId: v.optional(v.string()) },
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+    userId: v.optional(v.string()),
+  },
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
     const run = await ctx.db.get(args.runId);
-    const profile = await ctx.db
-      .query("demoProfiles")
-      .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
-      .unique();
+
+    let rawProfile: unknown = null;
+    let repoSummaries: Array<{ repoFullName: string; summary: unknown }> = [];
+    let profileSource: "userProfiles" | "demoProfiles" | null = null;
+
+    if (args.userId) {
+      const userId = args.userId;
+      const userProfileRow = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      if (userProfileRow?.profile) {
+        rawProfile = userProfileRow.profile;
+        profileSource = "userProfiles";
+        const repoRows = await ctx.db
+          .query("repoSummaries")
+          .withIndex("by_user_repo", (q) => q.eq("userId", userId))
+          .take(50);
+        repoSummaries = repoRows.map((row) => ({
+          repoFullName: row.repoFullName,
+          summary: row.summary,
+        }));
+      }
+    }
+
+    if (!rawProfile) {
+      const demoRow = await ctx.db
+        .query("demoProfiles")
+        .withIndex("by_demo_user", (q) => q.eq("demoUserId", demoUserId))
+        .unique();
+      rawProfile = demoRow?.profile ?? null;
+      if (rawProfile) profileSource = "demoProfiles";
+    }
+
     const jobs = await ctx.db
       .query("ingestedJobs")
       .withIndex("by_run", (q) => q.eq("runId", args.runId))
       .collect();
-    return { run, profile: profile?.profile ?? {}, jobs };
+    return {
+      run,
+      profile: rawProfile ?? {},
+      repoSummaries,
+      profileSource,
+      jobs,
+    };
   },
 });
 
@@ -1087,14 +1170,18 @@ export const writeRankingResults = internalMutation({
 
     const now = new Date().toISOString();
     for (const decision of args.decisions) {
-      await ctx.db.insert("jobFilterDecisions", {
-        runId: args.runId,
-        jobId: decision.jobId,
-        status: decision.status,
-        reasons: decision.reasons,
-        ruleScore: decision.ruleScore,
-        createdAt: now,
-      });
+      await ctx.db.insert(
+        "jobFilterDecisions",
+        omitUndefined({
+          runId: args.runId,
+          jobId: decision.jobId,
+          status: decision.status,
+          reasons: decision.reasons,
+          softSignals: decision.softSignals,
+          ruleScore: decision.ruleScore,
+          createdAt: now,
+        })
+      );
     }
 
     for (const score of args.scores) {
@@ -1193,6 +1280,10 @@ export const upsertTailoredApplication = mutation({
     job: v.any(),
     research: v.optional(v.any()),
     tailoredResume: v.optional(v.any()),
+    jsonResume: v.optional(v.any()),
+    templateId: v.optional(v.string()),
+    consolidatorVersion: v.optional(v.string()),
+    pipelineVersion: v.optional(v.string()),
     tailoringScore: v.optional(v.number()),
     keywordCoverage: v.optional(v.number()),
     durationMs: v.optional(v.number()),
@@ -1221,6 +1312,10 @@ export const upsertTailoredApplication = mutation({
       job: args.job,
       research: args.research,
       tailoredResume: args.tailoredResume,
+      jsonResume: args.jsonResume,
+      templateId: args.templateId,
+      consolidatorVersion: args.consolidatorVersion,
+      pipelineVersion: args.pipelineVersion,
       tailoringScore: args.tailoringScore,
       keywordCoverage: args.keywordCoverage,
       durationMs: args.durationMs,
@@ -1485,7 +1580,7 @@ export const markRunFailed = internalMutation({
   },
 });
 
-type RunProvider = "ashby" | "greenhouse" | "lever" | "workday" | "workable";
+type RunProvider = "ashby" | "greenhouse" | "lever" | "mixed" | "workday" | "workable";
 
 const DASHBOARD_STALE_RUN_MS = 20 * 60 * 1000;
 
@@ -1509,11 +1604,12 @@ async function preferredDashboardRun(ctx: any, demoUserId: string) {
   }
 
   const latest = classified[0];
+  const latestMixed = classified.find((item) => item.provider === "mixed");
   const latestCompletedAshby = classified.find((item) =>
     item.provider === "ashby" && item.run.status === "completed"
   );
   const latestAshby = classified.find((item) => item.provider === "ashby");
-  const selected = latestCompletedAshby ?? latestAshby ?? latest;
+  const selected = latestMixed ?? latestCompletedAshby ?? latestAshby ?? latest;
 
   return {
     run: selected.run,
@@ -1554,7 +1650,7 @@ async function inferRunProvider(ctx: any, run: any): Promise<RunProvider | undef
 
 function isRunProvider(value: unknown): value is RunProvider {
   return typeof value === "string" &&
-    ["ashby", "greenhouse", "lever", "workday", "workable"].includes(value);
+    ["ashby", "greenhouse", "lever", "mixed", "workday", "workable"].includes(value);
 }
 
 function decorateRunForDashboard(run: any, provider: RunProvider | undefined) {
