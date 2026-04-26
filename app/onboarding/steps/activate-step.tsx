@@ -9,34 +9,40 @@ import type { Data, LaunchStage } from "@/app/onboarding/_data";
 
 export function ActivateStepCard({
   data,
+  accountEmail,
   selectedRoles,
   linkCount,
   onMergeFinalProfile,
   onLaunch,
 }: {
   data: Data;
+  accountEmail?: string;
   selectedRoles: string[];
   linkCount: number;
   onMergeFinalProfile: () => void;
   onLaunch: () => void;
 }) {
   const hasConvex = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL);
+  const canConfirm = selectedRoles.length > 0;
 
   return (
     <ChatCard icon={<Check className="h-4 w-4 text-emerald-700" />}>
       <div className="space-y-4">
         <ReviewSummary
           data={data}
+          accountEmail={accountEmail}
           selectedRoles={selectedRoles}
           linkCount={linkCount}
         />
         <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-600">
-            Confirm this is accurate. Scout will open the Ready Room so you can
-            chat while intake finishes.
+            {canConfirm
+              ? "Confirm this is accurate. Scout will open the Ready Room so you can chat while intake finishes."
+              : "Pick at least one role target before opening the Ready Room."}
           </p>
           {hasConvex ? (
             <ConnectedConfirmButton
+              disabled={!canConfirm}
               onMergeFinalProfile={onMergeFinalProfile}
               onLaunch={onLaunch}
             />
@@ -52,9 +58,11 @@ export function ActivateStepCard({
 }
 
 function ConnectedConfirmButton({
+  disabled = false,
   onMergeFinalProfile,
   onLaunch,
 }: {
+  disabled?: boolean;
   onMergeFinalProfile: () => void;
   onLaunch: () => void;
 }) {
@@ -63,6 +71,7 @@ function ConnectedConfirmButton({
   const [stage, setStage] = useState<LaunchStage>("idle");
 
   function handleConfirm() {
+    if (disabled) return;
     try {
       setError("");
       setSaving(true);
@@ -95,6 +104,7 @@ function ConnectedConfirmButton({
         variant="primary"
         size="lg"
         loading={saving}
+        disabled={disabled}
         onClick={handleConfirm}
       >
         {buttonLabel} <ArrowRight className="h-4 w-4" />

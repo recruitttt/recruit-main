@@ -4,10 +4,12 @@ import type { Data } from "@/app/onboarding/_data";
 
 export function ReviewSummary({
   data,
+  accountEmail,
   selectedRoles,
   linkCount,
 }: {
   data: Data;
+  accountEmail?: string;
   selectedRoles: string[];
   linkCount: number;
 }) {
@@ -19,7 +21,7 @@ export function ReviewSummary({
       value:
         linkCount > 0 ? compactLinks(data.links).join(", ") : "None added",
     },
-    { label: "Email", value: data.email || "From sign-in" },
+    { label: "Email", value: accountEmail || data.email || "From sign-in" },
     {
       label: "Preferences",
       value:

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 
@@ -75,6 +75,9 @@ export function OnboardingClient() {
   const stepParam = searchParams.get("step");
   const session = authClient.useSession();
   const userId = session.data?.user?.id ?? null;
+  const sessionEmail = session.data?.user?.email ?? "";
+  const convexAuth = useConvexAuth();
+  const canReadConvex = Boolean(userId && convexAuth.isAuthenticated);
   const reduceMotion = useReducedMotion();
 
   const initialStep = useMemo(
@@ -130,23 +133,23 @@ export function OnboardingClient() {
 
   const githubRun = useQuery(
     api.intakeRuns.byUserKind,
-    userId ? { userId, kind: "github" } : "skip",
+    canReadConvex ? { userId, kind: "github" } : "skip",
   );
   const accountConnections = useQuery(
     api.auth.connectedAccounts,
-    userId ? { userId } : "skip",
+    canReadConvex ? { userId } : "skip",
   );
   const linkedinRun = useQuery(
     api.intakeRuns.byUserKind,
-    userId ? { userId, kind: "linkedin" } : "skip",
+    canReadConvex ? { userId, kind: "linkedin" } : "skip",
   );
   const resumeRun = useQuery(
     api.intakeRuns.byUserKind,
-    userId ? { userId, kind: "resume" } : "skip",
+    canReadConvex ? { userId, kind: "resume" } : "skip",
   );
   const webRun = useQuery(
     api.intakeRuns.byUserKind,
-    userId ? { userId, kind: "web" } : "skip",
+    canReadConvex ? { userId, kind: "web" } : "skip",
   );
   const githubConnected = isGithubConnected(accountConnections);
 
@@ -206,6 +209,17 @@ export function OnboardingClient() {
   }, []);
 
   useEffect(() => {
+    const email = sessionEmail.trim();
+    if (!email) return;
+    const id = window.setTimeout(() => {
+      setData((current) =>
+        current.email.trim() ? current : { ...current, email },
+      );
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [sessionEmail]);
+
+  useEffect(() => {
     if (!roleParam) return;
     const id = window.setTimeout(() => {
       setData((current) => {
@@ -242,7 +256,7 @@ export function OnboardingClient() {
   }, [messages, typing, step]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !canReadConvex) return;
     if (
       !shouldAutoStartGithubIntake({ connected: githubConnected, run: githubRun })
     ) {
@@ -257,7 +271,7 @@ export function OnboardingClient() {
         message: err instanceof Error ? err.message : String(err),
       });
     });
-  }, [githubConnected, githubRun, runGithubIntake, userId]);
+  }, [canReadConvex, githubConnected, githubRun, runGithubIntake, userId]);
 
   // ---------------------------------------------------------------------------
   // Derived state + mutators
@@ -270,9 +284,10 @@ export function OnboardingClient() {
   }, [data.prefs.roles, roleParam]);
 
   const linkCount = Object.values(data.links).filter((v) => v.trim()).length;
+  const accountEmail = data.email || sessionEmail;
 
   const completeCount = [
-    Boolean(session.data?.user),
+    Boolean(accountEmail || session.data?.user),
     Boolean(data.resumeFilename),
     linkCount > 0 || githubConnected,
     selectedRoles.length > 0,
@@ -538,7 +553,7 @@ export function OnboardingClient() {
     const links = trimLinks(data.links);
     mergeProfile(
       {
-        email: data.email.trim() || undefined,
+        email: accountEmail.trim() || undefined,
         links,
         prefs: {
           roles: selectedRoles,
@@ -632,7 +647,7 @@ export function OnboardingClient() {
         <section className="min-w-0">
           <GlassCard
             density="spacious"
-            className="flex h-[calc(100dvh-156px)] flex-col sm:h-[calc(100dvh-196px)] sm:min-h-[600px]"
+            className="flex min-h-[calc(100dvh-156px)] flex-col lg:h-[calc(100dvh-196px)] lg:min-h-[600px]"
           >
             <div className="mb-6 flex items-start gap-4 border-b border-white/45 pb-6">
               <AgentCharacter id="scout" awake size={52} />
@@ -652,7 +667,10 @@ export function OnboardingClient() {
               </div>
             </div>
 
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div
+              ref={scrollRef}
+              className="flex-none overflow-visible pr-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+            >
               <div className="space-y-5 pb-5">
                 {messages.map((message) =>
                   message.kind === "agent" ? (
@@ -663,7 +681,7 @@ export function OnboardingClient() {
                 )}
                 {typing && <TypingIndicator from="scout" />}
                 {!typing && (
-                  <div className="pl-11">
+                  <div className="pl-0 sm:pl-11">
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={step}
@@ -723,6 +741,7 @@ export function OnboardingClient() {
                         {step === "activate" && (
                           <ActivateStepCard
                             data={data}
+                            accountEmail={accountEmail}
                             selectedRoles={selectedRoles}
                             linkCount={linkCount}
                             onMergeFinalProfile={mergeFinalProfile}
@@ -741,6 +760,7 @@ export function OnboardingClient() {
         <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
           <IntakeSummary
             data={data}
+            accountEmail={accountEmail}
             selectedRoles={selectedRoles}
             linkCount={linkCount}
             completeCount={completeCount}
@@ -750,7 +770,7 @@ export function OnboardingClient() {
             linkedinRun={linkedinRun}
             webRun={webRun}
           />
-          <ProfileCard userId={userId} />
+          <ProfileCard userId={canReadConvex ? userId : null} />
           <TrustRow />
         </aside>
       </div>

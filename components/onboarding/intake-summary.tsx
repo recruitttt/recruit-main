@@ -12,6 +12,7 @@ import type { Data, IntakeKind, IntakeRunRow } from "@/app/onboarding/_data";
 
 export function IntakeSummary({
   data,
+  accountEmail,
   selectedRoles,
   linkCount,
   completeCount,
@@ -22,6 +23,7 @@ export function IntakeSummary({
   webRun,
 }: {
   data: Data;
+  accountEmail?: string;
   selectedRoles: string[];
   linkCount: number;
   completeCount: number;
@@ -39,7 +41,7 @@ export function IntakeSummary({
   if (webRun) liveRuns.push({ kind: "web", run: webRun });
 
   const rows = [
-    { label: "Account", value: data.email || "Needed" },
+    { label: "Account", value: accountEmail || data.email || "Needed" },
     { label: "Resume", value: data.resumeFilename || "Needed" },
     {
       label: "Sources",

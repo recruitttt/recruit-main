@@ -420,6 +420,47 @@ test.describe("Onboarding: happy-path smoke", () => {
   });
 });
 
+test.describe("Onboarding: focused UI regressions", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/auth/get-session", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(null),
+      });
+    });
+    await seedSession(page);
+  });
+
+  test("step 3 (connect): mobile layout keeps the skip action in the page flow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.goto("/onboarding?step=3");
+    await waitForStep(page, 3);
+
+    const skipButton = page.getByRole("button", { name: /Skip for now/i });
+    await expect(skipButton).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(skipButton).toBeInViewport();
+  });
+
+  test("step 5 (activate): confirm is blocked when the role target is missing", async ({
+    page,
+  }) => {
+    await page.goto("/onboarding?step=5");
+    await waitForStep(page, 5);
+
+    await expect(page.getByText("Role target", { exact: true })).toBeVisible();
+    await expect(page.getByText("Missing").first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Confirm and continue/i }),
+    ).toBeDisabled();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Test suite 2: GitHub OAuth fast-path
 // ---------------------------------------------------------------------------

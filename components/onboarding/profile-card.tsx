@@ -378,7 +378,7 @@ function RevealHalo({
           `0 0 0 6px ${hue}40`,
           `0 0 0 0 ${hue}00`,
         ],
-        backgroundColor: ["transparent", `${hue}18`, "transparent"],
+        backgroundColor: [`${hue}00`, `${hue}18`, `${hue}00`],
       }}
       transition={{ duration: 0.9, ease: "easeOut" }}
     >
@@ -484,7 +484,7 @@ function SkillChip({
         scale: 1,
         boxShadow: isNew && !reduce
           ? [`0 0 0 0 ${hue}00`, `0 0 0 4px ${hue}40`, `0 0 0 0 ${hue}00`]
-          : "0 0 0 0 transparent",
+          : "0 0 0 0 #00000000",
       }}
       transition={{
         delay: reduce ? 0 : Math.min(index, 12) * 0.03,
