@@ -22,7 +22,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     process.env.SITE_URL ??
     process.env.NEXT_PUBLIC_SITE_URL ??
     "http://localhost:3020";
-  const google = optionalPair("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET");
   const github = optionalPair("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET");
 
   return betterAuth({
@@ -36,7 +35,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       requireEmailVerification: false,
     },
     socialProviders: {
-      ...(google ? { google } : {}),
       ...(github ? { github } : {}),
     },
     plugins: [convex({ authConfig })],
