@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:ranking": "tsx tests/job-ranking.test.ts"
+    "test:ranking": "tsx tests/job-ranking.test.ts",
+    "test:tailor": "tsx tests/tailor-quality.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

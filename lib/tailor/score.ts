@@ -46,12 +46,12 @@ function tokenize(input: string): string[] {
 
 function bodyOfResume(r: TailoredResume): string {
   const parts: string[] = [
-    r.headline,
-    r.summary,
     r.skills.join(" "),
     r.experience.map((e) => `${e.title} ${e.company} ${e.bullets.join(" ")}`).join(" "),
     r.education.map((e) => `${e.school} ${e.degree ?? ""} ${e.field ?? ""}`).join(" "),
-    r.coverLetterBlurb ?? "",
+    r.projects
+      .map((p) => `${p.name} ${(p.technologies ?? []).join(" ")} ${p.bullets.join(" ")}`)
+      .join(" "),
   ];
   return parts.join(" ").toLowerCase();
 }
@@ -99,7 +99,9 @@ export function computeTailoringScore(
 ): { score: number; coverage: number; matched: string[]; missing: string[] } {
   const { coverage, matched, missing } = computeKeywordCoverage(resume, research);
   const matchScore = clamp(resume.tailoringNotes?.confidence ?? 0, 0, 100);
-  const score = Math.round(0.6 * matchScore + 0.4 * coverage);
+  const qualityIssueCount = resume.tailoringNotes?.qualityIssues?.length ?? 0;
+  const qualityPenalty = Math.min(30, qualityIssueCount * 6);
+  const score = Math.round(0.6 * matchScore + 0.4 * coverage - qualityPenalty);
   return { score: clamp(score, 0, 100), coverage, matched, missing };
 }
 
