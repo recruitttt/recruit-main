@@ -54,6 +54,24 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_enabled", ["enabled"]),
 
+  atsSources: defineTable({
+    provider: v.union(
+      v.literal("greenhouse"),
+      v.literal("lever"),
+      v.literal("workday")
+    ),
+    company: v.string(),
+    slug: v.string(),
+    careersUrl: v.optional(v.string()),
+    enabled: v.boolean(),
+    config: v.optional(v.any()),
+    seededFrom: v.optional(v.string()),
+    updatedAt: isoString,
+  })
+    .index("by_provider_slug", ["provider", "slug"])
+    .index("by_provider_enabled", ["provider", "enabled"])
+    .index("by_enabled", ["enabled"]),
+
   ingestionRuns: defineTable({
     demoUserId: v.string(),
     status: v.union(
