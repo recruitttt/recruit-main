@@ -41,14 +41,15 @@ import { buildOAuthCompletionURL } from "@/lib/auth-flow";
 import { setOnboardingCookie } from "@/lib/onboarding-cookie";
 import {
   canStartSourceRun,
+  isLinkedinProfileUrl,
   isGithubConnected,
+  normalizeLinkedinProfileUrl,
   shouldAutoStartGithubIntake,
 } from "@/lib/intake/shared/source-state";
 import { onboardingMatches } from "@/lib/mock-data";
 import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
 import { logProfileEvent, mergeProfile, readProfile } from "@/lib/profile";
 import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
-import { CloudBrowserView } from "@/components/cloud-browser-view";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -187,11 +188,6 @@ function OnboardingChatContent() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [activating, setActivating] = useState(false);
-  const [cloudBrowser, setCloudBrowser] = useState<{
-    url: string;
-    source: string;
-    needsAssistance: boolean;
-  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<{ step: Step; data: Data; messages: ChatEntry[] }[]>([]);
@@ -577,26 +573,27 @@ function OnboardingChatContent() {
   );
 
   const handleLinkedinSubmit = useCallback(async () => {
-    const url = data.links.linkedin.trim();
-    if (!url || !userId) return;
+    const url = normalizeLinkedinProfileUrl(data.links.linkedin);
+    if (!url || !userId || !isLinkedinProfileUrl(url)) return false;
+    updateData({ links: { linkedin: url } });
     mergeProfile({ links: { linkedin: url } }, "linkedin", "Saved LinkedIn URL");
-    setCloudBrowser(null);
-    // Fire-and-forget: drain the SSE stream in the background so live progress
-    // is persisted into `intakeRuns`. The Connect step's badge picks up state
-    // via the existing `useQuery(api.intakeRuns.byUserKind, ...)` subscription.
-    void streamLinkedinIntake(url, {
-      onLiveView: ({ liveViewUrl, needsAssistance }) =>
-        setCloudBrowser({
-          url: liveViewUrl,
-          source: "LinkedIn intake · Browserbase",
-          needsAssistance,
-        }),
-    }).catch((err) => {
+    try {
+      const { drain } = await startLinkedinIntake(url);
+      // Fire-and-forget after the route accepts the request. Draining the SSE
+      // stream keeps the request open while the route persists `intakeRuns`.
+      void drain.catch((err) => {
+        logProfileEvent("linkedin", "LinkedIn intake stream failed", "error", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+      return true;
+    } catch (err) {
       logProfileEvent("linkedin", "LinkedIn intake route failed", "error", {
         message: err instanceof Error ? err.message : String(err),
       });
-    });
-  }, [data.links.linkedin, userId]);
+      return false;
+    }
+  }, [data.links.linkedin, updateData, userId]);
 
   const handleWebSubmit = useCallback(
     async (kind: "devpost" | "website", url: string) => {
@@ -655,12 +652,6 @@ function OnboardingChatContent() {
       <AnimatePresence>
         {transitionActive && <SceneTransition onComplete={handleComplete} />}
       </AnimatePresence>
-      <CloudBrowserView
-        liveViewUrl={cloudBrowser?.url ?? null}
-        source={cloudBrowser?.source}
-        needsAssistance={cloudBrowser?.needsAssistance}
-        onClose={() => setCloudBrowser(null)}
-      />
       <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 py-4 md:px-8">
@@ -905,7 +896,7 @@ function StepCard(props: {
   onEmailContinue: () => void;
   onLinkSocialGithub: () => Promise<void>;
   onRunGithubIntake: (force?: boolean) => Promise<void>;
-  onLinkedinSubmit: () => Promise<void>;
+  onLinkedinSubmit: () => Promise<boolean>;
   onWebSubmit: (kind: "devpost" | "website", url: string) => Promise<void>;
   toggleRole: (role: string) => void;
   updateData: (updates: DataUpdate) => void;
@@ -1181,7 +1172,7 @@ function ConnectStepCard({
   webRun: IntakeRunRow;
   onLinkSocialGithub: () => Promise<void>;
   onRunGithubIntake: (force?: boolean) => Promise<void>;
-  onLinkedinSubmit: () => Promise<void>;
+  onLinkedinSubmit: () => Promise<boolean>;
   onWebSubmit: (kind: "devpost" | "website", url: string) => Promise<void>;
   updateData: (updates: DataUpdate) => void;
   onAdvance: (userText: string, nextStep: Step) => void;
@@ -1190,11 +1181,13 @@ function ConnectStepCard({
   const [devpostPending, setDevpostPending] = useState(false);
   const [websitePending, setWebsitePending] = useState(false);
   const [githubPending, setGithubPending] = useState(false);
+  const [linkedinSaved, setLinkedinSaved] = useState(false);
 
   const handleLinkedin = async () => {
     setLinkedinPending(true);
     try {
-      await onLinkedinSubmit();
+      const saved = await onLinkedinSubmit();
+      if (saved) setLinkedinSaved(true);
     } finally {
       setLinkedinPending(false);
     }
@@ -1287,12 +1280,22 @@ function ConnectStepCard({
           icon={<LinkedinIcon className="h-4 w-4 text-slate-600" />}
           placeholder="linkedin.com/in/yourhandle"
           value={data.links.linkedin}
-          onChange={(value) => updateData({ links: { linkedin: value } })}
+          onChange={(value) => {
+            setLinkedinSaved(false);
+            updateData({ links: { linkedin: value } });
+          }}
           onSubmit={handleLinkedin}
           submitLabel="Save"
           pending={linkedinPending}
           run={linkedinRun}
           runKind="linkedin"
+          savedMessage={
+            linkedinSaved
+              ? "It's saved and I have processed it in the backend."
+              : undefined
+          }
+          showRunBadge={false}
+          disableWhileActive={false}
         />
 
         <SourceField
@@ -1353,6 +1356,9 @@ function SourceField({
   pending,
   run,
   runKind,
+  savedMessage,
+  showRunBadge = true,
+  disableWhileActive = true,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -1364,6 +1370,9 @@ function SourceField({
   pending: boolean;
   run: IntakeRunRow;
   runKind: IntakeKind;
+  savedMessage?: string;
+  showRunBadge?: boolean;
+  disableWhileActive?: boolean;
 }) {
   const runActive = run ? !canStartSourceRun(run) : false;
   return (
@@ -1373,7 +1382,7 @@ function SourceField({
           {icon}
           <span className="text-[13px] font-semibold text-slate-800">{label}</span>
         </div>
-        {run && <ProgressBadge kind={runKind} run={run} compact />}
+        {showRunBadge && run && <ProgressBadge kind={runKind} run={run} compact />}
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
@@ -1387,13 +1396,18 @@ function SourceField({
         <ActionButton
           variant="secondary"
           size="sm"
-          loading={pending || runActive}
-          disabled={!value.trim() || pending || runActive}
+          loading={pending || (disableWhileActive && runActive)}
+          disabled={!value.trim() || pending || (disableWhileActive && runActive)}
           onClick={onSubmit}
         >
-          {runActive ? "Running" : submitLabel}
+          {disableWhileActive && runActive ? "Running" : submitLabel}
         </ActionButton>
       </div>
+      {savedMessage ? (
+        <p className="font-mono text-[11px] leading-5 text-emerald-700">
+          {savedMessage}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1841,11 +1855,12 @@ function OnboardingFallback() {
 // ----------------------------------------------------------------------------
 
 // ----------------------------------------------------------------------------
-// streamLinkedinIntake — POST to the LinkedIn route and drain the SSE stream.
+// startLinkedinIntake — POST to the LinkedIn route, wait until the backend has
+// accepted and saved the URL, then return a background drain promise.
 //
 // We don't actually need each event in the UI here (the Connect step renders
 // progress from `useQuery(api.intakeRuns.byUserKind, ...)`, which the route
-// also writes to). We just need to keep the request open until the stream
+// also writes to). The drain promise keeps the request open until the stream
 // closes, so the route handler completes its full pipeline (auth, scrape,
 // summarize, persist, complete) and `intakeRuns` gets the final
 // "completed"/"failed" status.
@@ -1854,10 +1869,6 @@ function OnboardingFallback() {
 // land in `logProfileEvent`. We do NOT throw on stage="error" SSE messages —
 // those are already persisted into `intakeRuns.error` by the driver.
 // ----------------------------------------------------------------------------
-
-type StreamLinkedinHandlers = {
-  onLiveView?: (info: { liveViewUrl: string; needsAssistance: boolean }) => void;
-};
 
 async function streamResumeIntake(input: {
   fileId: string;
@@ -1882,10 +1893,9 @@ async function streamResumeIntake(input: {
   }
 }
 
-async function streamLinkedinIntake(
+async function startLinkedinIntake(
   profileUrl: string,
-  handlers: StreamLinkedinHandlers = {},
-): Promise<void> {
+): Promise<{ drain: Promise<void> }> {
   const response = await fetch("/api/intake/linkedin", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1897,40 +1907,15 @@ async function streamLinkedinIntake(
     throw new Error(`linkedin_route_${response.status}: ${text || response.statusText}`);
   }
 
-  const body = response.body;
-  if (!body) return;
+  return { drain: drainLinkedinIntake(response) };
+}
 
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+async function drainLinkedinIntake(response: Response): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) return;
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      buffer += decoder.decode(value, { stream: true });
-      const segments = buffer.split("\n\n");
-      buffer = segments.pop() ?? "";
-      for (const segment of segments) {
-        const line = segment.split("\n").find((l) => l.startsWith("data:"));
-        if (!line) continue;
-        const payload = line.slice(5).trim();
-        if (!payload) continue;
-        try {
-          const event = JSON.parse(payload) as {
-            data?: { liveViewUrl?: string; needsAssistance?: boolean };
-          };
-          const liveViewUrl = event.data?.liveViewUrl;
-          if (liveViewUrl) {
-            handlers.onLiveView?.({
-              liveViewUrl,
-              needsAssistance: Boolean(event.data?.needsAssistance),
-            });
-          }
-        } catch {
-          // ignore non-JSON SSE lines
-        }
-      }
+    while (!(await reader.read()).done) {
+      /* keep draining */
     }
   } finally {
     reader.releaseLock();
