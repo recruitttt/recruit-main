@@ -1,18 +1,28 @@
 import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex-http";
+import { makeFunctionReference } from "convex/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const ingestionRunSummary = makeFunctionReference<"query">("ashby:ingestionRunSummary");
+const recommendationsForRun = makeFunctionReference<"query">("ashby:recommendationsForRun");
+
+export async function GET(req: Request) {
   const client = await getConvexClient();
   if (!client) {
     return Response.json({ run: null, recommendations: [] });
   }
 
   try {
+    const url = new URL(req.url);
+    const runId = url.searchParams.get("runId");
     const [runResult, recommendationsResult, followUpsResult] = await Promise.allSettled([
-      client.query(api.ashby.latestIngestionRunSummary, {}),
-      client.query(api.ashby.currentRecommendations, {}),
+      runId
+        ? client.query(ingestionRunSummary, { runId: runId as never })
+        : client.query(api.ashby.latestIngestionRunSummary, {}),
+      runId
+        ? client.query(recommendationsForRun, { runId: runId as never })
+        : client.query(api.ashby.currentRecommendations, {}),
       client.query(api.followups.followUpSummary, {}).then(
         (summary) => ({ ok: true as const, summary }),
         (error) => ({ ok: false as const, error: errorMessage(error) })

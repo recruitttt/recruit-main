@@ -105,6 +105,7 @@ export const startOnboardingPipeline = mutation({
 
     const runId = await ctx.db.insert("ingestionRuns", {
       demoUserId,
+      provider: "ashby",
       status: "fetching",
       startedAt: now,
       sourceCount: limitSources,
@@ -170,8 +171,52 @@ export const latestIngestionRunSummary = query({
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
-    const run = await latestRun(ctx, demoUserId);
-    if (!run) return null;
+    const selection = await preferredDashboardRun(ctx, demoUserId);
+    if (!selection) return null;
+    const run = decorateRunForDashboard(selection.run, selection.provider);
+
+    const recommendations = await ctx.db
+      .query("jobRecommendations")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+    const tailoredApplications = await ctx.db
+      .query("tailoredApplications")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+    const tailoredCount = tailoredApplications.filter((application) => application.status === "completed").length;
+    const tailoringAttemptedCount = tailoredApplications.filter((application) =>
+      ["tailoring", "completed", "failed"].includes(application.status)
+    ).length;
+    const availableRecommendationCount = Math.max(recommendations.length, run.recommendedCount);
+    const tailoringTargetCount = availableRecommendationCount > 0 ? Math.min(3, availableRecommendationCount) : 3;
+    const tailoringInProgress = run.status !== "failed" &&
+      (run.status !== "completed" || (run.recommendedCount > 0 && tailoringAttemptedCount < tailoringTargetCount));
+
+    return {
+      ...run,
+      suppressedLatestRun: selection.suppressedLatestRun,
+      recommendations: recommendations.sort((a, b) => a.rank - b.rank),
+      tailoredCount,
+      tailoringAttemptedCount,
+      tailoringTargetCount,
+      tailoringInProgress,
+      hasCompletedTailoring: tailoredCount > 0,
+    };
+  },
+});
+
+export const ingestionRunSummary = query({
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const selected = await ctx.db.get(args.runId);
+    if (!selected || selected.demoUserId !== demoUserId) return null;
+    const provider = await inferRunProvider(ctx, selected);
+    const run = decorateRunForDashboard(selected, provider);
 
     const recommendations = await ctx.db
       .query("jobRecommendations")
@@ -232,8 +277,33 @@ export const currentRecommendations = query({
   returns: v.any(),
   handler: async (ctx, args) => {
     const demoUserId = args.demoUserId ?? DEMO_USER_ID;
-    const run = await latestRun(ctx, demoUserId);
-    if (!run) return [];
+    const selection = await preferredDashboardRun(ctx, demoUserId);
+    if (!selection) return [];
+    const run = selection.run;
+    const recommendations = await ctx.db
+      .query("jobRecommendations")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+    const sorted = recommendations.sort((a, b) => a.rank - b.rank);
+    return await Promise.all(
+      sorted.map(async (recommendation) => ({
+        ...recommendation,
+        job: await ctx.db.get(recommendation.jobId),
+      }))
+    );
+  },
+});
+
+export const recommendationsForRun = query({
+  args: {
+    runId: v.id("ingestionRuns"),
+    demoUserId: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.demoUserId !== demoUserId) return [];
     const recommendations = await ctx.db
       .query("jobRecommendations")
       .withIndex("by_run", (q) => q.eq("runId", run._id))
@@ -840,12 +910,22 @@ export const listEnabledAtsSourcesForAction = internalQuery({
 export const createIngestionRun = internalMutation({
   args: {
     demoUserId: v.optional(v.string()),
+    provider: v.optional(
+      v.union(
+        v.literal("ashby"),
+        v.literal("greenhouse"),
+        v.literal("lever"),
+        v.literal("workday"),
+        v.literal("workable")
+      )
+    ),
     sourceCount: v.number(),
   },
   returns: v.id("ingestionRuns"),
   handler: async (ctx, args) => {
     return await ctx.db.insert("ingestionRuns", {
       demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      provider: args.provider,
       status: "fetching",
       startedAt: new Date().toISOString(),
       sourceCount: args.sourceCount,
@@ -1405,14 +1485,105 @@ export const markRunFailed = internalMutation({
   },
 });
 
-async function latestRun(ctx: any, demoUserId: string) {
-  return await ctx.db
+type RunProvider = "ashby" | "greenhouse" | "lever" | "workday" | "workable";
+
+const DASHBOARD_STALE_RUN_MS = 20 * 60 * 1000;
+
+async function preferredDashboardRun(ctx: any, demoUserId: string) {
+  const runs = await ctx.db
     .query("ingestionRuns")
     .withIndex("by_demo_user_started", (q: any) =>
       q.eq("demoUserId", demoUserId)
     )
     .order("desc")
+    .take(25);
+
+  if (runs.length === 0) return null;
+
+  const classified = [];
+  for (const run of runs) {
+    classified.push({
+      run,
+      provider: await inferRunProvider(ctx, run),
+    });
+  }
+
+  const latest = classified[0];
+  const latestCompletedAshby = classified.find((item) =>
+    item.provider === "ashby" && item.run.status === "completed"
+  );
+  const latestAshby = classified.find((item) => item.provider === "ashby");
+  const selected = latestCompletedAshby ?? latestAshby ?? latest;
+
+  return {
+    run: selected.run,
+    provider: selected.provider,
+    suppressedLatestRun: selected.run._id === latest.run._id
+      ? undefined
+      : summarizeSuppressedRun(latest.run, latest.provider),
+  };
+}
+
+async function inferRunProvider(ctx: any, run: any): Promise<RunProvider | undefined> {
+  if (isRunProvider(run.provider)) return run.provider;
+
+  const logs = await ctx.db
+    .query("pipelineLogs")
+    .withIndex("by_run", (q: any) => q.eq("runId", run._id))
+    .collect();
+
+  for (const log of logs) {
+    const provider = log?.payload?.provider;
+    if (isRunProvider(provider)) return provider;
+    const message = String(log?.message ?? "").toLowerCase();
+    if (message.includes("started ashby ingestion")) return "ashby";
+    for (const candidate of ["greenhouse", "lever", "workday", "workable"] as const) {
+      if (message.includes(`started ${candidate} ingestion`)) return candidate;
+    }
+  }
+
+  const job = await ctx.db
+    .query("ingestedJobs")
+    .withIndex("by_run", (q: any) => q.eq("runId", run._id))
     .first();
+  const rawProvider = job?.raw?.provider;
+  if (isRunProvider(rawProvider)) return rawProvider;
+  if (job) return "ashby";
+  return undefined;
+}
+
+function isRunProvider(value: unknown): value is RunProvider {
+  return typeof value === "string" &&
+    ["ashby", "greenhouse", "lever", "workday", "workable"].includes(value);
+}
+
+function decorateRunForDashboard(run: any, provider: RunProvider | undefined) {
+  if (!isStaleRun(run)) return { ...run, provider };
+  return {
+    ...run,
+    provider,
+    originalStatus: run.status,
+    status: "failed",
+    stale: true,
+    staleReason: `Run remained ${run.status} for more than ${Math.round(DASHBOARD_STALE_RUN_MS / 60000)} minutes.`,
+    errorCount: Math.max(run.errorCount ?? 0, 1),
+  };
+}
+
+function summarizeSuppressedRun(run: any, provider: RunProvider | undefined) {
+  return {
+    _id: run._id,
+    provider,
+    status: run.status,
+    startedAt: run.startedAt,
+    stale: isStaleRun(run),
+  };
+}
+
+function isStaleRun(run: any) {
+  if (!["fetching", "fetched", "ranking"].includes(run.status)) return false;
+  const startedMs = Date.parse(run.startedAt);
+  return Number.isFinite(startedMs) && Date.now() - startedMs > DASHBOARD_STALE_RUN_MS;
 }
 
 async function deleteByRun(ctx: any, table: string, runId: string) {

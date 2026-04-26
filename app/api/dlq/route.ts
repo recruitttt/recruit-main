@@ -55,6 +55,16 @@ export async function POST(req: Request) {
       await client.mutation((api as any).dlq.skipRole, { itemId: body.itemId });
     } else if (body.action === "mark-resolved") {
       await client.mutation((api as any).dlq.markResolved, { itemId: body.itemId });
+    } else if (body.action === "reset-test-fixture") {
+      if (process.env.RECRUIT_E2E_FIXTURES !== "1") {
+        return Response.json(
+          { error: "fixtures_disabled", message: "Set RECRUIT_E2E_FIXTURES=1 to reset E2E DLQ fixtures." },
+          { status: 403 }
+        );
+      }
+      await client.mutation((api as any).dlq.resetDemoQueueItem, {
+        itemId: body.itemId,
+      });
     } else {
       return Response.json(
         { error: "invalid_action", message: "Choose a valid queue action." },

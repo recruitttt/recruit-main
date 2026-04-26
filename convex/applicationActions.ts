@@ -102,6 +102,8 @@ export const runApplicationJob = action({
     }
 
     const demoUserId = job.demoUserId ?? DEMO_USER_ID;
+    const requestedSubmitPolicy = job.submitPolicy ?? "dry_run";
+    const submitPolicy = resolveAshbySubmitPolicy(normalizedUrl, requestedSubmitPolicy);
     const context = await ctx.runQuery(anyApi.ashby.getAshbyFormFillContext, {
       demoUserId,
       organizationSlug,
@@ -125,7 +127,7 @@ export const runApplicationJob = action({
       canonicalTargetUrl: job.canonicalTargetUrl ?? normalizedUrl,
       company: job.company ?? organizationSlug ?? null,
       title: job.title ?? null,
-      submitPolicy: job.submitPolicy ?? "dry_run",
+      submitPolicy,
       llmMode: job.llmMode ?? "best_effort",
       repairLimit: job.repairLimit ?? 1,
       idempotencyKey: job.idempotencyKey,
@@ -134,6 +136,7 @@ export const runApplicationJob = action({
       await checkpoint(ctx, args.jobId, "browser_starting", "claimed", {
         provider: "ashby",
         normalizedUrl,
+        requestedSubmitPolicy,
         submitPolicy: jobInput.submitPolicy,
         tailoredResume: tailoredResume
           ? {
@@ -143,6 +146,13 @@ export const runApplicationJob = action({
             }
           : null,
       });
+      if (requestedSubmitPolicy === "submit" && submitPolicy !== "submit") {
+        await checkpoint(ctx, args.jobId, "submit_gate_blocked", "claimed", {
+          requestedSubmitPolicy,
+          submitPolicy,
+          reason: "missing_or_unmatched_test_submit_gate",
+        });
+      }
 
     let page: any = null;
     try {
@@ -367,6 +377,28 @@ function coerceProvider(value: string | undefined): FormProvider | null {
     return value;
   }
   return null;
+}
+
+function resolveAshbySubmitPolicy(
+  targetUrl: string,
+  requested: "dry_run" | "submit"
+): "dry_run" | "submit" {
+  if (requested !== "submit") return "dry_run";
+  if (process.env.RECRUIT_ASHBY_SUBMIT_GATE !== "1") return "dry_run";
+  const allowedUrls = (process.env.RECRUIT_ASHBY_ALLOWED_SUBMIT_URLS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const singleAllowedUrl = process.env.RECRUIT_ASHBY_TEST_POSTING_URL?.trim();
+  if (singleAllowedUrl) allowedUrls.push(singleAllowedUrl);
+  const normalizedAllowedUrls = allowedUrls.flatMap((value) => {
+    try {
+      return [validateDirectAshbyApplicationUrl(value).normalizedUrl];
+    } catch {
+      return [];
+    }
+  });
+  return normalizedAllowedUrls.includes(targetUrl) ? "submit" : "dry_run";
 }
 
 function compactRawResult(raw: any) {
