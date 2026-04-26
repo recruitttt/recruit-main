@@ -116,6 +116,10 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
   const autoSubmitReadyCount = pendingQuestions.length > 0
     ? 0
     : liveJobs.filter((job) => isAutoSubmittableStatus(job.status)).length;
+  const selectedScreenshotUrl = React.useMemo(
+    () => run && selectedLiveJob ? screenshotUrl(run, selectedLiveJob) : null,
+    [run?.id, run?.source, selectedLiveJob?.id, selectedLiveJob?.remoteSlug],
+  );
 
   React.useEffect(() => {
     if (!run?.id) return;
@@ -165,7 +169,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
   }, [run?.id]);
 
   React.useEffect(() => {
-    if (!run?.id || !run.remoteRunId) {
+    if (!run?.id || !run.remoteRunId || run.source !== "recruit2-api") {
       return;
     }
 
@@ -191,31 +195,27 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       source.close();
       setLiveConnected(false);
     };
-  }, [run?.id, run?.remoteRunId]);
+  }, [run?.id, run?.remoteRunId, run?.source]);
 
   // Screenshot poller for the Convex engine path. When the recruit2 SSE
   // stream isn't providing screenshots (Convex-based runs), poll the
   // latest captured screenshot from Convex evidence for the active job.
   React.useEffect(() => {
-    if (!run?.id || !selectedLiveJob?.id) return;
-    // If we already have a screenshot via SSE, skip polling.
-    if (selectedLiveJob.screenshotPng || selectedLiveJob.annotatedScreenshotPng) return;
-    if (focusedShot?.jobId === selectedLiveJob.id) return;
+    if (!selectedScreenshotUrl || !selectedLiveJob?.id) return;
 
     let cancelled = false;
+    const selectedJobId = selectedLiveJob.id;
+    const url = selectedScreenshotUrl;
     async function pollScreenshot() {
-      if (cancelled || !run?.id || !selectedLiveJob?.id) return;
+      if (cancelled) return;
       try {
-        const response = await fetch(
-          screenshotUrl(run!, selectedLiveJob!),
-          { cache: "no-store" },
-        );
+        const response = await fetch(url, { cache: "no-store" });
         if (!response.ok || cancelled) return;
         const body = await response.json() as { ok: boolean; screenshotPng?: string };
         if (body.ok && body.screenshotPng && !cancelled) {
-          setFocusedShot({ jobId: selectedLiveJob!.id, png: body.screenshotPng });
+          setFocusedShot({ jobId: selectedJobId, png: body.screenshotPng });
           setLiveJobs((current) => current.map((job) => (
-            job.id === selectedLiveJob!.id ? { ...job, screenshotPng: body.screenshotPng } : job
+            job.id === selectedJobId ? { ...job, screenshotPng: body.screenshotPng } : job
           )));
         }
       } catch {
@@ -223,9 +223,9 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       }
     }
     void pollScreenshot();
-    const timer = window.setInterval(() => void pollScreenshot(), 3000);
+    const timer = window.setInterval(() => void pollScreenshot(), 2500);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [run?.id, selectedLiveJob?.id, selectedLiveJob?.screenshotPng, selectedLiveJob?.annotatedScreenshotPng, focusedShot?.jobId]);
+  }, [selectedScreenshotUrl, selectedLiveJob?.id]);
 
   async function startBatch() {
     if (pending || plannedCount === 0) return;

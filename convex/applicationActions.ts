@@ -24,6 +24,12 @@ import type {
 
 const action = actionGeneric;
 const DEMO_USER_ID = "demo";
+const LIVE_SCREENSHOT_OPTIONS = Object.freeze({
+  type: "png",
+  fullPage: false,
+  encoding: "base64",
+  captureBeyondViewport: false,
+});
 
 export const runApplicationJob = action({
   args: {
@@ -324,13 +330,13 @@ async function captureAndStoreScreenshot(
 ): Promise<void> {
   if (!page?.screenshot) return;
   try {
-    const raw = await page.screenshot({ fullPage: true, encoding: "base64" });
+    const raw = await page.screenshot(LIVE_SCREENSHOT_OPTIONS);
     const base64 = typeof raw === "string" ? raw : Buffer.from(raw).toString("base64");
     if (!base64) return;
     await ctx.runMutation(anyApi.applicationJobs.recordApplicationEvidence, {
       jobId,
       kind: "live_screenshot",
-      payload: { label, pngBase64: base64 },
+      payload: { label, pngBase64: base64, fullPage: false },
     });
   } catch {
     // Screenshot capture is best-effort — never block the fill flow.
