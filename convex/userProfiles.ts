@@ -495,6 +495,35 @@ export const merge = mutation({
   },
 });
 
+// updateProfile — overwrite the entire profile blob for a user.
+//
+// Used by the personalization agent to persist insights derived from chat
+// answers. Unlike `merge`, this replaces the full `profile` object rather than
+// deep-merging a patch — callers are responsible for preserving fields they
+// don't intend to clobber.
+export const updateProfile = mutation({
+  args: { userId: v.string(), profile: v.any() },
+  returns: v.any(),
+  handler: async (ctx, { userId, profile }) => {
+    const existing = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    const now = new Date().toISOString();
+    if (existing) {
+      await ctx.db.patch(existing._id, { profile, updatedAt: now });
+      return existing._id;
+    }
+    return await ctx.db.insert("userProfiles", {
+      userId,
+      profile,
+      provenance: {},
+      log: [],
+      updatedAt: now,
+    });
+  },
+});
+
 // updateLinks — owner-scoped profile link editing for /profile.
 //
 // This deliberately has a narrower surface than `merge`: client UI can update

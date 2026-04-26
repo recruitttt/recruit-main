@@ -26,6 +26,7 @@ import type * as intakeActions from "../intakeActions.js";
 import type * as intakeRuns from "../intakeRuns.js";
 import type * as linkedinCookies from "../linkedinCookies.js";
 import type * as linkedinSnapshots from "../linkedinSnapshots.js";
+import type * as personalizationAgent from "../personalizationAgent.js";
 import type * as recruiterActions from "../recruiterActions.js";
 import type * as recruiters from "../recruiters.js";
 import type * as repoSourceFiles from "../repoSourceFiles.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   intakeRuns: typeof intakeRuns;
   linkedinCookies: typeof linkedinCookies;
   linkedinSnapshots: typeof linkedinSnapshots;
+  personalizationAgent: typeof personalizationAgent;
   recruiterActions: typeof recruiterActions;
   recruiters: typeof recruiters;
   repoSourceFiles: typeof repoSourceFiles;
