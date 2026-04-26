@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -40,6 +40,15 @@ async function main() {
     const entryPath = path.join(tempDir, "entry.ts");
     const bundlePath = path.join(tempDir, "entry.mjs");
     const parserPath = path.join(process.cwd(), "lib/intake/resume/parse.ts");
+    const adapterPath = path.join(process.cwd(), "lib/intake/resume/adapter.ts");
+
+    const [parserSource, adapterSource] = await Promise.all([
+      readFile(parserPath, "utf8"),
+      readFile(adapterPath, "utf8"),
+    ]);
+    assert.match(parserSource, /DEFAULT_RESUME_REVIEW_MODEL = "gpt-5\.4-mini"/);
+    assert.equal(parserSource.includes("GPT-4o-mini"), false);
+    assert.equal(adapterSource.includes("GPT-4o-mini"), false);
 
     await writeFile(
       entryPath,
