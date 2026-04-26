@@ -66,6 +66,7 @@ type TemplateId = "minimalist" | "classic" | "compact";
 const FAST_INTERVAL_MS = 2500;
 const SLOW_INTERVAL_MS = 8000;
 const AUTO_SCORE_SORT_DELAY_MS = 2800;
+const DASHBOARD_COMMAND_TIMEOUT_MS = 30000;
 
 type DashboardCommandApiResponse =
   | {
@@ -264,6 +265,16 @@ function ConnectedRecruitDashboard() {
   }, [commandHistory.future.length, commandHistory.past.length, redoCommandPatch, undoCommandPatch]);
 
   useEffect(() => {
+    if (commandStatus !== "loading") return;
+    const timeout = window.setTimeout(() => {
+      setCommandError("Command timed out. K2 did not finish; try again or narrow the board first.");
+      setCommandStatus("error");
+    }, DASHBOARD_COMMAND_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [commandStatus]);
+
+  useEffect(() => {
     const activeJobId = selected?.jobId;
     if (typeof activeJobId !== "string" || !activeJobId) return;
     const jobId = activeJobId;
@@ -432,9 +443,12 @@ function ConnectedRecruitDashboard() {
         return;
       }
 
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), DASHBOARD_COMMAND_TIMEOUT_MS);
       const response = await fetch("/api/dashboard/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt: command,
           context: {
@@ -444,7 +458,7 @@ function ConnectedRecruitDashboard() {
             run: liveData?.run ?? null,
           },
         }),
-      });
+      }).finally(() => window.clearTimeout(timeout));
       const json = await response.json().catch(() => null) as DashboardCommandApiResponse | null;
       if (!response.ok || !json?.ok) {
         throw new Error(json && !json.ok ? json.reason : `dashboard_command_${response.status}`);
@@ -459,11 +473,10 @@ function ConnectedRecruitDashboard() {
       setCommandResult({
         title: commandResultTitle(json.command),
         body: <CommandResultBody command={json.command} />,
-        meta: commandModelMeta(json),
       });
       setCommandStatus("success");
     } catch (error) {
-      setCommandError(error instanceof Error ? error.message : String(error));
+      setCommandError(dashboardCommandErrorMessage(error));
       setCommandStatus("error");
     }
   }
@@ -1895,13 +1908,12 @@ function commandResultTitle(command: DashboardCommandResponse) {
   return "Command result";
 }
 
-function commandModelMeta(response: Extract<DashboardCommandApiResponse, { ok: true }>) {
-  const provider = response.model.provider === "k2"
-    ? response.sponsor.name
-    : response.model.provider === "demo"
-      ? "Demo fallback"
-      : `${response.model.provider} fallback`;
-  return `${provider} / ${response.model.modelId}${response.model.fallbackUsed ? " / fallback" : ""}`;
+function dashboardCommandErrorMessage(error: unknown) {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "Command timed out. K2 did not finish; try again or narrow the board first.";
+  }
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 function dashboardCommandsEqual(
@@ -1923,31 +1935,24 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 function CommandResultBody({ command }: { command: DashboardCommandResponse }) {
   return (
     <div>
-      <p>{command.answer}</p>
-      {command.filters.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {command.filters.map((filter) => (
-            <span
-              key={`${filter.field}-${filter.op}-${String(filter.value)}`}
-              className="rounded-full border border-[var(--dashboard-command-border)] bg-[var(--dashboard-control-bg)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ai)]"
-            >
-              {filter.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {command.explanations.length > 0 ? (
-        <ul className="mt-2 space-y-1.5">
-          {command.explanations.slice(0, 3).map((item) => (
-            <li key={item.jobId} className="text-xs leading-5 text-[var(--dashboard-panel-muted)]">
-              <span className="font-semibold text-[var(--dashboard-panel-fg)]">{item.summary}</span>
-              {item.evidence.length > 0 ? ` / ${item.evidence[0]}` : ""}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <p>{commandResultStatus(command)}</p>
     </div>
   );
+}
+
+function commandResultStatus(command: DashboardCommandResponse) {
+  if (command.intent === "clear") return "Restored the unfiltered board.";
+  if (command.filters.length > 0) {
+    const label = command.filters.length === 1 ? "filter" : "filters";
+    return `Applied ${command.filters.length} dashboard ${label}.`;
+  }
+  if (command.reorder?.jobIds.length) return "Updated the board order.";
+  if (command.explanations.length > 0) {
+    const label = command.explanations.length === 1 ? "role" : "roles";
+    return `Highlighted ${command.explanations.length} ${label}.`;
+  }
+  if (command.intent === "unknown") return "No board changes were applied.";
+  return "Command completed.";
 }
 
 export function RecruitDashboard({ seed }: { seed?: DashboardSeed }) {

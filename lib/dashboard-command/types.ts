@@ -67,7 +67,7 @@ export type DashboardCommandModelResult =
       ok: true;
       value: DashboardCommandResponse;
       raw: string;
-      provider: "k2" | "demo";
+      provider: "k2" | "anthropic" | "demo";
       modelId: string;
       fallbackUsed: boolean;
     }

@@ -186,19 +186,24 @@ await withEnvAsync({ DASHBOARD_DATA_SOURCE: undefined, NEXT_PUBLIC_CONVEX_URL: u
   assert.equal((liveJson.recommendations as unknown[]).length, 100);
   assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
   const firstRecommendation = (liveJson.recommendations as Array<{
+    jobId?: string;
     company?: string;
+    title?: string;
+    score?: number;
     organization?: { logoUrl?: string; prestigeTag?: string };
   }>)[0];
-  assert.equal(firstRecommendation.company, "Google DeepMind");
-  assert.equal(firstRecommendation.organization?.logoUrl, "/company-logos/google-deepmind.png");
-  assert.equal(firstRecommendation.organization?.prestigeTag, "AI Lab");
+  assert.equal(firstRecommendation.company, "OpenAI");
+  assert.equal(firstRecommendation.title, "Product Engineer, Applied Agents");
+  assert.equal(firstRecommendation.score, 98);
+  assert.equal(firstRecommendation.organization?.logoUrl, "/company-logos/openai.png");
+  assert.equal(firstRecommendation.organization?.prestigeTag, "Frontier AI");
 
   const omDetailJson = await assertJsonResponse(
-    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=m576d7tac59qdwtsdb28k91v1d85kzpv")),
+    await getJobDetail(new Request(`http://test.local/api/dashboard/job-detail?jobId=${firstRecommendation.jobId}`)),
     200,
     {}
   );
-  assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, "Google DeepMind");
+  assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, "OpenAI");
 });
 
 await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {

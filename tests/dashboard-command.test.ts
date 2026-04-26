@@ -37,6 +37,22 @@ async function main() {
       },
     },
   );
+  assert.deepEqual(
+    parseDashboardCommand(
+      `{"intent":"summarize","answer":"Board shows one Acme role.","reorder":{"jobIds":[],"reason":""}}`,
+    ),
+    {
+      ok: true,
+      value: {
+        intent: "summarize",
+        answer: "Board shows one Acme role.",
+        filters: [],
+        reorder: null,
+        explanations: [],
+        suggestedChips: [],
+      },
+    },
+  );
 
   await withEnvAsync(
     {
@@ -230,7 +246,7 @@ async function main() {
       K2THINK_API_KEY: undefined,
       OPENAI_API_KEY: "openai_should_not_be_used",
       AI_GATEWAY_API_KEY: "gateway_should_not_be_used",
-      ANTHROPIC_API_KEY: "anthropic_should_not_be_used",
+      ANTHROPIC_API_KEY: undefined,
     },
     async () => {
       const restoreFetch = installFetchStub(async () =>
@@ -262,6 +278,102 @@ async function main() {
 
   await withEnvAsync(
     {
+      K2_API_KEY: "k2_test",
+      K2_BASE_URL: "https://k2.test/v1",
+      K2_MODEL: "k2-think-v2",
+      K2_THINK_API_KEY: undefined,
+      K2THINK_API_KEY: undefined,
+      ANTHROPIC_API_KEY: "anthropic_test",
+      ANTHROPIC_BASE_URL: undefined,
+      ANTHROPIC_DASHBOARD_COMMAND_MODEL: undefined,
+      CLAUDE_DASHBOARD_COMMAND_MODEL: undefined,
+      OPENAI_API_KEY: "openai_should_not_be_used",
+      AI_GATEWAY_API_KEY: "gateway_should_not_be_used",
+    },
+    async () => {
+      const calls: string[] = [];
+      const restoreFetch = installFetchStub(async (input, init) => {
+        calls.push(String(input));
+        if (String(input) === "https://k2.test/v1/chat/completions") {
+          return new Response(
+            JSON.stringify({ error: { message: "k2 unavailable" } }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        assert.equal(input, "https://api.anthropic.com/v1/messages");
+        const headers = init?.headers as Record<string, string>;
+        assert.equal(headers["x-api-key"], "anthropic_test");
+        const payload = JSON.parse(String(init?.body)) as {
+          model?: string;
+          system?: string;
+          messages?: Array<{ role?: string }>;
+        };
+        assert.equal(payload.model, "claude-haiku-4-5");
+        assert.match(payload.system ?? "", /Recruit dashboard command model/);
+        assert.deepEqual(payload.messages?.map((message) => message.role), ["user"]);
+
+        return new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  intent: "reorder",
+                  answer: "Putting the strongest AI role first.",
+                  filters: [],
+                  reorder: { jobIds: ["job_2", "job_1"], reason: "AI fit and score" },
+                  explanations: [],
+                  suggestedChips: [],
+                }),
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+
+      try {
+        const json = await assertJsonResponse(
+          await postDashboardCommand(
+            jsonRequest({
+              prompt: "rank for AI infra",
+              context: {
+                jobs: [
+                  { jobId: "job_1", company: "Acme", title: "Backend Engineer", score: 82 },
+                  { jobId: "job_2", company: "Northstar", title: "AI Infra Engineer", score: 94 },
+                ],
+              },
+            }),
+          ),
+          200,
+          { ok: true },
+        );
+
+        assert.deepEqual(calls, [
+          "https://k2.test/v1/chat/completions",
+          "https://api.anthropic.com/v1/messages",
+        ]);
+        assert.deepEqual((json.command as { reorder?: { jobIds?: string[] } }).reorder?.jobIds, ["job_2", "job_1"]);
+        assert.deepEqual(json.model, {
+          provider: "anthropic",
+          modelId: "anthropic/claude-haiku-4-5",
+          fallbackUsed: true,
+        });
+        assert.deepEqual(json.sponsor, {
+          name: "K2 Think V2",
+          provider: "K2",
+          placement: "dashboard-command-bar",
+          active: false,
+        });
+      } finally {
+        restoreFetch();
+      }
+    },
+  );
+
+  await withEnvAsync(
+    {
       K2_API_KEY: undefined,
       K2_THINK_API_KEY: undefined,
       K2THINK_API_KEY: "k2think_test",
@@ -282,7 +394,7 @@ async function main() {
           model?: string;
           chat_template_kwargs?: { reasoning_effort?: string };
         };
-        assert.equal(payload.model, "LLM360/K2-Think-V2");
+        assert.equal(payload.model, "MBZUAI-IFM/K2-Think-v2");
         assert.equal(payload.chat_template_kwargs?.reasoning_effort, "high");
 
         return new Response(
@@ -322,7 +434,7 @@ async function main() {
 
         assert.deepEqual(json.model, {
           provider: "k2",
-          modelId: "LLM360/K2-Think-V2",
+          modelId: "MBZUAI-IFM/K2-Think-v2",
           fallbackUsed: false,
         });
       } finally {

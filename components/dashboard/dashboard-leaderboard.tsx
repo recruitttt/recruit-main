@@ -45,7 +45,7 @@ export function DashboardLeaderboard({
             Applications
           </h2>
           <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            Randomized for now. Fit ranking can take over once backend signals are useful.
+            Hard-coded against the Om resume build until live fit signals are trusted.
           </p>
         </div>
         <div className="text-sm text-[var(--color-fg-muted)]">

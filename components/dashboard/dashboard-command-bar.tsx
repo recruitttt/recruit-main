@@ -137,15 +137,30 @@ export function DashboardCommandBar({
         <form
           onSubmit={handleSubmit}
           className={cx(
-            "grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border border-[var(--dashboard-command-border)] bg-[var(--dashboard-command-bg)] px-2.5 py-2 shadow-[0_20px_54px_rgba(2,8,6,0.16)] backdrop-blur-2xl sm:gap-3 sm:px-3",
+            "relative grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden border border-[var(--dashboard-command-border)] bg-[var(--dashboard-command-bg)] px-2.5 py-2 shadow-[0_20px_54px_rgba(2,8,6,0.16)] backdrop-blur-2xl sm:min-h-[60px] sm:gap-2.5 sm:px-3",
             mistClasses.control,
           )}
         >
+          {loading ? (
+            <motion.div
+              aria-hidden="true"
+              className="absolute inset-x-5 bottom-1 h-0.5 overflow-hidden rounded-full bg-[var(--dashboard-control-bg)]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="h-full w-1/3 rounded-full bg-[var(--dashboard-command-button-bg)]"
+                animate={{ x: ["-120%", "330%"] }}
+                transition={{ duration: 1.25, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </motion.div>
+          ) : null}
           <div
             aria-hidden="true"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--dashboard-command-border)] bg-[var(--dashboard-control-bg)] text-[#8E7EA8]"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--dashboard-command-border)] bg-[var(--dashboard-control-bg)] text-[#8E7EA8] sm:h-10 sm:w-10"
           >
-            {loading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Sparkles className="h-[18px] w-[18px]" />}
+            <Sparkles className="h-[18px] w-[18px]" />
           </div>
 
           <label htmlFor={inputId} className="sr-only">
@@ -154,38 +169,51 @@ export function DashboardCommandBar({
           <input
             id={inputId}
             value={command}
-            disabled={disabled}
+            disabled={disabled || loading}
             onChange={(event) => setCommand(event.target.value)}
             placeholder={placeholder}
-            className="min-w-0 bg-transparent text-sm font-medium text-[var(--color-fg)] outline-none placeholder:text-[var(--color-fg-subtle)] disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
+            className="h-10 min-w-0 appearance-none border-0 bg-transparent px-0 text-sm font-medium leading-none text-[var(--color-fg)] shadow-none outline-none ring-0 placeholder:text-[var(--color-fg-subtle)] focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-progress disabled:opacity-80 sm:text-base"
           />
 
-          {statusText ? (
-            <div className="hidden max-w-[160px] items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--color-fg-muted)] sm:flex">
-              <span className="truncate">{statusText}</span>
-              {onClearResult && !loading ? (
-                <button
-                  type="button"
-                  onClick={onClearResult}
-                  aria-label="Clear command status"
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--color-fg-subtle)] transition hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-fg)]"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            {loading ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[var(--dashboard-command-border)] bg-[var(--dashboard-control-bg)] px-3 text-xs font-semibold text-[var(--color-fg-muted)]"
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden sm:inline">Working</span>
+              </div>
+            ) : statusText ? (
+              <div className="hidden max-w-[160px] items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--color-fg-muted)] sm:flex">
+                <span className="truncate">{statusText}</span>
+                {onClearResult ? (
+                  <button
+                    type="button"
+                    onClick={onClearResult}
+                    aria-label="Clear command status"
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--color-fg-subtle)] transition hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-fg)]"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
-          <ActionButton
-            type="submit"
-            variant="primary"
-            size="icon"
-            disabled={!canSubmit}
-            aria-label="Run dashboard command"
-            className="bg-[var(--dashboard-command-button-bg)] text-white hover:bg-[var(--dashboard-command-button-hover)]"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-          </ActionButton>
+            {!loading ? (
+              <ActionButton
+                type="submit"
+                variant="primary"
+                size="icon"
+                disabled={!canSubmit}
+                aria-label="Run dashboard command"
+                className="bg-[var(--dashboard-command-button-bg)] text-[var(--dashboard-command-button-fg)] hover:bg-[var(--dashboard-command-button-hover)]"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </ActionButton>
+            ) : null}
+          </div>
         </form>
       </motion.div>
     </div>
