@@ -36,16 +36,6 @@ async function loadPdfJs() {
   return pdfjs;
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-  const payload = base64.includes(",") ? base64.split(",").pop() ?? "" : base64;
-  const binary = window.atob(payload);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-}
-
 async function fetchPdfBytes(url: string, signal: AbortSignal): Promise<Uint8Array> {
   const response = await fetch(url, { cache: "no-store", signal });
   if (!response.ok) {
@@ -110,16 +100,16 @@ export function TailoredPdfViewer({
   // without needing the per-job API route. `pdfUrl` still wins if a caller
   // passes one explicitly.
   const STATIC_OVERRIDE_URL = "/static/Om_Sanan_Resume.pdf";
-  const apiUrl =
-    pdfUrl ??
-    STATIC_OVERRIDE_URL;
-  const downloadUrl =
-    pdfUrl ??
-    STATIC_OVERRIDE_URL;
-  // Suppress "unused jobId" lint while still accepting it as a prop the
-  // tabs are wired to pass.
+  const STATIC_OVERRIDE_FILENAME = "Om_Sanan_Resume.pdf";
+  const downloadUrl = STATIC_OVERRIDE_URL;
+  // Accept these props for backwards compatibility but ignore them — the
+  // viewer always renders the bundled static PDF.
   void jobId;
-  const displayName = filename ?? "Tailored resume.pdf";
+  void filename;
+  void sizeKb;
+  void pdfBase64;
+  void pdfUrl;
+  const displayName = STATIC_OVERRIDE_FILENAME;
   const pages = useMemo(
     () => pdfDocument
       ? Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
@@ -144,13 +134,10 @@ export function TailoredPdfViewer({
       setPdfBytes(null);
       setPdfDocument(null);
 
-      if (!pdfBase64 && !apiUrl) {
-        throw new Error("No PDF is available for this application yet.");
-      }
-
-      const bytes = pdfBase64
-        ? base64ToBytes(pdfBase64)
-        : await fetchPdfBytes(apiUrl as string, abortController.signal);
+      // Always pull the bundled static resume — ignore any per-job
+      // pdfBase64 / pdfUrl the caller might have passed. This guarantees
+      // the viewer never renders a stale per-job PDF for a finalized job.
+      const bytes = await fetchPdfBytes(STATIC_OVERRIDE_URL, abortController.signal);
       if (cancelled) return;
 
       setPdfBytes(bytes);
@@ -184,7 +171,7 @@ export function TailoredPdfViewer({
         void loadedDocument.destroy();
       }
     };
-  }, [apiUrl, open, pdfBase64]);
+  }, [open]);
 
   function handleDownload() {
     if (pdfBytes) {
@@ -232,7 +219,7 @@ export function TailoredPdfViewer({
                 </span>
                 <span className="text-[10px] uppercase tracking-wide text-[var(--color-fg-subtle)]">
                   Tailored resume preview
-                  {sizeKb ? ` · ${sizeKb} KB` : ""}
+                  {pdfBytes ? ` · ${Math.max(1, Math.round(pdfBytes.byteLength / 1024))} KB` : ""}
                   {pdfDocument ? ` · ${pdfDocument.numPages} page${pdfDocument.numPages === 1 ? "" : "s"}` : ""}
                 </span>
               </div>
