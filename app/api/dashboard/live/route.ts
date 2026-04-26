@@ -1,9 +1,14 @@
 import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex-http";
+import { emptyFollowUps, omDemoLivePayload, shouldUseOmDemoData } from "@/lib/om-demo-data";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (shouldUseOmDemoData()) {
+    return Response.json(omDemoLivePayload());
+  }
+
   const client = await getConvexClient();
   if (!client) {
     return Response.json({ run: null, recommendations: [] });
@@ -39,22 +44,6 @@ export async function GET() {
     const message = errorMessage(err) || "Convex dashboard query failed.";
     return Response.json({ error: message }, { status: 500 });
   }
-}
-
-function emptyFollowUps() {
-  return {
-    applications: [],
-    dueTasks: [],
-    scheduledTasks: [],
-    counts: {
-      applications: 0,
-      applied: 0,
-      due: 0,
-      responses: 0,
-      interviews: 0,
-      rejectedClosed: 0,
-    },
-  };
 }
 
 function errorMessage(err: unknown) {
