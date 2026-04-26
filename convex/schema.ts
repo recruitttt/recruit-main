@@ -462,8 +462,13 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_status", ["userId", "status"])
-    .index("by_user_position", ["userId", "positionIndex"]),
+    .index("by_user_position", ["userId", "positionIndex"])
+    .index("by_job", ["jobId"]),
 
+  // IMPORTANT: `messages` is an unbounded grow-in-place array. Convex has a 1MB
+  // per-document limit. The recruiter mutation in `convex/recruiters.ts`
+  // (Phase B2.5) MUST cap messages to the most recent N (e.g., 200) and/or
+  // truncate `toolCalls` to avoid silent append failures in long conversations.
   recruiterConversations: defineTable({
     recruiterId: v.id("recruiters"),
     userId: v.string(),
