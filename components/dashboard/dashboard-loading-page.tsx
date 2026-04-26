@@ -46,7 +46,11 @@ const STAGES = [
   progress: number;
 }>;
 
-export function DashboardLoadingPage() {
+type DashboardLoadingPageProps = {
+  preview?: boolean;
+};
+
+export function DashboardLoadingPage({ preview = false }: DashboardLoadingPageProps) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [stageIndex, setStageIndex] = useState(0);
@@ -58,10 +62,12 @@ export function DashboardLoadingPage() {
   useEffect(() => {
     if (reduceMotion) return;
     const id = window.setInterval(() => {
-      setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
+      setStageIndex((current) => preview
+        ? (current + 1) % STAGES.length
+        : Math.min(current + 1, STAGES.length - 1));
     }, 2100);
     return () => window.clearInterval(id);
-  }, [reduceMotion]);
+  }, [preview, reduceMotion]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -69,9 +75,11 @@ export function DashboardLoadingPage() {
       setProgress((current) => Math.min(current + 2, stage.progress));
     }, 260);
     return () => window.clearInterval(id);
-  }, [reduceMotion, stage.progress]);
+  }, [preview, reduceMotion, stage.progress]);
 
   useEffect(() => {
+    if (preview) return;
+
     let cancelled = false;
     let timeout: number | undefined;
     const startedAt = Date.now();
@@ -106,7 +114,7 @@ export function DashboardLoadingPage() {
       cancelled = true;
       if (timeout) window.clearTimeout(timeout);
     };
-  }, [router]);
+  }, [preview, router]);
 
   const stats = useMemo(() => {
     const run = payload?.run;
@@ -134,7 +142,11 @@ export function DashboardLoadingPage() {
     <main className="relative isolate min-h-[calc(100dvh-72px)] overflow-hidden bg-[var(--dashboard-bg)] px-4 py-6 text-[var(--color-fg)] [background-image:var(--dashboard-bg-gradient)] md:px-7 md:py-10">
       <LoadingAtmosphere reduceMotion={Boolean(reduceMotion)} />
 
-      <section className="relative z-10 mx-auto grid min-h-[calc(100dvh-140px)] w-full max-w-6xl content-center gap-6">
+      <section
+        className="relative z-10 mx-auto grid min-h-[calc(100dvh-140px)] w-full max-w-6xl content-center gap-6"
+        data-testid="dashboard-loading-page"
+        data-preview={preview ? "true" : undefined}
+      >
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
