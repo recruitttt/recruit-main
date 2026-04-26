@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, useRef, type ReactNode } from "react";
 import {
   ArrowRight,
   Check,
@@ -233,9 +233,9 @@ export default function LandingPage() {
             <div className="text-sm font-medium text-slate-500">Cancel anytime</div>
           </div>
 
-          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          <div className="mt-5 grid gap-3 lg:grid-cols-3" style={{ perspective: "1100px" }}>
             {pricingPlans.map((plan) => (
-              <div
+              <TiltCard
                 key={plan.name}
                 className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
                   plan.featured
@@ -280,7 +280,7 @@ export default function LandingPage() {
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
-              </div>
+              </TiltCard>
             ))}
           </div>
         </div>
@@ -459,6 +459,55 @@ function MiniArtifact({
         <div className="truncate text-[13px] font-semibold text-slate-950">{title}</div>
         <div className="mt-0.5 truncate text-[12px] text-slate-500">{detail}</div>
       </div>
+    </div>
+  );
+}
+
+function TiltCard({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const rafId = useRef<number | null>(null);
+
+  function applyTilt(rotX: number, rotY: number, hover: boolean) {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(0)`;
+    el.style.boxShadow = hover
+      ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 28px 60px -18px rgba(15,23,42,0.18)"
+      : "inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 36px rgba(15,23,42,0.05)";
+  }
+
+  function handleMove(event: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (event.clientX - cx) / (rect.width / 2);
+    const dy = (event.clientY - cy) / (rect.height / 2);
+    const rotY = Math.max(-1, Math.min(1, dx)) * 8;
+    const rotX = Math.max(-1, Math.min(1, dy)) * -8;
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => applyTilt(rotX, rotY, true));
+  }
+
+  function handleLeave() {
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    applyTilt(0, 0, false);
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      style={{
+        transformStyle: "preserve-3d",
+        transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease-out",
+        willChange: "transform",
+      }}
+    >
+      {children}
     </div>
   );
 }
