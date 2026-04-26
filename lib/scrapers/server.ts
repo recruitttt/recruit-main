@@ -2,6 +2,8 @@
 // without making an HTTP hop back to ourselves. The /api/scrape/* routes
 // are now thin wrappers around these functions.
 
+import { resolveOpenAiAuth, withOpenAiModelPrefix } from "@/lib/llm-routing";
+
 export type ScrapeResult =
   | { ok: true; markdown: string; metadata?: Record<string, string | undefined>; url: string }
   | { ok: false; reason: string; status: number };
@@ -80,15 +82,16 @@ export async function scrapeOpenAIWeb(
   const url = normalizeUrl(rawUrl);
 
   try {
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    const auth = resolveOpenAiAuth(apiKey);
+    const res = await fetch(`${auth.baseUrl}/responses`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${auth.apiKey}`,
       },
       signal,
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: withOpenAiModelPrefix("gpt-5.4-mini", auth),
         tools: [{ type: "web_search_preview" }],
         input: `Visit the following URL and return ALL visible text content from the page, preserving structure as markdown. Include everything: bio, description, projects, skills, work history, contact info. Do not summarize. Return the full content.\n\nURL: ${url}`,
       }),

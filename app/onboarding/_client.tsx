@@ -33,7 +33,10 @@ import { PrefsStepCard } from "@/app/onboarding/steps/prefs-step";
 import { ActivateStepCard } from "@/app/onboarding/steps/activate-step";
 
 import { authClient } from "@/lib/auth-client";
-import { buildOAuthCompletionURL } from "@/lib/auth-flow";
+import {
+  buildOAuthCompletionURL,
+  buildOAuthLinkCallbackURL,
+} from "@/lib/auth-flow";
 import { setOnboardingCookie } from "@/lib/onboarding-cookie";
 import {
   isGithubConnected,
@@ -220,7 +223,7 @@ export function OnboardingClient() {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages, typing, step, activating]);
+  }, [messages, typing, step]);
 
   useEffect(() => {
     if (!userId) return;
@@ -424,13 +427,12 @@ export function OnboardingClient() {
 
   const handleLinkSocialGithub = useCallback(async () => {
     try {
-      // Route through /api/auth/complete-oauth so the cross-domain plugin's
-      // one-time token gets exchanged for a localhost-scoped session cookie.
-      // Bypassing this (callbackURL pointing straight at /onboarding) leaves
-      // the linked account invisible to the client until a hard reload.
+      // Account linking keeps the current email/demo session. Better Auth does
+      // not mint a new cross-domain one-time token for link callbacks, so this
+      // must return directly to the app instead of /api/auth/complete-oauth.
       const result = await authClient.linkSocial({
         provider: "github",
-        callbackURL: buildOAuthCompletionURL(
+        callbackURL: buildOAuthLinkCallbackURL(
           window.location.origin,
           "/onboarding?step=3",
         ),
@@ -644,7 +646,7 @@ export function OnboardingClient() {
                   ),
                 )}
                 {typing && <TypingIndicator from="scout" />}
-                {!typing && !activating && (
+                {!typing && (
                   <div className="pl-11">
                     <AnimatePresence mode="wait">
                       <motion.div
@@ -715,7 +717,6 @@ export function OnboardingClient() {
                     </AnimatePresence>
                   </div>
                 )}
-                {activating && <ActivationOrbit />}
               </div>
             </div>
           </GlassCard>
@@ -737,6 +738,23 @@ export function OnboardingClient() {
           <TrustRow />
         </aside>
       </div>
+
+      <AnimatePresence>
+        {activating && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-white/70 px-5 backdrop-blur-xl"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.2,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <ActivationOrbit />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScoutDock userId={userId} surface="onboarding" />
     </main>

@@ -1,5 +1,6 @@
 import pLimit from "p-limit";
 import type { LinkedInSnapshot } from "@/lib/intake/linkedin";
+import { dedupeLinkedInExperiences } from "@/lib/intake/linkedin/experience-dedupe";
 import type { ApplicationProfile, RawGithubSnapshot, Repository } from "@/lib/intake/shared";
 import { consolidateReport } from "./consolidate";
 import { detectCredentials, type AICredentials } from "./models";
@@ -132,7 +133,7 @@ export async function runReport(input: RunReportInput): Promise<RunReportOutput>
   );
 
   // ---- Parallel: per-experience summaries ----
-  const experiences = input.linkedinSnapshot?.experiences ?? [];
+  const experiences = dedupeLinkedInExperiences(input.linkedinSnapshot?.experiences ?? []);
   const expCacheByKey = new Map((input.cachedExperienceSummaries ?? []).map((s) => [s.experienceKey, s]));
   const expLimit = pLimit(input.perExperienceConcurrency ?? 4);
   const expResults: ExperienceSummary[] = new Array(experiences.length);

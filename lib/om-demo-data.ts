@@ -105,10 +105,16 @@ export function emptyFollowUps() {
 
 function omDemoRecommendations(): LiveRecommendation[] {
   const source = recommendations as LiveRecommendation[];
-  return Array.from({ length: OM_DEMO_RECOMMENDATION_COUNT }, (_, index) => {
+  const generated = Array.from({ length: OM_DEMO_RECOMMENDATION_COUNT }, (_, index) => {
     const base = source[index % source.length];
     return enrichRecommendation(base, organizationForIndex(index), index);
   });
+  return generated
+    .sort(compareOmDemoRecommendations)
+    .map((recommendation, index) => ({
+      ...recommendation,
+      rank: index + 1,
+    }));
 }
 
 function organizationForIndex(index: number): OmDemoOrganization {
@@ -154,7 +160,9 @@ function generatedRecommendationByJobId(jobId: string) {
       details.find((detail) => detail.job?._id === base.jobId || detail.recommendation?.jobId === base.jobId) ??
       details[index % details.length];
     const org = organizationForIndex(index);
-    const recommendation = enrichRecommendation(base, org, index);
+    const recommendation =
+      omDemoRecommendations().find((candidate) => candidate.jobId === jobId) ??
+      enrichRecommendation(base, org, index);
     return { baseDetail, org, recommendation };
   }
   return null;
@@ -223,7 +231,10 @@ function enrichJobDetail(detail: JobDetail): JobDetail {
   const org = organizationForJobId(detail.recommendation?.jobId ?? detail.job?._id);
   const index = recommendationIndexForJobId(detail.recommendation?.jobId ?? detail.job?._id);
   const baseRecommendation = detail.recommendation ?? (recommendations as LiveRecommendation[])[Math.max(0, index)];
-  const recommendation = enrichRecommendation(baseRecommendation, org, Math.max(0, index));
+  const jobId = detail.recommendation?.jobId ?? detail.job?._id;
+  const recommendation =
+    omDemoRecommendations().find((candidate) => candidate.jobId === jobId) ??
+    enrichRecommendation(baseRecommendation, org, Math.max(0, index));
   return enrichJobDetailFromGenerated(detail, org, recommendation);
 }
 
@@ -235,7 +246,8 @@ function enrichJobDetailFromGenerated(
   const score = recommendation.score;
   const title = recommendation.title;
   const jobUrl = recommendation.jobUrl;
-  const index = Math.max(0, recommendation.rank - 1);
+  const originalIndex = recommendationIndexForJobId(recommendation.jobId ?? detail.job?._id);
+  const index = originalIndex >= 0 ? originalIndex : Math.max(0, recommendation.rank - 1);
   return {
     ...detail,
     job: detail.job ? enrichJob(detail.job, org, {
@@ -295,15 +307,15 @@ function enrichJobDetailFromGenerated(
 }
 
 const ROLE_TITLES = [
-  "Staff Software Engineer, Agent Platform",
-  "Machine Learning Engineer, Product Intelligence",
-  "Senior AI Infrastructure Engineer",
-  "Product Engineer, Applied AI",
-  "Research Engineer, Evaluation Systems",
-  "Software Engineer, Developer AI",
-  "Applied Scientist, Retrieval Agents",
-  "Full Stack Engineer, AI Workflows",
-  "Data Platform Engineer, Model Quality",
+  "Product Engineer, Agent Workflows",
+  "Software Engineer, AI Product Platform",
+  "Full Stack Engineer, AI Automation",
+  "Software Engineer, LLM Evaluation Tools",
+  "Product Engineer, Developer AI",
+  "Software Engineer, Browser Automation",
+  "AI Platform Engineer, Application Workflows",
+  "Frontend Engineer, AI Interfaces",
+  "Data Platform Engineer, Recommendation Quality",
   "Forward Deployed AI Engineer",
 ] as const;
 
@@ -337,9 +349,14 @@ function compensationForIndex(base: string, index: number) {
 
 function scoreForIndex(base: number, index: number) {
   if (index < (organizations as OmDemoOrganization[]).length) return base;
-  const decay = Math.floor(index / 8) * 3;
+  const generatedBase = Math.min(base - 8, 90);
+  const decay = Math.floor(index / (organizations as OmDemoOrganization[]).length) * 5;
   const jitter = ((index * 17) % 9) - 4;
-  return Math.max(42, Math.min(98, base - decay + jitter));
+  return Math.max(42, Math.min(90, generatedBase - decay + jitter));
+}
+
+function compareOmDemoRecommendations(left: LiveRecommendation, right: LiveRecommendation) {
+  return right.score - left.score || left.rank - right.rank;
 }
 
 function generatedJobId(jobId: string | undefined, index: number) {

@@ -4,13 +4,13 @@ import { GET as getCheckoutConfig, POST as postCheckout } from "../app/api/check
 import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
-import { GET as getDashboardLive } from "../app/api/dashboard/live/route";
 import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
 import {
   POST as postRunIngestion,
   parseProviderSelection,
 } from "../app/api/dashboard/run-ingestion/route";
 import { GET as getJobDetail } from "../app/api/dashboard/job-detail/route";
+import { GET as getDashboardLive } from "../app/api/dashboard/live/route";
 import { POST as postCustomJd } from "../app/api/dashboard/custom-jd/route";
 import { GET as getFollowups, POST as postFollowups } from "../app/api/dashboard/followups/route";
 import { POST as postDashboardTailorJob } from "../app/api/dashboard/tailor-job/route";
@@ -178,23 +178,32 @@ await withEnvAsync({ DASHBOARD_DATA_SOURCE: undefined, NEXT_PUBLIC_CONVEX_URL: u
   assert.equal((replayJson.ingestion as { runId?: string }).runId, "m973fa2ppmrpg4fxwz5kwdjzq185jszp");
   assert.equal((replayJson.fixture as { source?: string }).source, "data/om-demo");
 
-  const liveJson = await assertJsonResponse(await getDashboardLive(), 200, {});
-  assert.equal((liveJson.recommendations as unknown[]).length, 100);
-  assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
-  const firstRecommendation = (liveJson.recommendations as Array<{
-    company?: string;
-    organization?: { logoUrl?: string; prestigeTag?: string };
-  }>)[0];
-  assert.equal(firstRecommendation.company, "Google DeepMind");
-  assert.equal(firstRecommendation.organization?.logoUrl, "https://logo.clearbit.com/google.com");
-  assert.equal(firstRecommendation.organization?.prestigeTag, "AI Lab");
-
-  const omDetailJson = await assertJsonResponse(
-    await getJobDetail(new Request("http://test.local/api/dashboard/job-detail?jobId=m576d7tac59qdwtsdb28k91v1d85kzpv")),
+  const liveJson = await assertJsonResponse(
+    await getDashboardLive(new Request("http://test.local/api/dashboard/live")),
     200,
     {}
   );
-  assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, "Google DeepMind");
+  assert.equal((liveJson.recommendations as unknown[]).length, 100);
+  assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
+  const firstRecommendation = (liveJson.recommendations as Array<{
+    jobId?: string;
+    company?: string;
+    title?: string;
+    score?: number;
+    organization?: { logoUrl?: string; prestigeTag?: string };
+  }>)[0];
+  assert.equal(firstRecommendation.company, "OpenAI");
+  assert.equal(firstRecommendation.title, "Product Engineer, Applied Agents");
+  assert.equal(firstRecommendation.score, 98);
+  assert.equal(firstRecommendation.organization?.logoUrl, "/company-logos/openai.png");
+  assert.equal(firstRecommendation.organization?.prestigeTag, "Frontier AI");
+
+  const omDetailJson = await assertJsonResponse(
+    await getJobDetail(new Request(`http://test.local/api/dashboard/job-detail?jobId=${firstRecommendation.jobId}`)),
+    200,
+    {}
+  );
+  assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, "OpenAI");
 });
 
 await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {

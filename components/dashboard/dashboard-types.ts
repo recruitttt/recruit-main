@@ -41,6 +41,10 @@ export type LiveRunSummary = {
   tailoringTargetCount?: number;
   tailoringInProgress?: boolean;
   hasCompletedTailoring?: boolean;
+  appliedCount?: number;
+  appliedAttemptedCount?: number;
+  appliedTargetCount?: number;
+  applyInProgress?: boolean;
   recommendations?: LiveRecommendation[];
 };
 
@@ -143,7 +147,7 @@ export type DashboardRunControls = {
   label: string;
   message?: string;
   error?: string;
-  onRunFirst3?: () => void;
+  onRunPipeline?: () => void;
 };
 
 export type LivePipelineLog = {

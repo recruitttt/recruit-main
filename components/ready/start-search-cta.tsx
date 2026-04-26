@@ -32,6 +32,7 @@ import {
   mistClasses,
   mistRadii,
 } from "@/components/design-system";
+import { resetDashboardLoadingSeen } from "@/components/dashboard/dashboard-entry-gate";
 import { logProfileEvent } from "@/lib/profile";
 import {
   failedSources,
@@ -106,7 +107,8 @@ export function StartSearchCta({
       logProfileEvent("chat", "Job search pipeline launched", "success", {
         used: body.used,
       });
-      router.push("/dashboard");
+      resetDashboardLoadingSeen();
+      router.push("/dashboard/loading");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -181,7 +183,8 @@ export function StartSearchCta({
                     "info",
                   );
                   setOpeningDashboard(true);
-                  router.push("/dashboard");
+                  resetDashboardLoadingSeen();
+                  router.push("/dashboard/loading");
                 }}
               >
                 Open dashboard

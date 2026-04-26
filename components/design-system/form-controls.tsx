@@ -1,11 +1,20 @@
 import type * as React from "react";
 import { Check, ChevronDown, FileText, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStatusColor, mistClasses, mistRadii, type StatusTone } from "./mist-tokens";
+import { mistClasses, mistRadii, type StatusTone } from "./mist-tokens";
 
 const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-1";
 const FOCUS_WITHIN_RING = "focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)] focus-within:ring-offset-1";
 const DISABLED_OPACITY = "opacity-65";
+const TONE_VAR: Record<StatusTone, string> = {
+  active: "--color-accent",
+  accent: "--color-accent",
+  success: "--color-success",
+  warning: "--color-warn",
+  danger: "--color-danger",
+  neutral: "--color-fg-subtle",
+  locked: "--color-fg-muted",
+};
 
 export function TextField({
   label,
@@ -45,21 +54,21 @@ export function TextField({
   rootClassName?: string;
 }) {
   const inputClass = cn(
-    "w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-500 disabled:cursor-not-allowed",
+    "w-full bg-transparent text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] disabled:cursor-not-allowed",
     FOCUS_RING,
     multiline ? "min-h-16 resize-none leading-snug placeholder:leading-snug" : "leading-none placeholder:leading-none",
   );
 
   return (
     <label className={cn("block", rootClassName)}>
-      {label && <span className="mb-2 block text-xs font-semibold text-slate-500">{label}</span>}
+      {label && <span className="mb-2 block text-xs font-semibold text-[var(--color-fg-muted)]">{label}</span>}
       <span
         className={cn(
-          "flex gap-3 border px-3 text-sm text-slate-700 transition",
+          "flex gap-3 border px-3 text-sm text-[var(--color-fg)] transition",
           FOCUS_WITHIN_RING,
           multiline ? "min-h-24 items-start py-3" : "h-11 items-center",
           mistClasses.card,
-          state === "error" && "border-red-500/35 bg-red-500/8",
+          state === "error" && "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)]",
           state === "disabled" && DISABLED_OPACITY,
           className,
         )}
@@ -97,7 +106,7 @@ export function TextField({
         )}
       </span>
       {helper && (
-        <span className={cn("mt-2 block text-xs leading-tight", state === "error" ? "text-red-600" : "text-slate-500")}>
+        <span className={cn("mt-2 block text-xs leading-tight", state === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-fg-subtle)]")}>
           {helper}
         </span>
       )}
@@ -118,21 +127,21 @@ export function SelectField({
 }) {
   return (
     <label className="block">
-      {label && <span className="mb-2 block text-xs font-semibold text-slate-500">{label}</span>}
+      {label && <span className="mb-2 block text-xs font-semibold text-[var(--color-fg-muted)]">{label}</span>}
       <span
         className={cn(
-          "flex h-10 items-center justify-between border px-3 text-sm leading-none text-slate-700 transition",
+          "flex h-10 items-center justify-between border px-3 text-sm leading-none text-[var(--color-fg)] transition",
           FOCUS_WITHIN_RING,
           mistClasses.card,
-          state === "error" && "border-red-500/35 bg-red-500/8",
+          state === "error" && "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)]",
           state === "disabled" && DISABLED_OPACITY,
         )}
       >
         {value}
-        <ChevronDown className="h-4 w-4 text-slate-500" />
+        <ChevronDown className="h-4 w-4 text-[var(--color-fg-subtle)]" />
       </span>
       {helper && (
-        <span className={cn("mt-2 block text-xs leading-tight", state === "error" ? "text-red-600" : "text-slate-500")}>
+        <span className={cn("mt-2 block text-xs leading-tight", state === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-fg-subtle)]")}>
           {helper}
         </span>
       )}
@@ -152,15 +161,15 @@ export function Toggle({
   return (
     <label
       className={cn(
-        "flex items-center justify-between border px-3 py-3 text-sm leading-none text-slate-700 transition",
+        "flex items-center justify-between border px-3 py-3 text-sm leading-none text-[var(--color-fg)] transition",
         FOCUS_WITHIN_RING,
         mistClasses.card,
         disabled && DISABLED_OPACITY,
       )}
     >
       <span className="font-semibold leading-none">{label}</span>
-      <span className={cn("relative h-6 w-11 rounded-full transition", checked ? "bg-[var(--color-accent)]" : "bg-slate-400/30")}>
-        <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white transition", checked ? "right-1" : "left-1")} />
+      <span className={cn("relative h-6 w-11 rounded-full transition", checked ? "bg-[var(--color-accent)]" : "bg-[var(--glass-control-bg)]")}>
+        <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-[var(--color-surface)] transition", checked ? "right-1" : "left-1")} />
       </span>
     </label>
   );
@@ -181,7 +190,7 @@ export function ChoiceChip({
   tone?: StatusTone;
   ariaLabel?: string;
 }) {
-  const color = getStatusColor(tone);
+  const color = `var(${TONE_VAR[tone]})`;
 
   return (
     <button
@@ -195,14 +204,16 @@ export function ChoiceChip({
         FOCUS_RING,
       )}
       style={{
-        borderColor: selected ? `${color}55` : "rgba(255,255,255,0.62)",
+        borderColor: selected
+          ? `color-mix(in oklab, ${color} 36%, transparent)`
+          : "var(--glass-border)",
         background: selected
-          ? `linear-gradient(180deg, ${color}24, ${color}0c)`
-          : "linear-gradient(180deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24))",
+          ? `linear-gradient(180deg, color-mix(in oklab, ${color} 18%, transparent), color-mix(in oklab, ${color} 8%, transparent))`
+          : "linear-gradient(180deg, var(--theme-compat-bg), var(--theme-compat-bg-soft))",
         boxShadow: selected
-          ? `inset 0 2px 4px rgba(15,23,42,0.10), inset 0 0 0 1px ${color}20`
-          : "inset 0 1px 0 rgba(255,255,255,0.72), 0 8px 18px rgba(15,23,42,0.04)",
-        color: selected ? color : "#465568",
+          ? `inset 0 2px 4px rgba(15,23,42,0.10), inset 0 0 0 1px color-mix(in oklab, ${color} 16%, transparent)`
+          : "var(--theme-card-inset-shadow), 0 8px 18px rgba(15,23,42,0.04)",
+        color: selected ? color : "var(--color-fg-muted)",
       }}
     >
       {selected && <Check className="h-3 w-3" strokeWidth={2.5} />}
@@ -266,40 +277,40 @@ export function FileUploadControl({
         onClick={onBrowse}
         aria-label={ariaLabel ?? "Upload resume"}
         className={cn(
-          "flex w-full items-center gap-3 border border-dashed border-white/70 bg-white/34 px-4 py-5 text-left leading-none text-slate-700 transition hover:border-[var(--color-accent)] hover:bg-white/48",
+          "flex w-full items-center gap-3 border border-dashed border-[var(--glass-border)] bg-[var(--glass-card-bg)] px-4 py-5 text-left leading-none text-[var(--color-fg)] transition hover:border-[var(--color-accent)] hover:bg-[var(--glass-control-hover)]",
           FOCUS_RING,
           mistRadii.nested,
         )}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/50 text-slate-500">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] text-[var(--color-fg-subtle)]">
           <Upload className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold leading-none text-slate-800">Drop your resume or click to upload</span>
-          <span className="mt-1 block font-mono text-[11px] leading-none text-slate-500">{acceptLabel}</span>
+          <span className="block text-sm font-semibold leading-none text-[var(--color-fg)]">Drop your resume or click to upload</span>
+          <span className="mt-1 block font-mono text-[11px] leading-none text-[var(--color-fg-subtle)]">{acceptLabel}</span>
         </span>
       </button>
     );
   }
 
   return (
-    <div className={cn("flex items-center gap-3 border border-white/55 bg-white/34 px-4 py-3 leading-none", mistRadii.nested)}>
+    <div className={cn("flex items-center gap-3 border border-[var(--glass-border)] bg-[var(--glass-card-bg)] px-4 py-3 leading-none", mistRadii.nested)}>
       <FileText className="h-4 w-4 shrink-0 text-[var(--color-accent)]" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold leading-none text-slate-800">{fileName}</div>
-        <div className="mt-1 font-mono text-[11px] leading-none text-slate-500">{parsing ? "Parsing resume..." : "Ready"}</div>
+        <div className="truncate text-sm font-semibold leading-none text-[var(--color-fg)]">{fileName}</div>
+        <div className="mt-1 font-mono text-[11px] leading-none text-[var(--color-fg-subtle)]">{parsing ? "Parsing resume..." : "Ready"}</div>
       </div>
       {parsing ? (
         <div className="h-3 w-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
       ) : (
-        <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
+        <Check className="h-4 w-4 text-[var(--color-success)]" strokeWidth={2.5} />
       )}
       {onClear && (
         <button
           type="button"
           onClick={onClear}
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/55 bg-white/32 text-slate-500 transition hover:bg-white/55 hover:text-slate-800",
+            "inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] text-[var(--color-fg-subtle)] transition hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-fg)]",
             FOCUS_RING,
           )}
           aria-label="Remove resume"
@@ -316,10 +327,10 @@ export function ProgressMeter({ value, label, className = "" }: { value: number;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <div className="h-1.5 w-24 overflow-hidden rounded-full border border-white/45 bg-white/36 shadow-inner">
+      <div className="h-1.5 w-24 overflow-hidden rounded-full border border-[var(--glass-border)] bg-[var(--glass-control-bg)] shadow-inner">
         <div className="h-full rounded-full bg-[var(--color-accent)] shadow-[0_0_18px_rgba(63,122,86,0.35)] transition-[width] duration-500" style={{ width }} />
       </div>
-      {label && <span className="font-mono text-[11px] leading-none tabular-nums text-slate-500">{label}</span>}
+      {label && <span className="font-mono text-[11px] leading-none tabular-nums text-[var(--color-fg-subtle)]">{label}</span>}
     </div>
   );
 }

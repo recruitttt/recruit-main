@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { GET as completeOAuth } from "../app/api/auth/complete-oauth/route";
 import { responseFromAuthUpstream } from "../lib/auth-proxy";
 import {
   authErrorMessage,
   authNewUserRedirectPath,
+  buildOAuthLinkCallbackURL,
   authSuccessRedirectPath,
   buildOAuthCompletionURL,
   safeRedirectPath,
@@ -35,6 +37,65 @@ async function main() {
   assert.equal(
     buildOAuthCompletionURL("http://localhost:3000", "/onboarding?step=2&auth=github"),
     "http://localhost:3000/api/auth/complete-oauth?redirect=%2Fonboarding%3Fstep%3D2%26auth%3Dgithub"
+  );
+  assert.equal(
+    buildOAuthLinkCallbackURL("http://localhost:3000", "/onboarding?step=3"),
+    "http://localhost:3000/onboarding?step=3"
+  );
+  assert.equal(
+    buildOAuthLinkCallbackURL("http://localhost:3000", "https://evil.example/callback"),
+    "http://localhost:3000/dashboard"
+  );
+  const convexAuthSource = readFileSync(
+    new URL("../convex/auth.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(convexAuthSource, /allowDifferentEmails:\s*true/);
+
+  // Regression guard for the linkSocial-doesn't-show-connected bug.
+  //
+  // The Convex Better Auth component exposes `findMany` as a query whose
+  // validator takes args FLAT — `{ model, where, paginationOpts, ... }`.
+  // Only mutations (`create`, `updateOne/Many`, `deleteOne/Many`) accept
+  // `{ input: { model, where, ... } }`. A previous fix attempt wrapped
+  // `findMany` args in `input`, which made the args validator reject the
+  // call. The `connectedAccounts` query then threw on the server, the
+  // React `useQuery` returned undefined, and the UI claimed GitHub was
+  // "not linked" even after `linkSocial` had successfully written the row.
+  for (const [path, label] of [
+    ["../convex/auth.ts", "convex/auth.ts"],
+    ["../lib/auth-github.ts", "lib/auth-github.ts"],
+    ["../convex/authAdmin.ts", "convex/authAdmin.ts"],
+  ] as const) {
+    const source = readFileSync(new URL(path, import.meta.url), "utf8");
+    const findManyCalls = source.matchAll(/\.findMany[\s\S]*?\{([\s\S]*?)\}\s*\)/g);
+    for (const match of findManyCalls) {
+      const body = match[1];
+      assert.equal(
+        /^\s*input:\s*\{/m.test(body),
+        false,
+        `${label}: findMany call must NOT wrap args in \`input:\` — flat args only`,
+      );
+    }
+  }
+
+  const onboardingClientSource = readFileSync(
+    new URL("../app/onboarding/_client.tsx", import.meta.url),
+    "utf8"
+  );
+  const linkSocialIndex = onboardingClientSource.indexOf("authClient.linkSocial");
+  assert.ok(linkSocialIndex >= 0, "onboarding has a GitHub linkSocial flow");
+  assert.notEqual(
+    onboardingClientSource.lastIndexOf("buildOAuthLinkCallbackURL", linkSocialIndex),
+    -1,
+    "GitHub linkSocial uses the direct link callback helper"
+  );
+  assert.equal(
+    onboardingClientSource
+      .slice(linkSocialIndex, linkSocialIndex + 500)
+      .includes("buildOAuthCompletionURL"),
+    false,
+    "GitHub linkSocial must not use one-time-token completion"
   );
 
   assert.equal(authSuccessRedirectPath("sign-in", null), "/dashboard");

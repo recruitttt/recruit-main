@@ -1,8 +1,11 @@
 // Server-side OpenAI callers via plain fetch.
 // We avoid the openai SDK because it relies on Promise.try (Node 22+).
+//
+// Routes through Vercel AI Gateway when AI_GATEWAY_API_KEY is set
+// (provider-prefixed model + gateway base URL); falls back to
+// api.openai.com otherwise. See lib/llm-routing.ts.
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+import { resolveOpenAiAuth, withOpenAiModelPrefix } from "./llm-routing";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -17,15 +20,16 @@ export async function chatJSON(
   opts?: { model?: string; temperature?: number; signal?: AbortSignal }
 ): Promise<{ ok: true; raw: string } | { ok: false; reason: string }> {
   try {
-    const res = await fetch(OPENAI_CHAT_URL, {
+    const auth = resolveOpenAiAuth(apiKey);
+    const res = await fetch(`${auth.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${auth.apiKey}`,
       },
       signal: opts?.signal,
       body: JSON.stringify({
-        model: opts?.model ?? "gpt-4o-mini",
+        model: withOpenAiModelPrefix(opts?.model ?? "gpt-5.4-mini", auth),
         temperature: opts?.temperature ?? 0,
         response_format: { type: "json_object" },
         messages,
@@ -64,15 +68,16 @@ export async function chatResponsesJSON(
   opts?: { model?: string; signal?: AbortSignal; tools?: Array<Record<string, unknown>> }
 ): Promise<{ ok: true; raw: string } | { ok: false; reason: string }> {
   try {
-    const res = await fetch(OPENAI_RESPONSES_URL, {
+    const auth = resolveOpenAiAuth(apiKey);
+    const res = await fetch(`${auth.baseUrl}/responses`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${auth.apiKey}`,
       },
       signal: opts?.signal,
       body: JSON.stringify({
-        model: opts?.model ?? "gpt-4o-mini",
+        model: withOpenAiModelPrefix(opts?.model ?? "gpt-5.4-mini", auth),
         tools: opts?.tools ?? [{ type: "web_search_preview" }],
         input: [
           { role: "system", content: systemPrompt },

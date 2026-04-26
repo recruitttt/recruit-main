@@ -8,6 +8,17 @@ export type RankingProfile = {
     company?: string;
     description?: string;
   }>;
+  education?: Array<{
+    school?: string;
+    degree?: string;
+    field?: string;
+  }>;
+  repoHighlights?: Array<{
+    name: string;
+    summary: string;
+    languages: string[];
+    stars?: number;
+  }>;
   prefs?: {
     roles?: string[];
     locations?: string[];
@@ -15,6 +26,12 @@ export type RankingProfile = {
     minSalary?: string;
     companySizes?: string[];
   };
+  yearsExperience?: number;
+  targetSeniority?: "intern" | "junior" | "mid" | "senior" | "staff";
+};
+
+export type EvaluateOptions = {
+  softMode?: boolean;
 };
 
 export type RankingJob = {
@@ -38,8 +55,19 @@ export type RankingJob = {
 export type FilterDecision = {
   status: "kept" | "rejected";
   reasons: string[];
+  softSignals: Record<string, number>;
   ruleScore: number;
 };
+
+const SOFT_PENALTY: Record<string, number> = {
+  seniority_mismatch: 0.7,
+  role_family_frontend_mismatch: 0.5,
+  role_family_backend_mismatch: 0.5,
+  role_family_engineering_mismatch: 0.5,
+  role_family_business_mismatch: 0.6,
+};
+
+const HARD_REASONS = new Set(["salary_below_minimum", "location_mismatch"]);
 
 const JUNIOR_RE = /\b(junior|intern|internship|new grad|new-grad|graduate|entry[-\s]?level|apprentice)\b/i;
 const SENIOR_RE = /\b(senior|staff|principal|lead|head|director|manager)\b/i;
@@ -53,15 +81,16 @@ const BUSINESS_ROLE_RE = /\b(account executive|sales|business development|market
 
 export function evaluateHardFilters(
   job: RankingJob,
-  profile: RankingProfile
+  profile: RankingProfile,
+  options: EvaluateOptions = {}
 ): FilterDecision {
-  const reasons: string[] = [];
+  const candidateReasons: string[] = [];
   const targetText = profileText(profile);
   const title = job.title.trim();
   const titleText = `${title} ${job.department ?? ""} ${job.team ?? ""}`;
 
   if (SENIOR_RE.test(targetText) && JUNIOR_RE.test(titleText)) {
-    reasons.push("seniority_mismatch");
+    candidateReasons.push("seniority_mismatch");
   }
 
   const targetFamilies = inferFamilies(targetText);
@@ -74,7 +103,7 @@ export function evaluateHardFilters(
     jobFamilies.has("frontend") &&
     !isFullStack
   ) {
-    reasons.push("role_family_frontend_mismatch");
+    candidateReasons.push("role_family_frontend_mismatch");
   }
 
   if (
@@ -83,7 +112,7 @@ export function evaluateHardFilters(
     jobFamilies.has("backend") &&
     !isFullStack
   ) {
-    reasons.push("role_family_backend_mismatch");
+    candidateReasons.push("role_family_backend_mismatch");
   }
 
   if (
@@ -92,7 +121,7 @@ export function evaluateHardFilters(
     (jobFamilies.has("backend") || jobFamilies.has("frontend")) &&
     !jobFamilies.has("product")
   ) {
-    reasons.push("role_family_engineering_mismatch");
+    candidateReasons.push("role_family_engineering_mismatch");
   }
 
   if (
@@ -103,23 +132,36 @@ export function evaluateHardFilters(
     BUSINESS_ROLE_RE.test(titleText) &&
     !jobFamilies.has("solutions")
   ) {
-    reasons.push("role_family_business_mismatch");
+    candidateReasons.push("role_family_business_mismatch");
   }
 
   if (isLocationMismatch(job, profile)) {
-    reasons.push("location_mismatch");
+    candidateReasons.push("location_mismatch");
   }
 
   const minSalary = parseMoney(profile.prefs?.minSalary ?? "");
   const salaryMax = job.salaryMax ?? parseCompensation(job.compensationSummary).max;
   if (minSalary !== null && salaryMax !== null && salaryMax < minSalary) {
-    reasons.push("salary_below_minimum");
+    candidateReasons.push("salary_below_minimum");
+  }
+
+  const softMode = options.softMode === true;
+  const reasons: string[] = [];
+  const softSignals: Record<string, number> = {};
+
+  for (const reason of candidateReasons) {
+    if (!softMode || HARD_REASONS.has(reason)) {
+      reasons.push(reason);
+    } else {
+      softSignals[reason] = SOFT_PENALTY[reason] ?? 0.5;
+    }
   }
 
   return {
     status: reasons.length > 0 ? "rejected" : "kept",
     reasons,
-    ruleScore: scoreRules(job, profile, reasons),
+    softSignals,
+    ruleScore: scoreRules(job, profile, reasons, softSignals),
   };
 }
 
@@ -127,6 +169,8 @@ export function buildProfileSearchQuery(profile: RankingProfile): string {
   const roles = profile.prefs?.roles ?? [];
   const skills = profile.skills ?? [];
   const experience = profile.experience ?? [];
+  const repoHighlights = profile.repoHighlights ?? [];
+  const education = profile.education ?? [];
   const chunks = [
     roles.join(" "),
     roles.join(" "),
@@ -138,6 +182,14 @@ export function buildProfileSearchQuery(profile: RankingProfile): string {
       .map((item) =>
         [item.title, item.company, item.description].filter(Boolean).join(" ")
       )
+      .join(" "),
+    repoHighlights
+      .slice(0, 4)
+      .map((repo) => [repo.name, repo.summary, repo.languages.join(" ")].filter(Boolean).join(" "))
+      .join(" "),
+    education
+      .slice(0, 2)
+      .map((entry) => [entry.degree, entry.field, entry.school].filter(Boolean).join(" "))
       .join(" "),
   ];
   return chunks.join(" ").replace(/\s+/g, " ").trim();
@@ -184,7 +236,8 @@ export function normalizeScore(value: number, max: number): number {
 function scoreRules(
   job: RankingJob,
   profile: RankingProfile,
-  rejectionReasons: string[]
+  rejectionReasons: string[],
+  softSignals: Record<string, number> = {}
 ): number {
   if (rejectionReasons.length > 0) {
     return Math.max(0, 35 - rejectionReasons.length * 10);
@@ -208,6 +261,13 @@ function scoreRules(
   if (job.compensationSummary || job.salaryMax) {
     score += 3;
   }
+
+  let softPenalty = 0;
+  for (const weight of Object.values(softSignals)) {
+    softPenalty += weight * 12;
+  }
+  score -= softPenalty;
+
   return Math.max(0, Math.min(100, score));
 }
 

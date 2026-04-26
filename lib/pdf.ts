@@ -187,7 +187,8 @@ export type HtmlToPdfOptions = {
 
 export async function htmlToPdf(html: string, opts: HtmlToPdfOptions = {}): Promise<Uint8Array> {
   const format = opts.format ?? "letter";
-  const margin = `${opts.marginIn ?? 0.6}in`;
+  // Resume HTML owns print margins via @page; keep Chromium's margin at zero by default.
+  const margin = `${opts.marginIn ?? 0}in`;
 
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -199,6 +200,7 @@ export async function htmlToPdf(html: string, opts: HtmlToPdfOptions = {}): Prom
     const buf = await page.pdf({
       format,
       printBackground: true,
+      preferCSSPageSize: true,
       margin: { top: margin, right: margin, bottom: margin, left: margin },
     });
     return buf;
