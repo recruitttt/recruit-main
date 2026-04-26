@@ -12,11 +12,20 @@ export const convexRefs = {
       "ashby:currentRecommendations"
     ),
     jobDetail: makeFunctionReference<"query">("ashby:jobDetail"),
+    getAshbyRuntimeProfileContext: makeFunctionReference<"query">(
+      "ashby:getAshbyRuntimeProfileContext"
+    ),
     upsertDemoProfileSnapshot: makeFunctionReference<"mutation">(
       "ashby:upsertDemoProfileSnapshot"
     ),
     upsertTailoredApplication: makeFunctionReference<"mutation">(
       "ashby:upsertTailoredApplication"
+    ),
+    upsertAshbyApprovedAnswer: makeFunctionReference<"mutation">(
+      "ashby:upsertAshbyApprovedAnswer"
+    ),
+    approveAshbyPendingReview: makeFunctionReference<"mutation">(
+      "ashby:approveAshbyPendingReview"
     ),
   },
   ashbyActions: {
@@ -28,6 +37,9 @@ export const convexRefs = {
     ),
     runAshbyIngestion: makeFunctionReference<"action">(
       "ashbyActions:runAshbyIngestion"
+    ),
+    runAshbyFormFill: makeFunctionReference<"action">(
+      "ashbyActions:runAshbyFormFill"
     ),
     runGreenhouseIngestion: makeFunctionReference<"action">(
       "ashbyActions:runGreenhouseIngestion"
@@ -43,6 +55,19 @@ export const convexRefs = {
     ),
     rankIngestionRun: makeFunctionReference<"action">(
       "ashbyActions:rankIngestionRun"
+    ),
+  },
+  applicationJobs: {
+    createApplicationJob: makeFunctionReference<"mutation">(
+      "applicationJobs:createApplicationJob"
+    ),
+    getApplicationJob: makeFunctionReference<"query">(
+      "applicationJobs:getApplicationJob"
+    ),
+  },
+  applicationActions: {
+    runApplicationJob: makeFunctionReference<"action">(
+      "applicationActions:runApplicationJob"
     ),
   },
   followups: {
