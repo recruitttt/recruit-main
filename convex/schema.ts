@@ -207,6 +207,90 @@ export default defineSchema({
     .index("by_job", ["jobId"])
     .index("by_run", ["runId"]),
 
+  applications: defineTable({
+    demoUserId: v.string(),
+    jobId: v.optional(v.id("ingestedJobs")),
+    company: v.string(),
+    title: v.string(),
+    provider: v.string(),
+    jobUrl: v.optional(v.string()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("ready_to_apply"),
+      v.literal("applied"),
+      v.literal("follow_up_due"),
+      v.literal("followed_up"),
+      v.literal("responded"),
+      v.literal("interview"),
+      v.literal("rejected"),
+      v.literal("offer"),
+      v.literal("closed"),
+      v.literal("blocked")
+    ),
+    appliedAt: v.optional(isoString),
+    lastStatusAt: isoString,
+    nextFollowUpAt: v.optional(isoString),
+    responseAt: v.optional(isoString),
+    responseSummary: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_demo_user_status", ["demoUserId", "status"])
+    .index("by_demo_user_updated", ["demoUserId", "updatedAt"])
+    .index("by_job", ["jobId"])
+    .index("by_next_follow_up", ["demoUserId", "nextFollowUpAt"]),
+
+  followUpTasks: defineTable({
+    demoUserId: v.string(),
+    applicationId: v.id("applications"),
+    channel: v.union(
+      v.literal("email"),
+      v.literal("linkedin"),
+      v.literal("manual")
+    ),
+    state: v.union(
+      v.literal("scheduled"),
+      v.literal("draft_ready"),
+      v.literal("sent_manually"),
+      v.literal("skipped"),
+      v.literal("blocked")
+    ),
+    scheduledFor: isoString,
+    completedAt: v.optional(isoString),
+    draftId: v.optional(v.id("outreachDrafts")),
+    sequence: v.optional(v.number()),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_application", ["applicationId"])
+    .index("by_demo_user_state_scheduled", [
+      "demoUserId",
+      "state",
+      "scheduledFor",
+    ]),
+
+  outreachDrafts: defineTable({
+    demoUserId: v.string(),
+    applicationId: v.id("applications"),
+    taskId: v.optional(v.id("followUpTasks")),
+    channel: v.union(
+      v.literal("email"),
+      v.literal("linkedin"),
+      v.literal("manual")
+    ),
+    subject: v.optional(v.string()),
+    body: v.string(),
+    recipient: v.optional(v.string()),
+    tone: v.optional(v.string()),
+    source: v.string(),
+    approvedAt: v.optional(isoString),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_application", ["applicationId"])
+    .index("by_task", ["taskId"]),
+
   jobPipelineArtifacts: defineTable({
     demoUserId: v.string(),
     runId: v.optional(v.id("ingestionRuns")),

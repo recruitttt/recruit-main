@@ -9,6 +9,7 @@
     "lint": "eslint",
     "ci:quality": "npm run lint && npm run test:profile && npm run test:ranking && npm run test:ats && npm run test:tailor && npm run build",
     "test:profile": "tsx tests/profile-merge.test.ts",
+    "test:followups": "tsx tests/followups.test.ts",
     "test:ranking": "tsx tests/job-ranking.test.ts",
     "test:ats": "tsx tests/ats-ingestion.test.ts",
     "test:tailor": "tsx tests/tailor-quality.test.ts"
