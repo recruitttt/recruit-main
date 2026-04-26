@@ -33,7 +33,10 @@ import { PrefsStepCard } from "@/app/onboarding/steps/prefs-step";
 import { ActivateStepCard } from "@/app/onboarding/steps/activate-step";
 
 import { authClient } from "@/lib/auth-client";
-import { buildOAuthCompletionURL } from "@/lib/auth-flow";
+import {
+  buildOAuthCompletionURL,
+  buildOAuthLinkCallbackURL,
+} from "@/lib/auth-flow";
 import { setOnboardingCookie } from "@/lib/onboarding-cookie";
 import {
   isGithubConnected,
@@ -424,13 +427,12 @@ export function OnboardingClient() {
 
   const handleLinkSocialGithub = useCallback(async () => {
     try {
-      // Route through /api/auth/complete-oauth so the cross-domain plugin's
-      // one-time token gets exchanged for a localhost-scoped session cookie.
-      // Bypassing this (callbackURL pointing straight at /onboarding) leaves
-      // the linked account invisible to the client until a hard reload.
+      // Account linking keeps the current email/demo session. Better Auth does
+      // not mint a new cross-domain one-time token for link callbacks, so this
+      // must return directly to the app instead of /api/auth/complete-oauth.
       const result = await authClient.linkSocial({
         provider: "github",
-        callbackURL: buildOAuthCompletionURL(
+        callbackURL: buildOAuthLinkCallbackURL(
           window.location.origin,
           "/onboarding?step=3",
         ),

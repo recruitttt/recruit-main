@@ -23,7 +23,7 @@ import {
   mistClasses,
 } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
-import { buildOAuthCompletionURL } from "@/lib/auth-flow";
+import { buildOAuthLinkCallbackURL } from "@/lib/auth-flow";
 import {
   isGithubConnected,
   shouldAutoStartGithubIntake,
@@ -209,9 +209,9 @@ export function ReadyRoom({
     async (kind: IntakeKind) => {
       if (kind === "github") {
         try {
-          await authClient.linkSocial({
+          const result = await authClient.linkSocial({
             provider: "github",
-            callbackURL: buildOAuthCompletionURL(
+            callbackURL: buildOAuthLinkCallbackURL(
               window.location.origin,
               "/ready"
             ),
@@ -220,6 +220,12 @@ export function ReadyRoom({
               window.location.origin
             ).toString(),
           });
+          const data = (
+            result as { data?: { url?: string; redirect?: boolean } } | null
+          )?.data;
+          if (data?.url && typeof window !== "undefined") {
+            window.location.href = data.url;
+          }
         } catch (err) {
           logProfileEvent("github", "GitHub reconnect failed to start", "error", {
             message: err instanceof Error ? err.message : String(err),
