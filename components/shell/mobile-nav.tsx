@@ -7,10 +7,10 @@ import {
   AlertTriangle,
   Box,
   LayoutDashboard,
-  LayoutGrid,
   LogIn,
   LogOut,
   Settings,
+  User,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +24,7 @@ export interface NavItem {
 
 export const navItems: readonly NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/profile", label: "Profile", icon: User },
   { href: "/dlq", label: "Review queue", icon: AlertTriangle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -76,7 +77,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
     };
   }, [isOpen]);
 
-  const showRoomToggle = pathname === "/dashboard" || pathname === "/dashboard/room";
+  const showRoom3dBeta = pathname === "/dashboard";
 
   const enterTransition = reduceMotion
     ? { duration: 0 }
@@ -152,47 +153,19 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
               })}
             </nav>
 
-            {showRoomToggle && (
-              <div className="mt-1 rounded-2xl border border-white/55 bg-white/30 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-                <div className="mb-1 flex items-center justify-between px-2 pt-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                    Workspace
-                  </span>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-slate-400">
-                    beta
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 p-1">
-                  <Link
-                    href="/dashboard"
-                    onClick={onClose}
-                    aria-current={pathname === "/dashboard" ? "page" : undefined}
-                    className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[12px] font-semibold transition",
-                      pathname === "/dashboard"
-                        ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                        : "border border-transparent text-slate-500 hover:bg-white/40 hover:text-slate-800",
-                    )}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                    2D
-                  </Link>
-                  <Link
-                    href="/dashboard/room"
-                    onClick={onClose}
-                    aria-current={pathname === "/dashboard/room" ? "page" : undefined}
-                    className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[12px] font-semibold transition",
-                      pathname === "/dashboard/room"
-                        ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                        : "border border-transparent text-slate-500 hover:bg-white/40 hover:text-slate-800",
-                    )}
-                  >
-                    <Box className="h-3.5 w-3.5" />
-                    3D
-                  </Link>
-                </div>
-              </div>
+            {showRoom3dBeta && (
+              <Link
+                href="/dashboard/room"
+                onClick={onClose}
+                className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-white/55 bg-white/30 px-3 py-2 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:bg-white/50 hover:text-slate-900"
+                aria-label="Try the 3D view (beta)"
+              >
+                <Box className="h-3.5 w-3.5" />
+                <span>Try 3D</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-slate-400">
+                  beta
+                </span>
+              </Link>
             )}
 
             <div className="mt-auto rounded-2xl border border-white/55 bg-white/30 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">

@@ -1,22 +1,26 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  Activity,
   ArrowRight,
   Briefcase,
   Check,
   ChevronLeft,
   Clock3,
   Link2,
-  Mail,
+  Loader2,
   MapPin,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Wordmark, CompanyLogo } from "@/components/ui/logo";
+import { GithubIcon, LinkedinIcon } from "@/components/ui/brand-icons";
 import {
   ActionButton,
   ChoiceChipGroup,
@@ -29,54 +33,65 @@ import {
 } from "@/components/design-system";
 import { UserMessage, TypingIndicator } from "@/components/onboarding/chat";
 import { AgentCharacter } from "@/components/onboarding/characters";
+import { authClient } from "@/lib/auth-client";
+import { buildOAuthCompletionURL } from "@/lib/auth-flow";
+import { setOnboardingCookie } from "@/lib/onboarding-cookie";
+import {
+  canStartSourceRun,
+  isLinkedinProfileUrl,
+  isGithubConnected,
+  normalizeLinkedinProfileUrl,
+  shouldAutoStartGithubIntake,
+} from "@/lib/intake/shared/source-state";
 import { onboardingMatches } from "@/lib/mock-data";
 import { playActivate, playReceive, playSend } from "@/lib/sounds";
-import { logProfileEvent, mergeProfile, readProfile, type ProvenanceSource, type UserProfile } from "@/lib/profile";
-import { parseResume, scrapeAndExtract, scrapeLinkedIn } from "@/lib/scrapers";
-import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
+import { logProfileEvent, mergeProfile } from "@/lib/profile";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
-type Data = {
-  name: string;
-  email: string;
-  resumeFilename: string;
-  links: { github: string; linkedin: string; twitter: string; devpost: string; website: string };
-  prefs: { roles: string[]; workAuth: string; location: string };
+// ----------------------------------------------------------------------------
+// Step model — locked at 5 to match spec §8 (Account, Resume, Connect, Prefs,
+// Activate). Step indices stay stable for the progress-bar visual sync.
+// On Activate the page hands off to /ready (the 2D Ready Room) instead of
+// the legacy 3D scene transition.
+// ----------------------------------------------------------------------------
+
+type Step = "account" | "resume" | "connect" | "prefs" | "activate";
+
+const STEP_ORDER: Step[] = ["account", "resume", "connect", "prefs", "activate"];
+const STEP_INDEX: Record<Step, number> = {
+  account: 0,
+  resume: 1,
+  connect: 2,
+  prefs: 3,
+  activate: 4,
 };
-
-type DataUpdate = Partial<Omit<Data, "links" | "prefs">> & {
-  links?: Partial<Data["links"]>;
-  prefs?: Partial<Data["prefs"]>;
-};
-
-type Step = "role" | "resume" | "links" | "email" | "prefs" | "review";
-
-const STEP_ORDER: Step[] = ["role", "resume", "links", "email", "prefs", "review"];
 
 const STEP_LABEL: Record<Step, string> = {
-  role: "Role",
+  account: "Account",
   resume: "Resume",
-  links: "Links",
-  email: "Email",
+  connect: "Connect",
   prefs: "Preferences",
-  review: "Review",
+  activate: "Activate",
 };
 
-type ChatEntry =
-  | { id: string; kind: "agent"; text: string }
-  | { id: string; kind: "user"; text: string };
-
-type LaunchStage = "idle" | "starting" | "error";
-
-const EMPTY: Data = {
-  name: "",
-  email: "",
-  resumeFilename: "",
-  links: { github: "", linkedin: "", twitter: "", devpost: "", website: "" },
-  prefs: { roles: [], workAuth: "", location: "" },
+const STEP_PROMPTS: Record<Step, string> = {
+  account: "Sign in to start. GitHub gets you the richest profile fastest.",
+  resume: "Upload your resume so I can ground every application in real history.",
+  connect: "Link any other sources. Background pulls fire instantly so you can keep moving.",
+  prefs: "Last bit. Any roles, locations, or work-auth constraints I should respect?",
+  activate: "Everything queued. Confirm and I'll open the Ready Room while sources finish.",
 };
 
-const STORAGE = "recruit:onboarding";
-const SOURCE_NAME = { github: "GitHub", linkedin: "LinkedIn", devpost: "DevPost", website: "website" } as const;
+type IntakeKind = "github" | "linkedin" | "resume" | "web" | "ai-report";
+
+const SOURCE_NAME: Record<IntakeKind, string> = {
+  github: "GitHub",
+  linkedin: "LinkedIn",
+  resume: "Resume",
+  web: "Web",
+  "ai-report": "AI report",
+};
 
 const ROLE_OPTIONS = [
   "Software Engineer",
@@ -89,22 +104,47 @@ const ROLE_OPTIONS = [
 
 const AUTH_OPTIONS = ["US citizen", "US permanent resident", "Need sponsorship"];
 
-const LINK_FIELDS = [
-  { k: "github" as const, label: "GitHub", placeholder: "github.com/yourhandle" },
-  { k: "linkedin" as const, label: "LinkedIn", placeholder: "linkedin.com/in/you" },
-  { k: "website" as const, label: "Website", placeholder: "yoursite.com" },
-  { k: "devpost" as const, label: "DevPost", placeholder: "devpost.com/you" },
-  { k: "twitter" as const, label: "X / Twitter", placeholder: "x.com/yourhandle" },
-];
+// ----------------------------------------------------------------------------
+// Local form state — written to BOTH localStorage (chat sidebar hydration) and
+// Convex via mergeProfile-compatible patches. The legacy
+// `recruit:onboarding` key continues to be persisted because the chat
+// sidebar's hydration code (per onboarding-storage.ts comment) reads it.
+// ----------------------------------------------------------------------------
 
-const STEP_PROMPTS: Record<Step, string> = {
-  role: "What kind of role should I start with?",
-  resume: "Upload your resume so I can tailor applications accurately.",
-  links: "Any public links I should read before applying?",
-  email: "Where should I send application updates?",
-  prefs: "Last bit. Any location or work authorization constraints?",
-  review: "Review this before I save it to Convex.",
+type Data = {
+  name: string;
+  email: string;
+  resumeFilename: string;
+  resumeStorageId: string | null;
+  links: { github: string; linkedin: string; twitter: string; devpost: string; website: string };
+  prefs: { roles: string[]; workAuth: string; location: string };
 };
+
+type DataUpdate = Partial<Omit<Data, "links" | "prefs">> & {
+  links?: Partial<Data["links"]>;
+  prefs?: Partial<Data["prefs"]>;
+};
+
+const EMPTY: Data = {
+  name: "",
+  email: "",
+  resumeFilename: "",
+  resumeStorageId: null,
+  links: { github: "", linkedin: "", twitter: "", devpost: "", website: "" },
+  prefs: { roles: [], workAuth: "", location: "" },
+};
+
+const STORAGE = "recruit:onboarding";
+
+type ChatEntry =
+  | { id: string; kind: "agent"; text: string }
+  | { id: string; kind: "user"; text: string };
+
+type LaunchStage = "idle" | "starting" | "error";
+
+// ----------------------------------------------------------------------------
+// Component
+// ----------------------------------------------------------------------------
 
 export default function OnboardingChatPage() {
   return (
@@ -114,28 +154,98 @@ export default function OnboardingChatPage() {
   );
 }
 
+function resolveStartingStep(stepParam: string | null): Step {
+  if (!stepParam) return "account";
+  const numeric = Number.parseInt(stepParam, 10);
+  if (Number.isFinite(numeric) && numeric >= 1 && numeric <= STEP_ORDER.length) {
+    return STEP_ORDER[numeric - 1];
+  }
+  if ((STEP_ORDER as string[]).includes(stepParam)) return stepParam as Step;
+  return "account";
+}
+
 function OnboardingChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
-  const { active: transitionActive, trigger: triggerTransition, handleComplete } = useSceneTransition();
+  const stepParam = searchParams.get("step");
+  const session = authClient.useSession();
+  const userId = session.data?.user?.id ?? null;
+
+  const initialStep = useMemo(() => resolveStartingStep(stepParam), [stepParam]);
+
   const [data, setData] = useState<Data>(EMPTY);
-  const [step, setStep] = useState<Step>("role");
+  const [step, setStep] = useState<Step>(initialStep);
   const [messages, setMessages] = useState<ChatEntry[]>([
-    { id: "a-role", kind: "agent", text: STEP_PROMPTS.role },
+    { id: `a-${initialStep}`, kind: "agent", text: STEP_PROMPTS[initialStep] },
   ]);
   const [parsingResume, setParsingResume] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [activating, setActivating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<{ step: Step; data: Data; messages: ChatEntry[] }[]>([]);
+  const githubAutoStartRef = useRef<string | null>(null);
 
-  const stepIndex = STEP_ORDER.indexOf(step);
+  const stepIndex = STEP_INDEX[step];
   const totalSteps = STEP_ORDER.length;
 
+  // ---------------------------------------------------------------------------
+  // Convex hooks — adapter actions (will resolve once subagents B-E land
+  // their implementations) + storage upload + live progress queries.
+  // ---------------------------------------------------------------------------
+
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const markOnboardingComplete = useMutation(api.userProfiles.markOnboardingComplete);
+  // Resume intake runs as a Next route (not a Convex action) because the PDF
+  // adapter pulls `unpdf` → `pdfjs-dist`, which dynamically imports
+  // `pdf.worker.mjs` at runtime — Convex's bundler can't ship that file.
+  // We POST to `/api/intake/resume`, drain the SSE stream so the request
+  // stays open, and let the existing `useQuery(api.intakeRuns.byUserKind, ...)`
+  // below surface live progress badges (the route writes the same events).
+  // GitHub intake starts from the `session.create.after` hook for GitHub
+  // sign-in, and from a guarded client effect for email-first `linkSocial`
+  // flows because linking a provider does not create a new session.
+  // LinkedIn intake is a Next route (not a Convex action) because its adapter
+  // pulls `playwright-core`, which the Convex bundler can't ship. We POST to
+  // `/api/intake/linkedin`, drain the SSE stream so the request stays open,
+  // and let the existing `useQuery(api.intakeRuns.byUserKind, ...)` below
+  // surface live progress badges (the route writes the same `intakeRuns`
+  // events).
+  const runGithubIntake = useAction(api.intakeActions.runGithubIntake);
+  const runWebIntake = useAction(api.intakeActions.runWebIntake);
+
+  // Live-progress subscriptions per kind. Each returns `null` while the user
+  // is unauthenticated (prevents the query from running with an empty userId).
+  const githubRun = useQuery(
+    api.intakeRuns.byUserKind,
+    userId ? { userId, kind: "github" } : "skip"
+  );
+  const accountConnections = useQuery(
+    api.auth.connectedAccounts,
+    userId ? { userId } : "skip"
+  );
+  const linkedinRun = useQuery(
+    api.intakeRuns.byUserKind,
+    userId ? { userId, kind: "linkedin" } : "skip"
+  );
+  const resumeRun = useQuery(
+    api.intakeRuns.byUserKind,
+    userId ? { userId, kind: "resume" } : "skip"
+  );
+  const webRun = useQuery(
+    api.intakeRuns.byUserKind,
+    userId ? { userId, kind: "web" } : "skip"
+  );
+  const githubConnected = isGithubConnected(accountConnections);
+
+  // ---------------------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
-    router.prefetch("/dashboard/room");
+    router.prefetch("/ready");
   }, [router]);
 
   useEffect(() => {
@@ -156,6 +266,7 @@ function OnboardingChatContent() {
     return () => window.clearTimeout(id);
   }, []);
 
+  // Pre-seed selected role from URL query.
   useEffect(() => {
     if (!roleParam) return;
     const id = window.setTimeout(() => {
@@ -170,6 +281,8 @@ function OnboardingChatContent() {
     return () => window.clearTimeout(id);
   }, [roleParam]);
 
+  // Persist local form state to localStorage on every change. The chat
+  // sidebar's hydration code (lib/onboarding-storage.ts) reads this key.
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE, JSON.stringify(data));
@@ -183,11 +296,44 @@ function OnboardingChatContent() {
     } catch {}
   }, [data]);
 
+  // Auto-scroll the chat to the bottom as new messages, typing indicator, or
+  // step transitions arrive.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, typing, step, activating]);
+
+  // Email-first users link GitHub through `linkSocial`, which does not create
+  // a new session, so the server-side session.create hook will not fire. When
+  // the real linked-account row appears and no GitHub run exists yet, start
+  // intake once from the client. Existing/running/completed runs stay untouched.
+  useEffect(() => {
+    if (!userId) return;
+    if (
+      !shouldAutoStartGithubIntake({
+        connected: githubConnected,
+        run: githubRun,
+      })
+    ) {
+      return;
+    }
+
+    const key = `${userId}:github`;
+    if (githubAutoStartRef.current === key) return;
+    githubAutoStartRef.current = key;
+
+    void runGithubIntake({ userId }).catch((err) => {
+      githubAutoStartRef.current = null;
+      logProfileEvent("github", "GitHub intake failed to start", "error", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, [githubConnected, githubRun, runGithubIntake, userId]);
+
+  // ---------------------------------------------------------------------------
+  // Derived state
+  // ---------------------------------------------------------------------------
 
   const selectedRoles = useMemo(() => {
     if (!roleParam || data.prefs.roles.includes(roleParam)) return data.prefs.roles;
@@ -195,22 +341,27 @@ function OnboardingChatContent() {
   }, [data.prefs.roles, roleParam]);
 
   const linkCount = Object.values(data.links).filter((v) => v.trim()).length;
+
   const completeCount = [
-    selectedRoles.length > 0,
+    Boolean(session.data?.user),
     Boolean(data.resumeFilename),
-    linkCount > 0,
-    /.+@.+\..+/.test(data.email),
+    linkCount > 0 || githubConnected,
+    selectedRoles.length > 0,
     Boolean(data.prefs.location || data.prefs.workAuth),
   ].filter(Boolean).length;
 
-  const updateData = (updates: DataUpdate) => {
+  // ---------------------------------------------------------------------------
+  // Mutators
+  // ---------------------------------------------------------------------------
+
+  const updateData = useCallback((updates: DataUpdate) => {
     setData((current) => ({
       ...current,
       ...updates,
       links: { ...current.links, ...(updates.links ?? {}) },
       prefs: { ...current.prefs, ...(updates.prefs ?? {}) },
     }));
-  };
+  }, []);
 
   const toggleRole = (role: string) => {
     updateData({
@@ -270,10 +421,55 @@ function OnboardingChatContent() {
     });
   };
 
-  const handleResumeFile = (file: File | null) => {
+  // ---------------------------------------------------------------------------
+  // Step 1: Account — GitHub OAuth or email passthrough
+  // ---------------------------------------------------------------------------
+
+  const handleGithubSignIn = useCallback(async () => {
+    try {
+      // GitHub returns to the fixed Convex callback, then the completion route
+      // exchanges the one-time token and lands back on /onboarding?step=2.
+      // The auth callback hook auto-fires runGithubIntake on first link.
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: buildOAuthCompletionURL(
+          window.location.origin,
+          "/onboarding?step=2"
+        ),
+        errorCallbackURL: new URL(
+          "/sign-in?error=oauth_restart_required",
+          window.location.origin
+        ).toString(),
+      });
+    } catch (error) {
+      logProfileEvent("github", "GitHub OAuth failed to start", "error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, []);
+
+  const handleEmailContinue = () => {
+    // Email signup happens on /sign-up. From there better-auth bounces back
+    // here (the user picks "Sign up with email" and completes the flow).
+    router.push("/sign-up?redirect_url=/onboarding?step=2");
+  };
+
+  // ---------------------------------------------------------------------------
+  // Step 2: Resume — upload to Convex `_storage`, then start resume intake
+  // ---------------------------------------------------------------------------
+
+  const handleResumeFile = async (file: File | null) => {
     if (!file) return;
+    if (!userId) {
+      setResumeError("Sign in first so we can attach your resume to your profile.");
+      return;
+    }
+
+    setResumeError(null);
     setParsingResume(true);
     updateData({ resumeFilename: file.name });
+
+    // Local mirror — keep the chat sidebar's view of the resume in sync.
     mergeProfile(
       {
         resume: {
@@ -284,9 +480,122 @@ function OnboardingChatContent() {
       "resume",
       "Got your resume",
     );
-    void enrichFromResume(file).finally(() => setParsingResume(false));
-    advance(`Uploaded ${file.name}`, "links");
+
+    try {
+      const uploadUrl = await generateUploadUrl({});
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/pdf" },
+        body: file,
+      });
+      if (!res.ok) {
+        throw new Error(`upload_failed_${res.status}`);
+      }
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      updateData({ resumeStorageId: storageId as unknown as string });
+
+      // Fire-and-forget the resume intake route. The user can advance to step
+      // 3 immediately; events stream into intakeRuns via the byUserKind query.
+      void streamResumeIntake({ fileId: storageId as unknown as string, filename: file.name }).catch((err) => {
+        logProfileEvent("resume", "Resume intake route failed", "error", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+
+      logProfileEvent("resume", "Resume uploaded to Convex storage", "success", {
+        filename: file.name,
+        storageId,
+      });
+
+      advance(`Uploaded ${file.name}`, "connect");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setResumeError(message);
+      logProfileEvent("resume", "Resume upload failed", "error", { message });
+    } finally {
+      setParsingResume(false);
+    }
   };
+
+  // ---------------------------------------------------------------------------
+  // Step 3: Connect — fire adapters per pasted source
+  // ---------------------------------------------------------------------------
+
+  const handleLinkSocialGithub = useCallback(async () => {
+    try {
+      // The OAuth redirect flow leaves this page; the `session.create.after`
+      // hook handles GitHub sign-in. Email-first account linking returns to
+      // this page without creating a new session, so the connected-account
+      // effect above starts intake once the Better Auth account row exists.
+      await authClient.linkSocial({
+        provider: "github",
+        callbackURL: new URL("/onboarding?step=3", window.location.origin).toString(),
+        errorCallbackURL: new URL(
+          "/onboarding?step=3&github_error=oauth",
+          window.location.origin
+        ).toString(),
+      });
+    } catch (error) {
+      logProfileEvent("github", "GitHub link failed", "error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, []);
+
+  const handleRunGithubIntake = useCallback(
+    async (force = false) => {
+      if (!userId || !githubConnected) return;
+      try {
+        await runGithubIntake({ userId, force });
+      } catch (error) {
+        logProfileEvent("github", "GitHub intake failed to start", "error", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [githubConnected, runGithubIntake, userId],
+  );
+
+  const handleLinkedinSubmit = useCallback(async () => {
+    const url = normalizeLinkedinProfileUrl(data.links.linkedin);
+    if (!url || !userId || !isLinkedinProfileUrl(url)) return false;
+    updateData({ links: { linkedin: url } });
+    mergeProfile({ links: { linkedin: url } }, "linkedin", "Saved LinkedIn URL");
+    try {
+      const { drain } = await startLinkedinIntake(url);
+      // Fire-and-forget after the route accepts the request. Draining the SSE
+      // stream keeps the request open while the route persists `intakeRuns`.
+      void drain.catch((err) => {
+        logProfileEvent("linkedin", "LinkedIn intake stream failed", "error", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+      return true;
+    } catch (err) {
+      logProfileEvent("linkedin", "LinkedIn intake route failed", "error", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }, [data.links.linkedin, updateData, userId]);
+
+  const handleWebSubmit = useCallback(
+    async (kind: "devpost" | "website", url: string) => {
+      const trimmed = url.trim();
+      if (!trimmed || !userId) return;
+      mergeProfile({ links: { [kind]: trimmed } }, kind, `Saved ${kind} URL`);
+      void runWebIntake({ userId, url: trimmed, kind }).catch((err) => {
+        logProfileEvent(kind, `${kind} intake action failed`, "error", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+    },
+    [runWebIntake, userId],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Step 5: Activate — fire AI report (Phase 4 wire-up) + redirect
+  // ---------------------------------------------------------------------------
 
   const mergeFinalProfile = () => {
     if (selectedRoles.length === 0) return;
@@ -304,23 +613,30 @@ function OnboardingChatContent() {
       "chat",
       "Confirmed onboarding intake",
     );
-    if (Object.values(links).some(Boolean)) {
-      void enrichFromLinks(links);
-    }
   };
 
   const handleLaunch = () => {
     setActivating(true);
     playActivate();
-    window.setTimeout(triggerTransition, 900);
+    setOnboardingCookie();
+    if (userId) {
+      void markOnboardingComplete({ userId }).catch((err) => {
+        console.error("[onboarding] markOnboardingComplete failed", err);
+      });
+    }
+    // Brief activation reveal flash, then route into the 2D Ready Room.
+    // The job pipeline no longer fires here — the user kicks it off from
+    // /ready when they hit "Start searching for jobs" (see
+    // components/ready/start-search-cta.tsx).
+    window.setTimeout(() => router.push("/ready"), 700);
   };
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
-    <>
-      <AnimatePresence>
-        {transitionActive && <SceneTransition onComplete={handleComplete} />}
-      </AnimatePresence>
-      <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
+    <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 py-4 md:px-8">
           <Link href="/">
@@ -357,7 +673,7 @@ function OnboardingChatContent() {
                   Quick setup, one question at a time.
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Start with a role and resume. Links, updates, and preferences can come later.
+                  Sign in, drop your resume, link any sources. Background pulls fire instantly.
                 </p>
               </div>
             </div>
@@ -390,7 +706,20 @@ function OnboardingChatContent() {
                           selectedRoles={selectedRoles}
                           linkCount={linkCount}
                           parsingResume={parsingResume}
+                          resumeError={resumeError}
                           fileInputRef={fileInputRef}
+                          isAuthenticated={Boolean(userId)}
+                          githubConnected={githubConnected}
+                          githubRun={githubRun}
+                          linkedinRun={linkedinRun}
+                          resumeRun={resumeRun}
+                          webRun={webRun}
+                          onGithubSignIn={handleGithubSignIn}
+                          onEmailContinue={handleEmailContinue}
+                          onLinkSocialGithub={handleLinkSocialGithub}
+                          onRunGithubIntake={handleRunGithubIntake}
+                          onLinkedinSubmit={handleLinkedinSubmit}
+                          onWebSubmit={handleWebSubmit}
                           toggleRole={toggleRole}
                           updateData={updateData}
                           onResumeFile={handleResumeFile}
@@ -409,13 +738,26 @@ function OnboardingChatContent() {
         </section>
 
         <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
-          <IntakeSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} completeCount={completeCount} />
+          <IntakeSummary
+            data={data}
+            selectedRoles={selectedRoles}
+            linkCount={linkCount}
+            completeCount={completeCount}
+            githubConnected={githubConnected}
+            githubRun={githubRun}
+            resumeRun={resumeRun}
+            linkedinRun={linkedinRun}
+            webRun={webRun}
+          />
         </aside>
       </div>
-      </main>
-    </>
+    </main>
   );
 }
+
+// ----------------------------------------------------------------------------
+// Sub-components
+// ----------------------------------------------------------------------------
 
 function ProgressBar({
   stepIndex,
@@ -498,26 +840,38 @@ function ScoutMessage({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StepCard({
-  step,
-  data,
-  selectedRoles,
-  linkCount,
-  parsingResume,
-  fileInputRef,
-  toggleRole,
-  updateData,
-  onResumeFile,
-  onAdvance,
-  onMergeFinalProfile,
-  onLaunch,
-}: {
+// ----------------------------------------------------------------------------
+// Step card router
+// ----------------------------------------------------------------------------
+
+type IntakeRunRow = {
+  status: "queued" | "running" | "completed" | "failed";
+  events?: Array<{ stage?: string; message?: string; done?: number; total?: number; level?: string }>;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+} | null | undefined;
+
+function StepCard(props: {
   step: Step;
   data: Data;
   selectedRoles: string[];
   linkCount: number;
   parsingResume: boolean;
+  resumeError: string | null;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  isAuthenticated: boolean;
+  githubConnected: boolean;
+  githubRun: IntakeRunRow;
+  linkedinRun: IntakeRunRow;
+  resumeRun: IntakeRunRow;
+  webRun: IntakeRunRow;
+  onGithubSignIn: () => Promise<void>;
+  onEmailContinue: () => void;
+  onLinkSocialGithub: () => Promise<void>;
+  onRunGithubIntake: (force?: boolean) => Promise<void>;
+  onLinkedinSubmit: () => Promise<boolean>;
+  onWebSubmit: (kind: "devpost" | "website", url: string) => Promise<void>;
   toggleRole: (role: string) => void;
   updateData: (updates: DataUpdate) => void;
   onResumeFile: (file: File | null) => void;
@@ -525,134 +879,93 @@ function StepCard({
   onMergeFinalProfile: () => void;
   onLaunch: () => void;
 }) {
-  if (step === "role") {
+  const {
+    step,
+    data,
+    selectedRoles,
+    linkCount,
+    parsingResume,
+    resumeError,
+    fileInputRef,
+    isAuthenticated,
+    githubConnected,
+    githubRun,
+    linkedinRun,
+    resumeRun,
+    webRun,
+    onGithubSignIn,
+    onEmailContinue,
+    onLinkSocialGithub,
+    onRunGithubIntake,
+    onLinkedinSubmit,
+    onWebSubmit,
+    toggleRole,
+    updateData,
+    onResumeFile,
+    onAdvance,
+    onMergeFinalProfile,
+    onLaunch,
+  } = props;
+
+  if (step === "account") {
     return (
-      <ChatCard icon={<Briefcase className="h-4 w-4 text-sky-600" />}>
-        <ChoiceChipGroup options={ROLE_OPTIONS} selected={selectedRoles} multi onToggle={toggleRole} />
-        <div className="mt-4 flex justify-end">
-          <ActionButton
-            variant="primary"
-            disabled={selectedRoles.length === 0}
-            onClick={() => onAdvance(selectedRoles.join(", "), "resume")}
-          >
-            Use {selectedRoles.length === 1 ? selectedRoles[0] : "these roles"} <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
-        </div>
-      </ChatCard>
+      <AccountStepCard
+        isAuthenticated={isAuthenticated}
+        onGithubSignIn={onGithubSignIn}
+        onEmailContinue={onEmailContinue}
+        onAdvance={onAdvance}
+      />
     );
   }
 
   if (step === "resume") {
     return (
-      <div className="mt-2">
-        <FileUploadControl
-          fileName={data.resumeFilename || undefined}
-          parsing={parsingResume}
-          onBrowse={() => fileInputRef.current?.click()}
-          onClear={data.resumeFilename ? () => updateData({ resumeFilename: "" }) : undefined}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.doc,.docx"
-          className="hidden"
-          onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
-        />
-      </div>
+      <ResumeStepCard
+        data={data}
+        parsingResume={parsingResume}
+        resumeError={resumeError}
+        fileInputRef={fileInputRef}
+        resumeRun={resumeRun}
+        onResumeFile={onResumeFile}
+        onAdvance={onAdvance}
+        updateData={updateData}
+      />
     );
   }
 
-  if (step === "links") {
+  if (step === "connect") {
     return (
-      <ChatCard icon={<Link2 className="h-4 w-4 text-sky-600" />}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {LINK_FIELDS.map((field) => (
-            <TextField
-              key={field.k}
-              label={field.label}
-              value={data.links[field.k]}
-              placeholder={field.placeholder}
-              readOnly={false}
-              onChange={(e) => updateData({ links: { [field.k]: e.target.value } })}
-            />
-          ))}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <ActionButton
-            variant={linkCount > 0 ? "primary" : "secondary"}
-            onClick={() => onAdvance(linkCount > 0 ? `${linkCount} public link${linkCount === 1 ? "" : "s"}` : "Skipped links for now", "email")}
-          >
-            {linkCount > 0 ? "Use links" : "Skip for now"} <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
-        </div>
-      </ChatCard>
-    );
-  }
-
-  if (step === "email") {
-    const valid = /.+@.+\..+/.test(data.email);
-    return (
-      <ChatCard icon={<Mail className="h-4 w-4 text-sky-600" />}>
-        <TextField
-          type="email"
-          value={data.email}
-          placeholder="you@gmail.com"
-          readOnly={false}
-          onChange={(e) => updateData({ email: e.target.value })}
-        />
-        <div className="mt-3 flex flex-wrap justify-end gap-2">
-          <ActionButton variant="secondary" onClick={() => onAdvance("Skipped email updates", "prefs")}>
-            Skip for now
-          </ActionButton>
-          <ActionButton
-            variant="primary"
-            disabled={!valid}
-            onClick={() => onAdvance(data.email.trim(), "prefs")}
-          >
-            Use email <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
-        </div>
-      </ChatCard>
+      <ConnectStepCard
+        data={data}
+        linkCount={linkCount}
+        githubConnected={githubConnected}
+        githubRun={githubRun}
+        linkedinRun={linkedinRun}
+        webRun={webRun}
+        onLinkSocialGithub={onLinkSocialGithub}
+        onRunGithubIntake={onRunGithubIntake}
+        onLinkedinSubmit={onLinkedinSubmit}
+        onWebSubmit={onWebSubmit}
+        updateData={updateData}
+        onAdvance={onAdvance}
+      />
     );
   }
 
   if (step === "prefs") {
     return (
-      <ChatCard icon={<MapPin className="h-4 w-4 text-sky-600" />}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <TextField
-            label="Location"
-            value={data.prefs.location}
-            placeholder="Remote, San Francisco, New York"
-            readOnly={false}
-            onChange={(e) => updateData({ prefs: { location: e.target.value } })}
-          />
-          <div>
-            <div className="mb-2 block text-xs font-semibold text-slate-500">Work authorization</div>
-            <ChoiceChipGroup
-              options={AUTH_OPTIONS}
-              selected={data.prefs.workAuth ? [data.prefs.workAuth] : []}
-              onToggle={(value) => updateData({ prefs: { workAuth: value === data.prefs.workAuth ? "" : value } })}
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <ActionButton
-            variant="primary"
-            onClick={() => {
-              const parts = [data.prefs.location, data.prefs.workAuth].filter(Boolean);
-              onAdvance(parts.length > 0 ? parts.join(" · ") : "No extra constraints", "review");
-            }}
-          >
-            Continue <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
-        </div>
-      </ChatCard>
+      <PrefsStepCard
+        data={data}
+        selectedRoles={selectedRoles}
+        toggleRole={toggleRole}
+        updateData={updateData}
+        onAdvance={onAdvance}
+      />
     );
   }
 
   return (
-    <ReviewCard
+    <ActivateStepCard
       data={data}
       selectedRoles={selectedRoles}
       linkCount={linkCount}
@@ -662,7 +975,501 @@ function StepCard({
   );
 }
 
-function ReviewCard({
+// ----------------------------------------------------------------------------
+// Step 1: Account
+// ----------------------------------------------------------------------------
+
+function AccountStepCard({
+  isAuthenticated,
+  onGithubSignIn,
+  onEmailContinue,
+  onAdvance,
+}: {
+  isAuthenticated: boolean;
+  onGithubSignIn: () => Promise<void>;
+  onEmailContinue: () => void;
+  onAdvance: (userText: string, nextStep: Step) => void;
+}) {
+  const [pending, setPending] = useState(false);
+
+  const handleGithub = async () => {
+    setPending(true);
+    try {
+      await onGithubSignIn();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <ChatCard icon={<GithubIcon className="h-4 w-4 text-sky-600" />}>
+      {isAuthenticated ? (
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-slate-700">
+            Okay, signed in. Continue to upload your resume.
+          </p>
+          <div className="flex justify-end">
+            <ActionButton variant="primary" onClick={() => onAdvance("Continued with existing account", "resume")}>
+              Continue <ArrowRight className="h-3.5 w-3.5" />
+            </ActionButton>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-slate-700">
+            GitHub sign-in unlocks your repos right away — Scout starts pulling them in the background while you finish onboarding.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ActionButton
+              variant="primary"
+              size="lg"
+              loading={pending}
+              onClick={handleGithub}
+            >
+              <GithubIcon className="h-4 w-4" />
+              Continue with GitHub
+            </ActionButton>
+            <ActionButton variant="secondary" size="lg" onClick={onEmailContinue}>
+              Sign up with email
+            </ActionButton>
+          </div>
+          <p className="font-mono text-[11px] leading-5 text-slate-500">
+            We never post anything. Read-only access to public profile + repos.
+          </p>
+        </div>
+      )}
+    </ChatCard>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Step 2: Resume
+// ----------------------------------------------------------------------------
+
+function ResumeStepCard({
+  data,
+  parsingResume,
+  resumeError,
+  fileInputRef,
+  resumeRun,
+  onResumeFile,
+  onAdvance,
+  updateData,
+}: {
+  data: Data;
+  parsingResume: boolean;
+  resumeError: string | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  resumeRun: IntakeRunRow;
+  onResumeFile: (file: File | null) => void;
+  onAdvance: (userText: string, nextStep: Step) => void;
+  updateData: (updates: DataUpdate) => void;
+}) {
+  const hasUpload = Boolean(data.resumeFilename);
+  const hasFinishedRun =
+    resumeRun?.status === "completed" || resumeRun?.status === "failed";
+
+  return (
+    <div className="mt-2 space-y-4">
+      <FileUploadControl
+        fileName={data.resumeFilename || undefined}
+        parsing={parsingResume}
+        onBrowse={() => fileInputRef.current?.click()}
+        onClear={
+          data.resumeFilename
+            ? () => updateData({ resumeFilename: "", resumeStorageId: null })
+            : undefined
+        }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx"
+        className="hidden"
+        onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
+      />
+
+      {resumeError && (
+        <div className={cx("border border-red-200/70 bg-red-50/50 px-3 py-2 text-xs text-red-700", mistRadii.nested)}>
+          {resumeError}
+        </div>
+      )}
+
+      {hasUpload && resumeRun && (
+        <ProgressBadge kind="resume" run={resumeRun} />
+      )}
+
+      <div className="flex justify-end">
+        <ActionButton
+          variant={hasUpload ? "primary" : "secondary"}
+          disabled={parsingResume}
+          onClick={() =>
+            onAdvance(
+              hasUpload ? `Uploaded ${data.resumeFilename}` : "Skipped resume for now",
+              "connect",
+            )
+          }
+        >
+          {hasUpload ? (hasFinishedRun ? "Continue" : "Continue while parsing") : "Skip for now"}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Step 3: Connect
+// ----------------------------------------------------------------------------
+
+function ConnectStepCard({
+  data,
+  linkCount,
+  githubConnected,
+  githubRun,
+  linkedinRun,
+  webRun,
+  onLinkSocialGithub,
+  onRunGithubIntake,
+  onLinkedinSubmit,
+  onWebSubmit,
+  updateData,
+  onAdvance,
+}: {
+  data: Data;
+  linkCount: number;
+  githubConnected: boolean;
+  githubRun: IntakeRunRow;
+  linkedinRun: IntakeRunRow;
+  webRun: IntakeRunRow;
+  onLinkSocialGithub: () => Promise<void>;
+  onRunGithubIntake: (force?: boolean) => Promise<void>;
+  onLinkedinSubmit: () => Promise<boolean>;
+  onWebSubmit: (kind: "devpost" | "website", url: string) => Promise<void>;
+  updateData: (updates: DataUpdate) => void;
+  onAdvance: (userText: string, nextStep: Step) => void;
+}) {
+  const [linkedinPending, setLinkedinPending] = useState(false);
+  const [devpostPending, setDevpostPending] = useState(false);
+  const [websitePending, setWebsitePending] = useState(false);
+  const [githubPending, setGithubPending] = useState(false);
+  const [linkedinSaved, setLinkedinSaved] = useState(false);
+
+  const handleLinkedin = async () => {
+    setLinkedinPending(true);
+    try {
+      const saved = await onLinkedinSubmit();
+      if (saved) setLinkedinSaved(true);
+    } finally {
+      setLinkedinPending(false);
+    }
+  };
+
+  const handleGithub = async () => {
+    setGithubPending(true);
+    try {
+      if (githubConnected) {
+        await onRunGithubIntake(
+          githubRun?.status === "completed" || githubRun?.status === "failed"
+        );
+      } else {
+        await onLinkSocialGithub();
+      }
+    } finally {
+      setGithubPending(false);
+    }
+  };
+
+  const handleDevpost = async () => {
+    setDevpostPending(true);
+    try {
+      await onWebSubmit("devpost", data.links.devpost);
+    } finally {
+      setDevpostPending(false);
+    }
+  };
+
+  const handleWebsite = async () => {
+    setWebsitePending(true);
+    try {
+      await onWebSubmit("website", data.links.website);
+    } finally {
+      setWebsitePending(false);
+    }
+  };
+
+  const githubRunActive = githubRun ? !canStartSourceRun(githubRun) : false;
+  const githubActionLabel = githubConnected
+    ? githubRun?.status === "failed"
+      ? "Retry"
+      : "Refresh"
+    : "Connect";
+  const connectedSources = linkCount + (githubConnected ? 1 : 0);
+
+  return (
+    <ChatCard icon={<Link2 className="h-4 w-4 text-sky-600" />}>
+      <div className="space-y-4">
+        <div className={cx("space-y-3 border border-white/55 bg-white/30 p-3", mistRadii.nested)}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <GithubIcon className="h-4 w-4 text-slate-600" />
+              <span className="text-[13px] font-semibold text-slate-800">GitHub</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {githubRun ? (
+                <ProgressBadge kind="github" run={githubRun} compact />
+              ) : githubConnected ? (
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-600">
+                  Connected
+                </span>
+              ) : null}
+              <ActionButton
+                variant={githubConnected ? "secondary" : "primary"}
+                size="sm"
+                loading={githubPending || githubRunActive}
+                disabled={githubPending || githubRunActive}
+                onClick={handleGithub}
+              >
+                {githubRunActive ? "Syncing" : githubActionLabel}
+                <ArrowRight className="h-3 w-3" />
+              </ActionButton>
+            </div>
+          </div>
+          {githubRun && githubRun.status !== "completed" && githubRun.status !== "failed" && (
+            <p className="font-mono text-[11px] leading-5 text-slate-500">
+              Repos pulling in the background — keep going, this will finish on its own.
+            </p>
+          )}
+          {githubRun && !githubConnected && (
+            <p className="font-mono text-[11px] leading-5 text-amber-600">
+              Previous GitHub data exists, but no active GitHub token is linked. Reconnect to refresh it.
+            </p>
+          )}
+        </div>
+
+        <SourceField
+          label="LinkedIn URL"
+          icon={<LinkedinIcon className="h-4 w-4 text-slate-600" />}
+          placeholder="linkedin.com/in/yourhandle"
+          value={data.links.linkedin}
+          onChange={(value) => {
+            setLinkedinSaved(false);
+            updateData({ links: { linkedin: value } });
+          }}
+          onSubmit={handleLinkedin}
+          submitLabel="Save"
+          pending={linkedinPending}
+          run={linkedinRun}
+          runKind="linkedin"
+          savedMessage={
+            linkedinSaved
+              ? "It's saved and I have processed it in the backend."
+              : undefined
+          }
+          showRunBadge={false}
+          disableWhileActive={false}
+        />
+
+        <SourceField
+          label="DevPost (optional)"
+          icon={<Sparkles className="h-4 w-4 text-slate-600" />}
+          placeholder="devpost.com/yourhandle"
+          value={data.links.devpost}
+          onChange={(value) => updateData({ links: { devpost: value } })}
+          onSubmit={handleDevpost}
+          submitLabel="Save"
+          pending={devpostPending}
+          run={webRun}
+          runKind="web"
+        />
+
+        <SourceField
+          label="Personal site (optional)"
+          icon={<Activity className="h-4 w-4 text-slate-600" />}
+          placeholder="yoursite.com"
+          value={data.links.website}
+          onChange={(value) => updateData({ links: { website: value } })}
+          onSubmit={handleWebsite}
+          submitLabel="Save"
+          pending={websitePending}
+          run={webRun}
+          runKind="web"
+        />
+
+        <div className="flex justify-end">
+          <ActionButton
+            variant={connectedSources > 0 ? "primary" : "secondary"}
+            onClick={() =>
+              onAdvance(
+                connectedSources > 0
+                  ? `${connectedSources} source${connectedSources === 1 ? "" : "s"} connected`
+                  : "Skipped extra sources",
+                "prefs",
+              )
+            }
+          >
+            {connectedSources > 0 ? "Continue" : "Skip for now"}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </div>
+    </ChatCard>
+  );
+}
+
+function SourceField({
+  label,
+  icon,
+  placeholder,
+  value,
+  onChange,
+  onSubmit,
+  submitLabel,
+  pending,
+  run,
+  runKind,
+  savedMessage,
+  showRunBadge = true,
+  disableWhileActive = true,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  placeholder: string;
+  value: string;
+  onChange: (next: string) => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  pending: boolean;
+  run: IntakeRunRow;
+  runKind: IntakeKind;
+  savedMessage?: string;
+  showRunBadge?: boolean;
+  disableWhileActive?: boolean;
+}) {
+  const runActive = run ? !canStartSourceRun(run) : false;
+  return (
+    <div className={cx("space-y-2 border border-white/55 bg-white/30 p-3", mistRadii.nested)}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-[13px] font-semibold text-slate-800">{label}</span>
+        </div>
+        {showRunBadge && run && <ProgressBadge kind={runKind} run={run} compact />}
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <TextField
+            value={value}
+            placeholder={placeholder}
+            readOnly={false}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+        <ActionButton
+          variant="secondary"
+          size="sm"
+          loading={pending || (disableWhileActive && runActive)}
+          disabled={!value.trim() || pending || (disableWhileActive && runActive)}
+          onClick={onSubmit}
+        >
+          {disableWhileActive && runActive ? "Running" : submitLabel}
+        </ActionButton>
+      </div>
+      {savedMessage ? (
+        <p className="font-mono text-[11px] leading-5 text-emerald-700">
+          {savedMessage}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Step 4: Preferences
+// ----------------------------------------------------------------------------
+
+function PrefsStepCard({
+  data,
+  selectedRoles,
+  toggleRole,
+  updateData,
+  onAdvance,
+}: {
+  data: Data;
+  selectedRoles: string[];
+  toggleRole: (role: string) => void;
+  updateData: (updates: DataUpdate) => void;
+  onAdvance: (userText: string, nextStep: Step) => void;
+}) {
+  const canAdvance = selectedRoles.length > 0;
+  return (
+    <ChatCard icon={<Briefcase className="h-4 w-4 text-sky-600" />}>
+      <div className="space-y-4">
+        <div>
+          <div className="mb-2 block text-xs font-semibold text-slate-500">Role focus</div>
+          <ChoiceChipGroup
+            options={ROLE_OPTIONS}
+            selected={selectedRoles}
+            multi
+            onToggle={toggleRole}
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <div className="mb-2 block text-xs font-semibold text-slate-500">Location</div>
+            <TextField
+              value={data.prefs.location}
+              placeholder="Remote, San Francisco, New York"
+              readOnly={false}
+              onChange={(e) => updateData({ prefs: { location: e.target.value } })}
+            />
+          </div>
+          <div>
+            <div className="mb-2 block text-xs font-semibold text-slate-500">Work authorization</div>
+            <ChoiceChipGroup
+              options={AUTH_OPTIONS}
+              selected={data.prefs.workAuth ? [data.prefs.workAuth] : []}
+              onToggle={(value) =>
+                updateData({ prefs: { workAuth: value === data.prefs.workAuth ? "" : value } })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pl-1">
+          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
+            Stored locally and in your profile
+          </span>
+        </div>
+
+        <div className="flex justify-end">
+          <ActionButton
+            variant="primary"
+            disabled={!canAdvance}
+            onClick={() => {
+              const parts = [
+                selectedRoles.join(", "),
+                data.prefs.location,
+                data.prefs.workAuth,
+              ].filter(Boolean);
+              onAdvance(parts.length > 0 ? parts.join(" · ") : "Defaults", "activate");
+            }}
+          >
+            Continue <ArrowRight className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+      </div>
+    </ChatCard>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Step 5: Activate
+// ----------------------------------------------------------------------------
+
+function ActivateStepCard({
   data,
   selectedRoles,
   linkCount,
@@ -683,10 +1490,13 @@ function ReviewCard({
         <ReviewSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} />
         <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-600">
-            Confirm this is accurate. I’ll save the snapshot to Convex before starting.
+            Confirm this is accurate. Scout will open the Ready Room so you can chat while intake finishes.
           </p>
           {hasConvex ? (
-            <ConnectedConfirmButton onMergeFinalProfile={onMergeFinalProfile} onLaunch={onLaunch} />
+            <ConnectedConfirmButton
+              onMergeFinalProfile={onMergeFinalProfile}
+              onLaunch={onLaunch}
+            />
           ) : (
             <ActionButton variant="secondary" size="lg" disabled>
               Convex not configured
@@ -709,28 +1519,15 @@ function ConnectedConfirmButton({
   const [error, setError] = useState("");
   const [stage, setStage] = useState<LaunchStage>("idle");
 
-  async function handleConfirm() {
+  function handleConfirm() {
     try {
       setError("");
       setSaving(true);
       setStage("starting");
       onMergeFinalProfile();
-      const profile = readProfile();
-
-      const response = await fetch("/api/onboarding/launch-pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile }),
-      });
-      const body = await response.json().catch(() => null) as
-        | { ok: true; runId?: string; status?: "started"; message?: string }
-        | { ok: false; reason?: string }
-        | null;
-
-      if (!response.ok || !body?.ok) {
-        throw new Error(body && !body.ok ? body.reason ?? `launch_${response.status}` : `launch_${response.status}`);
-      }
-
+      // The job pipeline used to fire here; it now kicks off from /ready when
+      // the user explicitly hits "Start searching for jobs". Onboarding's
+      // final step just routes into the Ready Room.
       onLaunch();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -739,13 +1536,14 @@ function ConnectedConfirmButton({
     }
   }
 
-  const buttonLabel = stage === "error" ? "Retry launch" : saving ? "Starting dashboard" : "Confirm and start";
+  const buttonLabel =
+    stage === "error" ? "Retry" : saving ? "Opening Ready Room" : "Confirm and continue";
 
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
       {stage === "starting" && (
         <div className="w-full rounded-[18px] border border-sky-200/70 bg-sky-50/45 px-3 py-2 text-xs leading-5 text-sky-800 sm:w-72">
-          Saving your profile and opening the dashboard. Jobs and tailored resumes will continue there.
+          Saving your profile. We&apos;ll wait for your sources in the Ready Room.
         </div>
       )}
       <ActionButton variant="primary" size="lg" loading={saving} onClick={handleConfirm}>
@@ -755,6 +1553,75 @@ function ConnectedConfirmButton({
     </div>
   );
 }
+
+// ----------------------------------------------------------------------------
+// Live progress badge — renders the latest event message for an intake run.
+// ----------------------------------------------------------------------------
+
+function ProgressBadge({
+  kind,
+  run,
+  compact = false,
+}: {
+  kind: IntakeKind;
+  run: NonNullable<IntakeRunRow>;
+  compact?: boolean;
+}) {
+  const events = Array.isArray(run.events) ? run.events : [];
+  const latest = events[events.length - 1];
+  const status = run.status;
+
+  const tone =
+    status === "failed"
+      ? "border-red-200/70 bg-red-50/60 text-red-700"
+      : status === "completed"
+        ? "border-emerald-200/70 bg-emerald-50/60 text-emerald-700"
+        : "border-sky-200/70 bg-sky-50/60 text-sky-700";
+
+  const Icon =
+    status === "failed"
+      ? X
+      : status === "completed"
+        ? Check
+        : Loader2;
+
+  const message =
+    status === "failed"
+      ? run.error ?? "Failed"
+      : latest?.message
+        ? `${SOURCE_NAME[kind]}: ${latest.message}`
+        : status === "completed"
+          ? `${SOURCE_NAME[kind]} synced`
+          : `${SOURCE_NAME[kind]}: starting…`;
+
+  const progress =
+    typeof latest?.done === "number" && typeof latest?.total === "number" && latest.total > 0
+      ? ` (${latest.done}/${latest.total})`
+      : "";
+
+  return (
+    <span
+      className={cx(
+        "inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2.5",
+        compact ? "py-0.5 text-[10px]" : "py-1 text-[11px]",
+        tone,
+      )}
+      title={message}
+    >
+      <Icon
+        className={cx(
+          compact ? "h-3 w-3" : "h-3.5 w-3.5",
+          status === "running" || status === "queued" ? "animate-spin" : "",
+        )}
+      />
+      <span className="truncate font-mono">{message}{progress}</span>
+    </span>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Review summary + sidebar
+// ----------------------------------------------------------------------------
 
 function ReviewSummary({
   data,
@@ -769,8 +1636,12 @@ function ReviewSummary({
     { label: "Role target", value: selectedRoles.join(", ") || "Missing" },
     { label: "Resume", value: data.resumeFilename || "Missing" },
     { label: "Links", value: linkCount > 0 ? compactLinks(data.links).join(", ") : "None added" },
-    { label: "Email", value: data.email || "None added" },
-    { label: "Preferences", value: [data.prefs.location, data.prefs.workAuth].filter(Boolean).join(" · ") || "None added" },
+    { label: "Email", value: data.email || "From sign-in" },
+    {
+      label: "Preferences",
+      value:
+        [data.prefs.location, data.prefs.workAuth].filter(Boolean).join(" · ") || "None added",
+    },
   ];
 
   return (
@@ -803,17 +1674,39 @@ function IntakeSummary({
   selectedRoles,
   linkCount,
   completeCount,
+  githubConnected,
+  githubRun,
+  resumeRun,
+  linkedinRun,
+  webRun,
 }: {
   data: Data;
   selectedRoles: string[];
   linkCount: number;
   completeCount: number;
+  githubConnected: boolean;
+  githubRun: IntakeRunRow;
+  resumeRun: IntakeRunRow;
+  linkedinRun: IntakeRunRow;
+  webRun: IntakeRunRow;
 }) {
+  const liveRuns: Array<{ kind: IntakeKind; run: NonNullable<IntakeRunRow> }> = [];
+  if (githubRun) liveRuns.push({ kind: "github", run: githubRun });
+  if (resumeRun) liveRuns.push({ kind: "resume", run: resumeRun });
+  if (linkedinRun) liveRuns.push({ kind: "linkedin", run: linkedinRun });
+  if (webRun) liveRuns.push({ kind: "web", run: webRun });
+
   const rows = [
-    { label: "Role", value: selectedRoles.join(", ") || "Needed" },
+    { label: "Account", value: data.email || "Needed" },
     { label: "Resume", value: data.resumeFilename || "Needed" },
-    { label: "Links", value: linkCount > 0 ? `${linkCount} saved` : "Optional" },
-    { label: "Email", value: data.email || "Optional" },
+    {
+      label: "Sources",
+      value:
+        linkCount + (githubConnected ? 1 : 0) > 0
+          ? `${linkCount + (githubConnected ? 1 : 0)} linked`
+          : "Optional",
+    },
+    { label: "Roles", value: selectedRoles.join(", ") || "Needed" },
     { label: "Prefs", value: [data.prefs.location, data.prefs.workAuth].filter(Boolean).join(" · ") || "Optional" },
   ];
 
@@ -839,6 +1732,17 @@ function IntakeSummary({
           );
         })}
       </div>
+
+      {liveRuns.length > 0 && (
+        <div className="mt-5 border-t border-white/45 pt-3">
+          <div className={cx("mb-2", mistClasses.sectionLabel)}>Background intake</div>
+          <div className="space-y-1.5">
+            {liveRuns.map(({ kind, run }) => (
+              <ProgressBadge key={kind} kind={kind} run={run} />
+            ))}
+          </div>
+        </div>
+      )}
     </GlassCard>
   );
 }
@@ -896,6 +1800,78 @@ function OnboardingFallback() {
   );
 }
 
+// ----------------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// startLinkedinIntake — POST to the LinkedIn route, wait until the backend has
+// accepted and saved the URL, then return a background drain promise.
+//
+// We don't actually need each event in the UI here (the Connect step renders
+// progress from `useQuery(api.intakeRuns.byUserKind, ...)`, which the route
+// also writes to). The drain promise keeps the request open until the stream
+// closes, so the route handler completes its full pipeline (auth, scrape,
+// summarize, persist, complete) and `intakeRuns` gets the final
+// "completed"/"failed" status.
+//
+// Errors thrown here surface via the `.catch()` in `handleLinkedinSubmit` and
+// land in `logProfileEvent`. We do NOT throw on stage="error" SSE messages —
+// those are already persisted into `intakeRuns.error` by the driver.
+// ----------------------------------------------------------------------------
+
+async function streamResumeIntake(input: {
+  fileId: string;
+  filename?: string;
+}): Promise<void> {
+  const response = await fetch("/api/intake/resume", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`resume_intake_${response.status}: ${text || "no body"}`);
+  }
+  // Drain the SSE body so the route handler stays alive through the full
+  // pipeline. We don't read individual events — the byUserKind subscription
+  // surfaces them.
+  const reader = response.body?.getReader();
+  if (!reader) return;
+  while (!(await reader.read()).done) {
+    /* keep draining */
+  }
+}
+
+async function startLinkedinIntake(
+  profileUrl: string,
+): Promise<{ drain: Promise<void> }> {
+  const response = await fetch("/api/intake/linkedin", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ profileUrl }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`linkedin_route_${response.status}: ${text || response.statusText}`);
+  }
+
+  return { drain: drainLinkedinIntake(response) };
+}
+
+async function drainLinkedinIntake(response: Response): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) return;
+  try {
+    while (!(await reader.read()).done) {
+      /* keep draining */
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 function trimLinks(links: Data["links"]): Data["links"] {
   return {
     github: links.github.trim(),
@@ -910,70 +1886,4 @@ function compactLinks(links: Data["links"]) {
   return Object.entries(trimLinks(links))
     .filter(([, value]) => value)
     .map(([key, value]) => `${key}: ${value}`);
-}
-
-async function enrichFromResume(file: File) {
-  logProfileEvent("resume", "Started resume parse", "info", { filename: file.name });
-  const result = await parseResume(file);
-  if (!result.ok) {
-    logProfileEvent("resume", "Resume parse failed", "error", { filename: file.name, reason: result.reason });
-    return;
-  }
-  const updates: Partial<UserProfile> = {
-    resume: {
-      filename: result.filename ?? file.name,
-      rawText: result.rawText,
-      uploadedAt: new Date().toISOString(),
-    },
-  };
-  if (result.structured) {
-    const s = result.structured;
-    Object.assign(updates, {
-      name: s.name,
-      email: s.email,
-      location: s.location,
-      headline: s.headline,
-      summary: s.summary,
-      skills: s.skills,
-      experience: s.experience,
-      education: s.education,
-    });
-  }
-  mergeProfile(updates, "resume", result.structured ? "Read your resume" : "Saved your resume");
-  logProfileEvent("resume", "Resume parse completed", "success", {
-    filename: result.filename ?? file.name,
-    structured: Boolean(result.structured),
-  });
-}
-
-async function enrichFromLinks(links: Data["links"]) {
-  const tasks: Promise<void>[] = [];
-  const runLink = async (
-    source: Extract<ProvenanceSource, "github" | "linkedin" | "devpost" | "website">,
-    url: string,
-    action: () => Promise<{ ok: boolean; reason?: string; structured?: Partial<UserProfile> }>
-  ) => {
-    logProfileEvent(source, "Started link enrichment", "info", { url });
-    const result = await action();
-    if (!result.ok || !result.structured) {
-      logProfileEvent(source, "Link enrichment failed", "error", { url, reason: result.reason ?? "no_structured_profile" });
-      return;
-    }
-    mergeProfile(result.structured, source, `Read your ${SOURCE_NAME[source]}`);
-  };
-
-  if (links.github) {
-    tasks.push(runLink("github", links.github, () => scrapeAndExtract(links.github, "github")));
-  }
-  if (links.linkedin) {
-    tasks.push(runLink("linkedin", links.linkedin, () => scrapeLinkedIn(links.linkedin)));
-  }
-  if (links.devpost) {
-    tasks.push(runLink("devpost", links.devpost, () => scrapeAndExtract(links.devpost, "devpost")));
-  }
-  if (links.website) {
-    tasks.push(runLink("website", links.website, () => scrapeAndExtract(links.website, "website")));
-  }
-
-  await Promise.allSettled(tasks);
 }

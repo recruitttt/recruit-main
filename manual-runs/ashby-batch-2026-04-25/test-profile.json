@@ -1,0 +1,98 @@
+{
+  "name": "Taylor Test Candidate",
+  "email": "taylor.test@example.com",
+  "phone": "+1 415 555 0199",
+  "location": "San Francisco, CA",
+  "headline": "Full-stack product engineer",
+  "summary": "Synthetic test profile for controlled Ashby form-fill validation. Product-minded engineer with experience building TypeScript, React, Node.js, Python, API integrations, support tooling, internal automation, and applied AI workflows.",
+  "resumePath": "/Users/owenfisher/Desktop/recruit-main/manual-runs/ashby-batch-2026-04-25/test-resume.pdf",
+  "links": {
+    "github": "https://github.com/taylor-test-candidate",
+    "linkedin": "https://linkedin.com/in/taylor-test-candidate",
+    "website": "https://taylor-test.example.com"
+  },
+  "files": {
+    "resumePath": "/Users/owenfisher/Desktop/recruit-main/manual-runs/ashby-batch-2026-04-25/test-resume.pdf"
+  },
+  "contact": {
+    "phone": "+1 415 555 0199",
+    "contactNumber": "+1 415 555 0199",
+    "city": "San Francisco",
+    "state": "CA"
+  },
+  "workAuth": {
+    "authorizedUS": true,
+    "needsSponsorshipNow": false
+  },
+  "application": {
+    "earliestStartDate": "2026-05-15",
+    "availableStartDate": "2026-05-15",
+    "noticePeriod": "Two weeks",
+    "salaryExpectations": "$180,000",
+    "expectedSalary": "$180,000",
+    "howHeard": "Company Website",
+    "rustSkillRating": "4",
+    "whyCompany": "I am interested in teams building practical AI products with strong engineering discipline, high ownership, and direct customer impact."
+  },
+  "prefs": {
+    "workAuth": "Authorized in the US",
+    "roles": ["Software Engineer", "Product Engineer"],
+    "locations": ["Remote", "San Francisco"]
+  },
+  "skills": [
+    "TypeScript",
+    "React",
+    "Next.js",
+    "Node.js",
+    "Python",
+    "PostgreSQL",
+    "API design",
+    "AI tooling",
+    "Customer support tooling",
+    "Internal automation"
+  ],
+  "experience": [
+    {
+      "company": "Nimbus Labs",
+      "title": "Software Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2023",
+      "description": "Built React and Node.js product workflows, API integrations, support tooling, internal automation, and applied AI features for customer-facing teams."
+    },
+    {
+      "company": "Atlas Systems",
+      "title": "Frontend Engineer",
+      "location": "Remote",
+      "startDate": "2021",
+      "endDate": "2023",
+      "description": "Owned TypeScript interfaces, design system components, performance improvements, and reliable workflow tooling."
+    }
+  ],
+  "education": [
+    {
+      "school": "State University",
+      "degree": "BS",
+      "field": "Computer Science",
+      "endDate": "2021"
+    }
+  ],
+  "essays": {
+    "Why are you interested in this role?": "I am interested in this role because it combines product engineering, reliable systems, and practical AI workflows where my TypeScript, API, and automation experience can create direct customer value.",
+    "What's a habit you have that your friends would make fun of? (Be specific. We value authenticity over polish)": "I keep overly detailed checklists for everyday projects, including tiny errands. Friends tease me for turning simple tasks into structured plans, but it helps me stay reliable and notice edge cases early."
+  },
+  "eeo": {
+    "gender": "Prefer not to answer",
+    "veteranStatus": "Prefer not to answer",
+    "disabilityStatus": "Prefer not to answer"
+  },
+  "suggestions": [],
+  "provenance": {},
+  "log": [
+    {
+      "at": "2026-04-25T00:00:00.000Z",
+      "source": "manual",
+      "label": "Synthetic Ashby batch test profile"
+    }
+  ],
+  "updatedAt": "2026-04-25T00:00:00.000Z"
+}
