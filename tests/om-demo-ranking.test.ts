@@ -61,7 +61,7 @@ async function rankedCompanies(profile: UserProfile): Promise<{ body: Record<str
   const body = (await response.json()) as Record<string, unknown>;
   const recommendations = body.recommendations as Array<{ company?: string }> | undefined;
   assert.ok(Array.isArray(recommendations), "fixture run-first-3 should return ranked demo recommendations");
-  assert.equal(recommendations.length, 9, "all stored OM demo jobs should stay in the ranked pool");
+  assert.equal(recommendations.length, 9, "all linked OM demo jobs should stay in the ranked pool");
   assert.match(
     String((body.ranking as { scoringMode?: string } | undefined)?.scoringMode ?? ""),
     /^v2_/,
@@ -92,9 +92,13 @@ async function main() {
         "hardcoded demo job order must depend on resume/profile/LinkedIn/GitHub text"
       );
       assert.ok(
-        deepmind.companies.every((company) => ["Cohere", "Aleph Alpha", "Clay Labs", "Causaly"].includes(company)),
-        "ranked demo companies should come from stored OM job recommendations"
+        deepmind.companies.every((company) =>
+          ["Google DeepMind", "Apple", "NVIDIA", "OpenAI", "Meta", "Microsoft AI", "Amazon AGI", "Anthropic", "Tesla"].includes(company)
+        ),
+        "ranked demo companies should come from linked OM frontier recommendations"
       );
+      assert.equal(deepmind.companies[0], "Google DeepMind");
+      assert.equal(anthropic.companies[0], "Anthropic");
 
       const liveAfterPost = await getDashboardLive(new Request("http://test.local/api/dashboard/live"));
       assert.equal(liveAfterPost.status, 200);
@@ -103,7 +107,7 @@ async function main() {
       };
       assert.equal(
         liveBody.recommendations?.[0]?.company,
-        anthropic.companies[0],
+        "Anthropic",
         "dashboard live refresh should preserve the latest profile-specific fixture ranking"
       );
     }

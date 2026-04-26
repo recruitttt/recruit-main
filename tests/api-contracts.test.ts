@@ -230,14 +230,18 @@ await withEnvAsync({
   const demoCompanies = new Set(
     demoRecommendations.map((recommendation) => recommendation.company)
   );
-  assert.equal(demoCompanies.has("Cohere"), true);
-  assert.equal(demoCompanies.has("Aleph Alpha"), true);
-  const cohereRecommendation = demoRecommendations.find(
-    (recommendation) => recommendation.company === "Cohere"
+  assert.equal(demoCompanies.has("Google DeepMind"), true);
+  assert.equal(demoCompanies.has("OpenAI"), true);
+  const deepMindRecommendation = demoRecommendations.find(
+    (recommendation) => recommendation.company === "Google DeepMind"
   );
-  assert.equal(cohereRecommendation?.jobUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da");
-  assert.equal(cohereRecommendation?.job?.jobUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da");
-  assert.equal(cohereRecommendation?.job?.applyUrl, "https://jobs.ashbyhq.com/cohere/df93ec57-d51e-4466-93be-4878c5fda4da/application");
+  assert.equal(deepMindRecommendation?.jobUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
+  assert.equal(deepMindRecommendation?.job?.jobUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
+  assert.equal(deepMindRecommendation?.job?.applyUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
+  assert.equal(
+    demoRecommendations.every((recommendation) => Boolean(recommendation.jobUrl && recommendation.job?.jobUrl)),
+    true
+  );
 
   const omDetailJson = await assertJsonResponse(
     await getJobDetail(new Request(`http://test.local/api/dashboard/job-detail?jobId=${firstRecommendation.jobId}`)),

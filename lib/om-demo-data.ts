@@ -30,23 +30,11 @@ import { textToPdf, toBase64 } from "@/lib/tailor/simple-pdf";
 import type { Job, TailoredApplication, TailoredResume } from "@/lib/tailor/types";
 
 export const OM_DEMO_USER_ID = "om-demo";
-const OM_DEMO_RECOMMENDATION_COUNT = (recommendations as LiveRecommendation[]).length;
+const OM_DEMO_RECOMMENDATION_COUNT = (organizations as OmDemoOrganization[]).filter(hasUsableOrganizationLink).length;
 const OM_DEMO_CACHE_TTL_MS = 5 * 60 * 1000;
-const OM_DEMO_COMPANY_PAGE_BASE_URL = "https://recruit-company-pages.vercel.app";
 const OM_DEMO_DATA_SOURCE_MODES = new Set(["fixture", "fixtures", "demo", "om-demo", "om-data"]);
 const LIVE_CONVEX_DATA_SOURCE_MODES = new Set(["convex", "live", "live-convex"]);
 const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
-const OM_DEMO_COMPANY_PAGE_SLUGS: Record<string, string> = {
-  "google-deepmind": "google-deepmind",
-  apple: "apple",
-  nvidia: "nvidia",
-  openai: "openai",
-  meta: "meta",
-  "microsoft-ai": "microsoft-ai",
-  "amazon-agi": "amazon-agi",
-  anthropic: "anthropic",
-  tesla: "tesla",
-};
 
 type OmDemoOrganization = OrganizationLogo & {
   title: string;
@@ -180,6 +168,15 @@ function staticOmDemoLivePayload() {
 }
 
 export function omDemoJobDetail(jobId: string) {
+  const demo = generatedRecommendationByJobId(jobId);
+  if (demo) {
+    return enrichJobDetailFromGenerated(
+      demo.baseDetail,
+      demo.org,
+      latestRankedByJobId.get(jobId) ?? demo.recommendation
+    );
+  }
+
   const detail = (jobDetails as unknown as Array<JobDetail>).find(
     (detail) => detail.job?._id === jobId || detail.recommendation?.jobId === jobId
   ) ?? null;
@@ -383,8 +380,12 @@ function toOmDemoRankingProfile(profileInput?: UserProfile | RankingProfile | nu
 
 function omDemoRecommendations(): LiveRecommendation[] {
   const source = recommendations as LiveRecommendation[];
-  return source
-    .map(normalizeStoredRecommendation)
+  const linkedOrganizations = (organizations as OmDemoOrganization[]).filter(hasUsableOrganizationLink);
+  const generated = linkedOrganizations.map((org, index) => {
+    const base = source[index % source.length];
+    return enrichRecommendation(base, org, index);
+  });
+  return generated
     .sort(compareOmDemoRecommendations)
     .map((recommendation, index) => ({
       ...recommendation,
@@ -392,30 +393,20 @@ function omDemoRecommendations(): LiveRecommendation[] {
     }));
 }
 
-function normalizeStoredRecommendation(recommendation: LiveRecommendation, index: number): LiveRecommendation {
-  const jobUrl = recommendation.jobUrl || recommendation.job?.jobUrl || "#";
-  const job = recommendation.job
-    ? {
-        ...recommendation.job,
-        jobUrl: recommendation.job.jobUrl || jobUrl,
-        applyUrl: recommendation.job.applyUrl || defaultApplyUrl(jobUrl),
-      }
-    : recommendation.job;
-  return {
-    ...recommendation,
-    _id: recommendation._id ?? generatedRecordId(undefined, "rec", index),
-    jobId: recommendation.jobId ?? recommendation.job?._id ?? generatedRecordId(undefined, "job", index),
-    rank: recommendation.rank ?? index + 1,
-    jobUrl,
-    job,
-  };
-}
-
 function defaultApplyUrl(jobUrl: string): string {
   if (/^https:\/\/jobs\.ashbyhq\.com\//i.test(jobUrl) && !/\/application\/?$/i.test(jobUrl)) {
     return `${jobUrl.replace(/\/+$/, "")}/application`;
   }
   return jobUrl;
+}
+
+function hasUsableOrganizationLink(org: OmDemoOrganization): boolean {
+  try {
+    const url = new URL(org.jobUrl);
+    return (url.protocol === "https:" || url.protocol === "http:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function organizationForIndex(index: number): OmDemoOrganization {
@@ -518,7 +509,7 @@ function enrichJob<T extends NonNullable<LiveRecommendation["job"]> | NonNullabl
     roleTitle: title,
     location: locationForIndex(org.location, index),
     jobUrl,
-    applyUrl: `${jobUrl}${jobUrl.includes("?") ? "&" : "?"}apply=1`,
+    applyUrl: defaultApplyUrl(jobUrl),
     sourceSlug: org.sourceSlug,
     compensationSummary: compensationForIndex(org.compensationSummary, index),
     department: "AI Platforms",
@@ -529,15 +520,15 @@ function enrichJob<T extends NonNullable<LiveRecommendation["job"]> | NonNullabl
 }
 
 function enrichJobDetail(detail: JobDetail): JobDetail {
+  const org = organizationForJobId(detail.recommendation?.jobId ?? detail.job?._id);
+  const index = recommendationIndexForJobId(detail.recommendation?.jobId ?? detail.job?._id);
+  const baseRecommendation = detail.recommendation ?? (recommendations as LiveRecommendation[])[Math.max(0, index)];
   const jobId = detail.recommendation?.jobId ?? detail.job?._id;
   const recommendation =
     (jobId ? latestRankedByJobId.get(jobId) : undefined) ??
     omDemoRecommendations().find((candidate) => candidate.jobId === jobId) ??
-    detail.recommendation;
-  return {
-    ...detail,
-    recommendation,
-  };
+    enrichRecommendation(baseRecommendation, org, Math.max(0, index));
+  return enrichJobDetailFromGenerated(detail, org, recommendation);
 }
 
 function enrichJobDetailFromGenerated(
@@ -673,10 +664,8 @@ function generatedRecordId(id: string | undefined, prefix: string, index: number
 }
 
 function generatedJobUrl(org: OmDemoOrganization, index: number) {
-  const pageSlug = OM_DEMO_COMPANY_PAGE_SLUGS[org.sourceSlug];
-  const baseUrl = pageSlug ? `${OM_DEMO_COMPANY_PAGE_BASE_URL}/${pageSlug}` : org.jobUrl;
-  if (index === 0) return baseUrl;
-  return `${baseUrl.replace(/\/+$/, "")}?demoRole=${index + 1}`;
+  void index;
+  return org.jobUrl;
 }
 
 function rotateList<T>(items: T[], index: number): T[] {
