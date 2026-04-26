@@ -9,7 +9,7 @@ import { FlatChatOverlay } from "./flat-chat-overlay";
 import { RecruiterDialogue } from "./recruiter-dialogue";
 import { PersonalizationDialogue } from "./personalization-dialogue";
 import { ScoutIntakeInput } from "./scout-intake-input";
-import { useRoomStore, hasCompletedRoomIntake, markRoomIntakeDone } from "./room-store";
+import { useRoomStore, markRoomIntakeDone } from "./room-store";
 import type { RoomSceneProps } from "./room-scene";
 import type { RoomIntroPhase } from "./room-intro";
 import { convexRefs } from "@/lib/convex-refs";
@@ -40,7 +40,6 @@ type Props = {
 };
 
 export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = true, onSceneReady }: Props) {
-  const startIntake = useRoomStore((s) => s.startIntake);
   const intakePhase = useRoomStore((s) => s.intakePhase);
   const intakeActive = intakePhase !== "inactive";
   const playerMode = useRoomStore((s) => s.playerMode);
@@ -48,6 +47,7 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
   const setChatMode = useRoomStore((s) => s.setChatMode);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
 
   // Auto-seed recruiters once if the signed-in user has no active recruiters yet.
   const recruiters = useQuery(convexRefs.recruiters.listForUser, userId ? { userId } : "skip");
@@ -63,32 +63,88 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
   }, [userId, recruiters, seeded, seedRecruiters]);
 
   useEffect(() => {
-    if (introPhase) return;
-    if (hasCompletedRoomIntake()) return;
-    startIntake();
-  }, [introPhase, startIntake]);
-
-  useEffect(() => {
     if (intakePhase === "walking-back") {
       markRoomIntakeDone();
     }
   }, [intakePhase]);
 
   useEffect(() => {
-    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    markRoomIntakeDone();
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-    } else {
-      void el.requestFullscreen?.();
-    }
+  useEffect(() => {
+    const onChange = () => {
+      const fsEl =
+        document.fullscreenElement ||
+        (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement ||
+        null;
+      setIsFullscreen(fsEl === containerRef.current);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange as EventListener);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange as EventListener);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!pseudoFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPseudoFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pseudoFullscreen]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current as
+      | (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void })
+      | null;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    if (!el) return;
+    const inFs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+    if (inFs) {
+      const exit = doc.exitFullscreen?.bind(doc) ?? doc.webkitExitFullscreen?.bind(doc);
+      try {
+        const ret = exit?.();
+        if (ret && typeof (ret as Promise<void>).catch === "function") {
+          (ret as Promise<void>).catch(() => setPseudoFullscreen(false));
+        }
+      } catch {
+        setPseudoFullscreen(false);
+      }
+      return;
+    }
+    if (pseudoFullscreen) {
+      setPseudoFullscreen(false);
+      return;
+    }
+    const request = el.requestFullscreen?.bind(el) ?? el.webkitRequestFullscreen?.bind(el);
+    if (!request) {
+      setPseudoFullscreen(true);
+      return;
+    }
+    let entered = false;
+    try {
+      const ret = request();
+      if (ret && typeof (ret as Promise<void>).then === "function") {
+        (ret as Promise<void>).then(() => { entered = true; }).catch(() => setPseudoFullscreen(true));
+      }
+    } catch {
+      setPseudoFullscreen(true);
+      return;
+    }
+    window.setTimeout(() => {
+      const inFs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+      if (!inFs && !entered) setPseudoFullscreen(true);
+    }, 350);
+  }, [pseudoFullscreen]);
+
+  const showFullscreen = isFullscreen || pseudoFullscreen;
 
   return (
     <div
@@ -96,11 +152,13 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
       className={
         isFullscreen
           ? "relative h-screen w-screen overflow-hidden bg-[#F2EEE5]"
+          : pseudoFullscreen
+          ? "fixed inset-0 z-[9999] h-screen w-screen overflow-hidden bg-[#F2EEE5]"
           : "relative h-[calc(100vh-180px)] min-h-[520px] w-full overflow-hidden rounded-[24px] border border-white/50 bg-[#F2EEE5] shadow-[0_30px_80px_-40px_rgba(15,23,42,0.18),0_10px_30px_-20px_rgba(15,23,42,0.10)]"
       }
     >
       <RoomScene userId={userId} introPhase={introPhase} onReady={onSceneReady} />
-      <div className={`pointer-events-none absolute inset-0 ${isFullscreen ? "" : "rounded-[24px]"} ring-1 ring-inset ring-white/20`} />
+      <div className={`pointer-events-none absolute inset-0 ${showFullscreen ? "" : "rounded-[24px]"} ring-1 ring-inset ring-white/20`} />
       {showDetailPanel && !intakeActive ? <FocusPanel /> : null}
       {!introPhase ? <ScoutIntakeInput /> : null}
       <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2">
@@ -127,11 +185,11 @@ export function RoomCanvasClient({ userId = null, introPhase, showDetailPanel = 
         <button
           type="button"
           onClick={toggleFullscreen}
-          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          aria-label={showFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          title={showFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-[#F8FBFF]/82 text-[#101827] shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
         >
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          {showFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </div>
       {playerMode === "walking" ? <WasdHint /> : null}
