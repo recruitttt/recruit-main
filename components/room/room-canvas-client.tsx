@@ -6,6 +6,7 @@ import { Footprints, Maximize2, MessageSquare, Minimize2 } from "lucide-react";
 import { FocusPanel } from "./focus-panel";
 import { FlatChatOverlay } from "./flat-chat-overlay";
 import { RecruiterDialogue } from "./recruiter-dialogue";
+import { PersonalizationDialogue } from "./personalization-dialogue";
 import { ScoutIntakeInput } from "./scout-intake-input";
 import { useRoomStore, hasCompletedRoomIntake, markRoomIntakeDone } from "./room-store";
 import type { RoomSceneProps } from "./room-scene";
@@ -140,6 +141,7 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
       <FlatChatOverlay />
       {/* Phase C will plumb the real signed-in userId through this prop. */}
       <RecruiterDialogue userId={null} />
+      <PersonalizationDialogue userId={null} />
     </div>
   );
 }
