@@ -31,7 +31,7 @@ const tiers = [
   },
   {
     name: "Standard",
-    price: "$24",
+    price: "$10",
     cadence: "/ month",
     description: "For active job seekers who want real momentum.",
     cta: "Upgrade to Standard",
@@ -50,7 +50,7 @@ const tiers = [
   },
   {
     name: "Pro",
-    price: "$79",
+    price: "$20",
     cadence: "/ month",
     description: "Full autonomy. Recruiter outreach. White-glove support.",
     cta: "Go Pro",
