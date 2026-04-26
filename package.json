@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:followups": "tsx tests/followups.test.ts",
     "test:ranking": "tsx tests/job-ranking.test.ts",
     "test:ats": "tsx tests/ats-ingestion.test.ts"
   },
