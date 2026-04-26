@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { isProfileUsable } from "@/lib/demo-profile";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
@@ -17,6 +17,8 @@ import {
   preserveLeaderboardSelection,
 } from "@/components/dashboard/leaderboard-helpers";
 import { IntakeProgressBanner } from "@/components/dashboard/intake-progress-banner";
+import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
+import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -346,72 +348,57 @@ function ConnectedRecruitDashboard() {
           </ActionButton>
         </div>
 
-        <div className="mb-4">
+        <div className="space-y-6">
           <IntakeProgressBanner />
-        </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <SummaryPill>{liveData?.run ? statusLabel(liveData.run) : "Idle"}</SummaryPill>
-          <SummaryPill>{boardRows.length} applications</SummaryPill>
-          <SummaryPill>{readyCount} ready</SummaryPill>
-          {needsReviewCount > 0 ? <SummaryPill>{needsReviewCount} need review</SummaryPill> : null}
-          <SummaryPill>{refreshedAt ? `Updated ${formatTime(refreshedAt)}` : "Awaiting sync"}</SummaryPill>
-        </div>
-
-        {controls.error || controls.message ? (
-          <div
-            className={
-              controls.error
-                ? "mb-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                : "mb-4 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-fg-muted)]"
-            }
-          >
-            {controls.error ?? controls.message}
-          </div>
-        ) : null}
-
-        <DashboardLeaderboard
-          rows={boardRows}
-          displayRows={renderedRows}
-          selectedJobId={selection.selectedJobId}
-          loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-          onSelect={selectRecommendation}
-        />
-      </div>
-
-      {selected ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Close application details"
-            className="absolute inset-0 bg-[#102016]/24"
-            onClick={() => setSelectedJobId(null)}
-          />
-          <aside className="absolute inset-y-0 right-0 w-full max-w-[560px] overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-[-24px_0_70px_-42px_rgba(16,32,22,0.38)] md:p-5">
-            <div className="sticky top-0 z-10 mb-3 flex justify-end bg-[var(--color-bg)] py-1 backdrop-blur">
-              <button
-                type="button"
-                aria-label="Close application details"
-                onClick={() => setSelectedJobId(null)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] transition hover:text-[var(--color-fg)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <DashboardJobInspector
-              inline
-              selected={selected}
-              detail={jobDetail}
-              detailError={detailError}
-              state={tailorState}
-              pdf={pdfState}
-              onTailor={() => void tailorSelectedJob()}
-              onOpenPdf={() => setPdfViewerOpen(true)}
-              onDownload={downloadTailoredPdf}
+          <div data-tour="status-strip">
+            <DashboardStatusStrip
+              run={liveData?.run}
+              recommendationCount={boardRows.length}
+              refreshedAt={refreshedAt}
+              controls={controls}
             />
-          </aside>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(380px,0.88fr)]">
+            <div data-tour="leaderboard">
+              <DashboardLeaderboard
+                rows={boardRows}
+                displayRows={renderedRows}
+                selectedJobId={selection.selectedJobId}
+                loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+                onSelect={selectRecommendation}
+                mobileInlineDetail={
+                  <DashboardJobInspector
+                    inline
+                    selected={selected}
+                    detail={jobDetail}
+                    detailError={detailError}
+                    state={tailorState}
+                    pdf={pdfState}
+                    onTailor={() => void tailorSelectedJob()}
+                    onOpenPdf={() => setPdfViewerOpen(true)}
+                    onDownload={downloadTailoredPdf}
+                  />
+                }
+              />
+            </div>
+
+            <div data-tour="inspector" className="hidden xl:block">
+              <DashboardJobInspector
+                selected={selected}
+                detail={jobDetail}
+                detailError={detailError}
+                state={tailorState}
+                pdf={pdfState}
+                onTailor={() => void tailorSelectedJob()}
+                onOpenPdf={() => setPdfViewerOpen(true)}
+                onDownload={downloadTailoredPdf}
+              />
+            </div>
+          </div>
         </div>
-      ) : null}
+      </div>
 
       <TailoredPdfViewer
         open={pdfViewerOpen}
@@ -421,6 +408,8 @@ function ConnectedRecruitDashboard() {
         sizeKb={pdfState.sizeKb}
         pdfBase64={viewerPdfBase64}
       />
+
+      <DashboardTour />
     </main>
   );
 }
