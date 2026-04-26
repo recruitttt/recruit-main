@@ -53,6 +53,7 @@ export const DEMO_PROFILE: UserProfile = {
     roles: ["Software Engineer", "Product Engineer"],
     locations: ["Remote", "San Francisco"],
   },
+  suggestions: [],
   provenance: {},
   log: [
     {
@@ -65,5 +66,9 @@ export const DEMO_PROFILE: UserProfile = {
 };
 
 export function isProfileUsable(profile: UserProfile | undefined): profile is UserProfile {
-  return Boolean(profile?.name && profile.email && profile.experience.length > 0);
+  return Boolean(
+    profile?.name &&
+      profile.email &&
+      (profile.experience.length > 0 || Boolean(profile.resume?.rawText?.trim()) || profile.skills.length > 0)
+  );
 }

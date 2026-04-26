@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -68,6 +68,8 @@ type LiveRunSummary = {
   recommendedCount: number;
   errorCount: number;
   scoringMode?: string;
+  tailoredCount?: number;
+  hasCompletedTailoring?: boolean;
   recommendations?: LiveRecommendation[];
 };
 
@@ -90,6 +92,7 @@ type LiveRecommendation = {
     title?: string;
     location?: string;
     jobUrl?: string;
+    sourceSlug?: string;
     descriptionPlain?: string;
     compensationSummary?: string;
   } | null;
@@ -198,7 +201,7 @@ type JobDetail = {
   };
   artifacts?: Array<{
     _id: string;
-    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "pdf_ready";
+    kind: "ingested_description" | "ranking_score" | "research_snapshot" | "tailored_resume" | "cover_letter" | "pdf_ready";
     title: string;
     content?: string;
     payload?: unknown;
@@ -232,6 +235,21 @@ type TailoringControls = {
   onSelect: (recommendation: LiveRecommendation) => void;
   onTailor: () => void;
   onDownload: () => void;
+};
+
+type CustomJdRequest = {
+  company: string;
+  role: string;
+  location?: string;
+  jobUrl?: string;
+  descriptionPlain: string;
+};
+
+type CustomJdControls = {
+  busy: boolean;
+  message?: string;
+  error?: string;
+  onCreate: (request: CustomJdRequest) => void;
 };
 
 type FollowUpControls = {
@@ -333,10 +351,12 @@ function DashboardShell({
   seed,
   controls,
   tailoring,
+  customJd,
 }: {
   seed: DashboardSeed;
   controls?: PipelineControls;
   tailoring?: TailoringControls;
+  customJd?: CustomJdControls;
 }) {
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
@@ -394,7 +414,7 @@ function DashboardShell({
             </div>
           </header>
 
-          <DashboardMain seed={seed} controls={controls} tailoring={tailoring} />
+          <DashboardMain seed={seed} controls={controls} tailoring={tailoring} customJd={customJd} />
         </section>
       </div>
     </main>
@@ -548,10 +568,12 @@ function DashboardMain({
   seed,
   controls,
   tailoring,
+  customJd,
 }: {
   seed: DashboardSeed;
   controls?: PipelineControls;
   tailoring?: TailoringControls;
+  customJd?: CustomJdControls;
 }) {
   return (
     <>
@@ -579,7 +601,7 @@ function DashboardMain({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <ApplicationPipelinePanel seed={seed} tailoring={tailoring} />
+        <ApplicationPipelinePanel seed={seed} tailoring={tailoring} customJd={customJd} />
         <SelectedJobPanel tailoring={tailoring} />
       </div>
 
@@ -624,14 +646,17 @@ function DashboardMain({
 function ApplicationPipelinePanel({
   seed,
   tailoring,
+  customJd,
 }: {
   seed: DashboardSeed;
   tailoring?: TailoringControls;
+  customJd?: CustomJdControls;
 }) {
   const liveRows = tailoring?.recommendations ?? [];
 
   return (
     <Panel title="Application Pipeline">
+      <CustomJobDescriptionPanel controls={customJd} />
       <div className="overflow-x-auto rounded-[24px] border border-white/45 bg-white/20">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
@@ -660,7 +685,7 @@ function ApplicationPipelinePanel({
                   >
                     <td className="px-4 py-3 font-semibold text-slate-950">{recommendation.company}</td>
                     <td className="px-4 py-3 text-slate-600">{recommendation.title}</td>
-                    <td className="px-4 py-3 text-slate-500">Ashby</td>
+                    <td className="px-4 py-3 text-slate-500">{recommendation.job?.sourceSlug === "custom-jd" || recommendation.job?.jobUrl?.startsWith("custom-jd:") ? "Custom JD" : "Ashby"}</td>
                     <td className="px-4 py-3 font-mono text-slate-950">{Math.round(recommendation.score)}%</td>
                     <td className="px-4 py-3">
                       <Pill tone={tracked ? statusTone(tracked.status) : recommendation.rank <= 3 ? "success" : "neutral"}>
@@ -734,7 +759,7 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
             <FileText className="mx-auto h-8 w-8 text-slate-400" />
             <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
             <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
-              Click a ranked Ashby recommendation to inspect the scraped description, ranking artifacts, tailoring output, and PDF state.
+              Click a ranked recommendation to inspect the description, ranking artifacts, tailoring output, and PDF state.
             </p>
           </div>
         </GlassCard>
@@ -782,9 +807,15 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
               </Link>
             )}
             {(tailoring.state.downloadable || tailored?.pdfReady) && (
-              <Button size="sm" variant="secondary" onClick={tailoring.onDownload} disabled={!tailoring.state.downloadable}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={tailoring.onDownload}
+                disabled={!tailoring.state.downloadable}
+                title={!tailoring.state.downloadable && tailored?.pdfReady ? "PDF metadata is persisted; download bytes are only available immediately after tailoring in this browser session." : undefined}
+              >
                 <Download className="h-3.5 w-3.5" />
-                Download PDF
+                {tailoring.state.downloadable ? "Download PDF" : "PDF metadata stored"}
               </Button>
             )}
           </div>
@@ -900,6 +931,9 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
               <TimelineItem title="Tailored resume" complete={Boolean(tailored?.tailoredResume || artifactOf(artifacts, "tailored_resume"))}>
                 <ArtifactText text={resumeText(tailored?.tailoredResume ?? artifactOf(artifacts, "tailored_resume")?.payload)} />
               </TimelineItem>
+              <TimelineItem title="Cover letter" complete={Boolean(tailored?.tailoredResume?.coverLetterBlurb || artifactOf(artifacts, "cover_letter"))}>
+                <ArtifactText text={coverLetterText(tailored?.tailoredResume?.coverLetterBlurb ?? artifactOf(artifacts, "cover_letter")?.content ?? artifactOf(artifacts, "cover_letter")?.payload)} />
+              </TimelineItem>
               <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)}>
                 <p className="text-sm leading-6 text-slate-600">
                   {tailored?.pdfReady
@@ -912,6 +946,51 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
         </div>
       </GlassCard>
     </Panel>
+  );
+}
+
+function CustomJobDescriptionPanel({ controls }: { controls?: CustomJdControls }) {
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [location, setLocation] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
+  const [descriptionPlain, setDescriptionPlain] = useState("");
+
+  if (!controls) return null;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    controls?.onCreate({ company, role, location, jobUrl, descriptionPlain });
+  }
+
+  const disabled = controls.busy || !company.trim() || !role.trim() || !descriptionPlain.trim();
+
+  return (
+    <form onSubmit={submit} className="mb-4 rounded-[24px] border border-white/45 bg-white/24 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold text-slate-950">Custom job description</div>
+          <div className="mt-1 text-xs text-slate-500">Persist a pasted JD as a first-class Custom JD source.</div>
+        </div>
+        <Pill tone="active">Custom JD</Pill>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <input className="h-10 rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="Company" />
+        <input className="h-10 rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" value={role} onChange={(event) => setRole(event.target.value)} placeholder="Role" />
+        <input className="h-10 rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Location optional" />
+        <input className="h-10 rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" value={jobUrl} onChange={(event) => setJobUrl(event.target.value)} placeholder="Job URL optional" />
+      </div>
+      <textarea className="mt-2 min-h-32 w-full rounded-[14px] border border-white/55 bg-white/45 px-3 py-2 text-sm leading-5 text-slate-900 outline-none placeholder:text-slate-400" value={descriptionPlain} onChange={(event) => setDescriptionPlain(event.target.value)} placeholder="Paste the full job description" />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="success" disabled={disabled}>
+          {controls.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+          Add Custom JD
+        </Button>
+        {(controls.message || controls.error) && (
+          <span className={cx("text-xs", controls.error ? "text-red-700" : "text-slate-600")}>{controls.error ?? controls.message}</span>
+        )}
+      </div>
+    </form>
   );
 }
 
@@ -1154,6 +1233,16 @@ function resumeText(value: unknown): string {
   ].filter(Boolean).join("\n\n");
 }
 
+function coverLetterText(value: unknown): string {
+  if (!value) return "No cover letter artifact yet.";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && "text" in value) {
+    const text = (value as { text?: unknown }).text;
+    return typeof text === "string" ? text : "No cover letter artifact yet.";
+  }
+  return "No cover letter artifact yet.";
+}
+
 function buildDashboardSeed(
   run: LiveRunSummary | null | undefined,
   recommendations: LiveRecommendation[] | undefined,
@@ -1302,7 +1391,7 @@ function mapRunToActiveRun(run: LiveRunSummary): ActiveRun {
       { label: "Store jobs", status: stepStatus(run, ["fetched"]) },
       { label: "Rank matches", status: stepStatus(run, ["ranking"]) },
       { label: "Recommend", status: run.status === "completed" ? "complete" : run.status === "failed" ? "blocked" : "pending" },
-      { label: "Tailor", status: "pending" },
+      { label: "Tailor", status: run.hasCompletedTailoring ? "complete" : "pending" },
     ],
   };
 }
@@ -1434,6 +1523,9 @@ function ConnectedRecruitDashboard() {
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
     message: "Select a ranked job to inspect and tailor.",
+  });
+  const [customJdState, setCustomJdState] = useState<{ busy: boolean; message?: string; error?: string }>({
+    busy: false,
   });
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [followUpMessage, setFollowUpMessage] = useState<string>();
@@ -1611,6 +1703,34 @@ function ConnectedRecruitDashboard() {
     }
   }
 
+  async function createCustomJd(request: CustomJdRequest) {
+    if (customJdState.busy) return;
+    try {
+      setCustomJdState({ busy: true, message: "Persisting custom JD..." });
+      const response = await fetch("/api/dashboard/custom-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const body = await response.json().catch(() => null) as
+        | { ok: true; jobId: string; detail?: JobDetail }
+        | { ok: false; reason?: string }
+        | null;
+      if (!response.ok || !body || !body.ok) {
+        throw new Error(body && !body.ok ? body.reason ?? `custom_jd_${response.status}` : `custom_jd_${response.status}`);
+      }
+      setCustomJdState({ busy: false, message: "Custom JD saved. Select it from the recommendation table to tailor." });
+      await refreshLiveData();
+      if (body.detail?.recommendation) {
+        setSelected(body.detail.recommendation);
+        setJobDetail(body.detail);
+        setTailorState({ running: false, message: "Custom JD is ready. Inspect it, then tailor this job." });
+      }
+    } catch (err) {
+      setCustomJdState({ busy: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   function downloadTailoredPdf() {
     if (tailorState.downloadable) {
       downloadPdf(tailorState.downloadable);
@@ -1753,6 +1873,12 @@ function ConnectedRecruitDashboard() {
         error: runError,
         logs: liveData?.logs ?? [],
         onRunFirst3: () => void runFirstThreeSources(),
+      }}
+      customJd={{
+        busy: customJdState.busy,
+        message: customJdState.message,
+        error: customJdState.error,
+        onCreate: (request) => void createCustomJd(request),
       }}
     />
   );

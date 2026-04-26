@@ -67,10 +67,17 @@ export const latestIngestionRunSummary = query({
       .query("jobRecommendations")
       .withIndex("by_run", (q) => q.eq("runId", run._id))
       .collect();
+    const tailoredApplications = await ctx.db
+      .query("tailoredApplications")
+      .withIndex("by_run", (q) => q.eq("runId", run._id))
+      .collect();
+    const tailoredCount = tailoredApplications.filter((application) => application.status === "completed").length;
 
     return {
       ...run,
       recommendations: recommendations.sort((a, b) => a.rank - b.rank),
+      tailoredCount,
+      hasCompletedTailoring: tailoredCount > 0,
     };
   },
 });
@@ -629,6 +636,7 @@ export const upsertTailoredApplication = mutation({
     await deleteArtifactsByJobKind(ctx, args.jobId, [
       "research_snapshot",
       "tailored_resume",
+      "cover_letter",
       "pdf_ready",
     ]);
 
@@ -655,6 +663,18 @@ export const upsertTailoredApplication = mutation({
         payload: args.tailoredResume,
         createdAt: now,
       }));
+      if (args.tailoredResume.coverLetterBlurb) {
+        await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+          demoUserId,
+          runId: sourceJob?.runId,
+          jobId: args.jobId,
+          kind: "cover_letter",
+          title: "Cover letter",
+          content: args.tailoredResume.coverLetterBlurb,
+          payload: { text: args.tailoredResume.coverLetterBlurb, source: "tailor" },
+          createdAt: now,
+        }));
+      }
     }
     if (args.pdfReady) {
       await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
@@ -689,6 +709,136 @@ export const upsertTailoredApplication = mutation({
     }));
 
     return null;
+  },
+});
+
+export const createCustomJob = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    company: v.string(),
+    role: v.string(),
+    location: v.optional(v.string()),
+    jobUrl: v.optional(v.string()),
+    descriptionPlain: v.string(),
+  },
+  returns: v.object({ runId: v.id("ingestionRuns"), jobId: v.id("ingestedJobs") }),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const now = new Date().toISOString();
+    const company = args.company.trim();
+    const role = args.role.trim();
+    const descriptionPlain = args.descriptionPlain.trim();
+    const location = args.location?.trim() || undefined;
+    const jobUrl = args.jobUrl?.trim() || `custom-jd:${now}:${company}:${role}`;
+
+    const runId = await ctx.db.insert("ingestionRuns", {
+      demoUserId,
+      status: "completed",
+      startedAt: now,
+      completedAt: now,
+      sourceCount: 1,
+      fetchedCount: 1,
+      rawJobCount: 1,
+      filteredCount: 0,
+      survivorCount: 1,
+      llmScoredCount: 0,
+      recommendedCount: 1,
+      errorCount: 0,
+      errors: [],
+      scoringMode: "custom_jd",
+    });
+
+    const jobId = await ctx.db.insert("ingestedJobs", omitUndefined({
+      runId,
+      demoUserId,
+      company,
+      sourceSlug: "custom-jd",
+      title: role,
+      normalizedTitle: role.toLowerCase(),
+      location,
+      descriptionPlain,
+      jobUrl,
+      dedupeKey: `custom-jd:${company.toLowerCase()}:${role.toLowerCase()}:${descriptionPlain.slice(0, 80)}`,
+      raw: { provider: "Custom JD", company, role, location, jobUrl, descriptionPlain },
+      createdAt: now,
+    }));
+
+    await ctx.db.insert("jobFilterDecisions", {
+      runId,
+      jobId,
+      status: "kept",
+      reasons: ["User supplied custom job description"],
+      ruleScore: 100,
+      createdAt: now,
+    });
+    await ctx.db.insert("jobScores", {
+      runId,
+      jobId,
+      bm25Score: 1,
+      bm25Normalized: 100,
+      ruleScore: 100,
+      totalScore: 100,
+      scoringMode: "custom_jd",
+      rationale: "Custom JD supplied by the user and routed directly into tailoring.",
+      strengths: ["User supplied target role", "Complete pasted job description"],
+      risks: [],
+      createdAt: now,
+    });
+    await ctx.db.insert("jobRecommendations", omitUndefined({
+      demoUserId,
+      runId,
+      jobId,
+      rank: 1,
+      score: 100,
+      company,
+      title: role,
+      location,
+      jobUrl,
+      rationale: "Custom JD supplied by the user.",
+      strengths: ["Custom JD"],
+      risks: [],
+      createdAt: now,
+    }));
+    await ctx.db.insert("jobPipelineArtifacts", {
+      demoUserId,
+      runId,
+      jobId,
+      kind: "ingested_description",
+      title: "Custom JD",
+      content: descriptionPlain,
+      payload: { provider: "Custom JD", company, role, location, jobUrl },
+      createdAt: now,
+    });
+    await ctx.db.insert("jobPipelineArtifacts", {
+      demoUserId,
+      runId,
+      jobId,
+      kind: "ranking_score",
+      title: "Custom JD routing",
+      content: "User supplied custom job description routed into recommendation slot 1.",
+      payload: { totalScore: 100, scoringMode: "custom_jd" },
+      createdAt: now,
+    });
+    await ctx.db.insert("pipelineLogs", {
+      demoUserId,
+      runId,
+      stage: "custom_jd",
+      level: "success",
+      message: `Stored custom JD for ${company} - ${role}`,
+      payload: { company, role, location, jobUrl, descriptionLength: descriptionPlain.length },
+      createdAt: now,
+    });
+    await ctx.db.insert("pipelineLogs", {
+      demoUserId,
+      runId,
+      stage: "recommendations",
+      level: "success",
+      message: "Custom JD recommendation ready for tailoring",
+      payload: { jobId, rank: 1, score: 100 },
+      createdAt: now,
+    });
+
+    return { runId, jobId };
   },
 });
 
