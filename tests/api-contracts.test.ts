@@ -235,9 +235,9 @@ await withEnvAsync({
   const deepMindRecommendation = demoRecommendations.find(
     (recommendation) => recommendation.company === "Google DeepMind"
   );
-  assert.equal(deepMindRecommendation?.jobUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
-  assert.equal(deepMindRecommendation?.job?.jobUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
-  assert.equal(deepMindRecommendation?.job?.applyUrl, "https://careers.google.com/jobs/results/om-demo-gemini-agent-infrastructure");
+  assert.equal(deepMindRecommendation?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(deepMindRecommendation?.job?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(deepMindRecommendation?.job?.applyUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
   assert.equal(
     demoRecommendations.every((recommendation) => Boolean(recommendation.jobUrl && recommendation.job?.jobUrl)),
     true
