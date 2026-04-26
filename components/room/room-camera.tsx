@@ -18,7 +18,12 @@ const SCOUT_INTAKE = {
   look: [0, 1.4, 1.0] as const,
 };
 
-const FIXED_AZIMUTH = 0;
+const FIRST_PERSON_DESK = {
+  pos: [0, 1.45, 1.2] as const,
+  look: [0, 1.4, -0.2] as const,
+};
+
+const AZIMUTH_LIMIT = Math.PI * 0.42;
 const FOLLOW_DAMP = 3;
 const FOLLOW_X_LIMIT = 6;
 const FOLLOW_EPSILON = 0.0008;
@@ -30,13 +35,21 @@ export function RoomCamera() {
   const playerMode = useRoomStore((s) => s.playerMode);
   const intakePhase = useRoomStore((s) => s.intakePhase);
   const chatMode = useRoomStore((s) => s.chatMode);
+  const cameraMode = useRoomStore((s) => s.cameraMode);
   const intakeFocused =
     chatMode === "3d" && (intakePhase === "waving" || intakePhase === "questioning");
+  const firstPersonDesk = cameraMode === "first-person-desk";
 
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    if (focusTarget) {
+    if (firstPersonDesk) {
+      c.setLookAt(
+        FIRST_PERSON_DESK.pos[0], FIRST_PERSON_DESK.pos[1], FIRST_PERSON_DESK.pos[2],
+        FIRST_PERSON_DESK.look[0], FIRST_PERSON_DESK.look[1], FIRST_PERSON_DESK.look[2],
+        true,
+      );
+    } else if (focusTarget) {
       const framing = focusFraming(focusTarget);
       c.setLookAt(
         framing.cam[0], framing.cam[1], framing.cam[2],
@@ -56,11 +69,12 @@ export function RoomCamera() {
         true,
       );
     }
-  }, [focusTarget, intakeFocused]);
+  }, [focusTarget, intakeFocused, firstPersonDesk]);
 
   useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
+    if (firstPersonDesk) return;
     if (focusTarget) return;
     if (playerMode !== "walking" || !playerActive.current) return;
     c.getTarget(FOLLOW_TARGET_REUSE);
@@ -79,12 +93,11 @@ export function RoomCamera() {
       maxDistance={22}
       minPolarAngle={Math.PI * 0.32}
       maxPolarAngle={Math.PI * 0.42}
-      minAzimuthAngle={FIXED_AZIMUTH}
-      maxAzimuthAngle={FIXED_AZIMUTH}
-      azimuthRotateSpeed={0}
+      minAzimuthAngle={-AZIMUTH_LIMIT}
+      maxAzimuthAngle={AZIMUTH_LIMIT}
+      azimuthRotateSpeed={0.75}
       dollySpeed={0}
       truckSpeed={1.4}
-      verticalDragToForward={false}
     />
   );
 }

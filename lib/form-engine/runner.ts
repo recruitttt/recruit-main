@@ -4,6 +4,7 @@ import { ashbyResultToSubmissionResult, ashbySnapshotToFormIR, detectProviderFro
 import { runLeverFormFillOnPage } from "../lever-fill/browser";
 import { leverResultToSubmissionResult, leverSnapshotToFormIR } from "./lever-adapter";
 import { isBrowserbaseCaptchaSolvingEnabled } from "../pdf";
+import { findBrainstormedAnswer } from "./brainstorm-matcher";
 import type {
   ApplicationJobInput,
   EvidenceBundle,
@@ -30,6 +31,22 @@ export type RunFormAutomationResult = {
   evidence: EvidenceBundle;
   rawResult: unknown;
 };
+
+/**
+ * Resolve a brainstormed answer for a given question text from the job input.
+ * Returns the brainstormed answer string if a matcher hit is found, else null.
+ *
+ * Intended insertion point for downstream answer-resolution / LLM-draft callers:
+ *   const brainstormed = resolveBrainstormedAnswer(questionText, jobInput);
+ *   if (brainstormed) return brainstormed;
+ *   // ... fallback to LLM resolution
+ */
+export function resolveBrainstormedAnswer(
+  questionText: string,
+  jobInput: ApplicationJobInput,
+): string | null {
+  return findBrainstormedAnswer(questionText, jobInput.brainstormedAnswers);
+}
 
 export async function runFormAutomation(args: RunFormAutomationArgs): Promise<RunFormAutomationResult> {
   const provider = args.job.provider ?? args.job.providerHint ?? detectProviderFromUrl(args.job.targetUrl);

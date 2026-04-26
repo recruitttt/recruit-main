@@ -10,8 +10,8 @@ export type Framing = {
 };
 
 const FURNITURE_FRAMES: Record<FurnitureId, Framing> = {
-  sofa: { cam: [0, 3.4, 6.2], look: [0, 1.0, 1.4] },
-  "coffee-table": { cam: [0, 3.0, 5.8], look: [0, 0.5, 0.8] },
+  sofa: { cam: [-3.8, 3.3, 5.7], look: [-7.1, 1.0, 3.0] },
+  "coffee-table": { cam: [-3.7, 2.8, 5.2], look: [-5.9, 0.5, 3.0] },
   tv: { cam: [-3.2, 3.4, 4.2], look: [-3.2, 1.4, -2.6] },
   bookshelf: { cam: [3.6, 3.2, 4.4], look: [3.6, 1.6, -2.6] },
   window: { cam: [0, 4.0, 4.6], look: [0, 2.6, -3.2] },

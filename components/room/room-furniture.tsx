@@ -2,11 +2,13 @@
 
 import { InteractiveHotspot } from "./interactive-hotspot";
 
-import { useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { useBeachTexture } from "./beach-texture";
+import { tweenValue, updateTweens } from "@/lib/room/animation";
+import { useRoomStore } from "./room-store";
 
 /**
  * Extra room dressing: sofa + coffee table, rug, TV, back-wall windows,
@@ -15,19 +17,188 @@ import { useBeachTexture } from "./beach-texture";
 export function RoomFurniture() {
   return (
     <group>
-      <RugArea />
-      <Sofa position={[0, 0, 3.0]} />
-      <CoffeeTable position={[0, 0, 4.6]} />
+      <DeskAnchor />
+      <RugArea position={[-6.55, 0.008, 3.0]} rotation={[0, Math.PI / 2, 0]} />
+      <Sofa position={[-7.45, 0, 3.0]} rotation={[0, Math.PI / 2, 0]} />
+      <CoffeeTable position={[-5.85, 0, 3.0]} rotation={[0, Math.PI / 2, 0]} />
       <WallTV position={[-9.9, 2.1, 1.5]} />
       <Bookshelf position={[9.9, 0, 1.8]} />
       <PlantInPot position={[-8.4, 0, 4.4]} variant="fern" />
       <PlantInPot position={[8.6, 0, 4.6]} variant="palm" />
       <PlantInPot position={[2.4, 0, -4.4]} variant="succulent" />
-      <FloorLamp position={[-1.7, 0, 4.2]} />
+      <FloorLamp position={[-8.55, 0, 1.15]} />
       <BackWallWindows />
       <CeilingBeams />
       <CeilingFan position={[0, 7.28, 1.6]} />
       <FurnitureHotspots />
+    </group>
+  );
+}
+
+/**
+ * DeskAnchor: subscribes to the shared `deskState` slot in the room store and
+ * drives a collapse/expand scale animation. The desk geometry itself is rendered
+ * by `recruiter-desk.tsx`, but the animation tick + state wiring lives here so
+ * the broader furniture scene owns the global tween pump while it's mounted.
+ *
+ * When `deskState` changes between "collapsed" and "expanded", this component:
+ *  1. Sets state to "animating" (consumers can disable interactions).
+ *  2. Tweens the scale value from 0.4 -> 1 (or vice versa) over 800ms.
+ *  3. Resolves back to the target state on completion.
+ *
+ * The resulting `deskScale` is stored in the zustand snapshot only via the
+ * lifecycle setter; consumers (e.g., the recruiter desk component) read
+ * `deskState` directly and can compute their own scale from it, or this
+ * file can be extended later to host the desk geometry once it migrates here.
+ */
+function DeskAnchor() {
+  const deskState = useRoomStore((s) => s.deskState);
+  const setDeskState = useRoomStore((s) => s.setDeskState);
+  const playerPose = useRoomStore((s) => s.playerPose);
+  const [scale, setScale] = useState<number>(deskState === "expanded" ? 1 : 0.4);
+  const lastTargetRef = useRef<typeof deskState>(deskState);
+
+  // Auto-expand the desk when the player sits, collapse when they stand
+  useEffect(() => {
+    if (playerPose === "sitting" && deskState === "collapsed") {
+      setDeskState("expanded");
+    } else if (playerPose !== "sitting" && deskState === "expanded") {
+      setDeskState("collapsed");
+    }
+  }, [playerPose, deskState, setDeskState]);
+
+  useEffect(() => {
+    if (lastTargetRef.current === deskState && deskState !== "animating") return;
+    if (deskState === "animating") return;
+    lastTargetRef.current = deskState;
+    const target = deskState === "expanded" ? 1 : 0.4;
+    const finalState = deskState;
+    setDeskState("animating");
+    tweenValue(scale, target, 800, "cubicInOut", setScale, () => {
+      setDeskState(finalState);
+      lastTargetRef.current = finalState;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deskState, setDeskState]);
+
+  useFrame(() => updateTweens(performance.now()));
+
+  // The user's primary desk — sits at world origin facing -z so that when the
+  // player sits (E key near [0,0,1]), the desk-hub Html surface mounts cleanly
+  // on the monitor at z = -0.3, y = 1.5.
+  return (
+    <group position={[0, 0, 0]} scale={[scale, scale, scale]}>
+      <PlayerDesk />
+    </group>
+  );
+}
+
+function PlayerDesk() {
+  return (
+    <group>
+      {/* Desk top */}
+      <RoundedBox args={[2.6, 0.06, 1.2]} radius={0.02} smoothness={4} position={[0, 0.95, 0]}>
+        <meshStandardMaterial color="#A88766" roughness={0.6} metalness={0.05} />
+      </RoundedBox>
+      {/* Desk legs */}
+      {[
+        [-1.22, 0.475, -0.55],
+        [1.22, 0.475, -0.55],
+        [-1.22, 0.475, 0.55],
+        [1.22, 0.475, 0.55],
+      ].map((p, i) => (
+        <mesh key={`desk-leg-${i}`} position={p as [number, number, number]}>
+          <boxGeometry args={[0.06, 0.95, 0.06]} />
+          <meshStandardMaterial color="#3A2F22" roughness={0.5} metalness={0.4} />
+        </mesh>
+      ))}
+      {/* Monitor stand */}
+      <mesh position={[0, 1.04, -0.35]}>
+        <boxGeometry args={[0.16, 0.08, 0.18]} />
+        <meshStandardMaterial color="#2C2A28" roughness={0.4} metalness={0.5} />
+      </mesh>
+      <mesh position={[0, 1.22, -0.35]}>
+        <boxGeometry args={[0.04, 0.36, 0.04]} />
+        <meshStandardMaterial color="#2C2A28" roughness={0.4} metalness={0.5} />
+      </mesh>
+      {/* Monitor body — the desk-hub Html surface mounts here when sitting */}
+      <RoundedBox
+        args={[1.6, 1.0, 0.06]}
+        radius={0.025}
+        smoothness={4}
+        position={[0, 1.5, -0.32]}
+      >
+        <meshStandardMaterial color="#15161A" roughness={0.35} metalness={0.6} />
+      </RoundedBox>
+      {/* Monitor screen glow (when collapsed, this is what the user sees from afar) */}
+      <mesh position={[0, 1.5, -0.288]}>
+        <planeGeometry args={[1.5, 0.92]} />
+        <meshBasicMaterial color="#1F2A44" toneMapped={false} />
+      </mesh>
+      {/* Keyboard */}
+      <RoundedBox args={[0.8, 0.025, 0.24]} radius={0.01} smoothness={3} position={[0, 0.99, 0.18]}>
+        <meshStandardMaterial color="#1A1A1F" roughness={0.5} metalness={0.3} />
+      </RoundedBox>
+      {/* Mouse */}
+      <RoundedBox args={[0.08, 0.018, 0.13]} radius={0.008} smoothness={3} position={[0.55, 0.985, 0.18]}>
+        <meshStandardMaterial color="#1A1A1F" roughness={0.5} metalness={0.3} />
+      </RoundedBox>
+      {/* Mug */}
+      <group position={[-0.7, 1.0, 0.1]}>
+        <mesh>
+          <cylinderGeometry args={[0.05, 0.045, 0.1, 16]} />
+          <meshStandardMaterial color="#E8D8B8" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.052, 0]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.005, 16]} />
+          <meshStandardMaterial color="#5B3E1E" roughness={0.6} />
+        </mesh>
+      </group>
+      {/* Notebook */}
+      <RoundedBox args={[0.32, 0.018, 0.22]} radius={0.005} smoothness={3} position={[0.65, 0.99, -0.1]}>
+        <meshStandardMaterial color="#3F4A6A" roughness={0.85} />
+      </RoundedBox>
+      {/* Office chair (player sits here when first-person desk camera engages) */}
+      <PlayerChair position={[0, 0, 1.2]} />
+    </group>
+  );
+}
+
+function PlayerChair({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Seat */}
+      <RoundedBox args={[0.55, 0.08, 0.55]} radius={0.04} smoothness={4} position={[0, 0.5, 0]}>
+        <meshStandardMaterial color="#2A2A2E" roughness={0.7} />
+      </RoundedBox>
+      {/* Back */}
+      <RoundedBox args={[0.55, 0.7, 0.08]} radius={0.05} smoothness={4} position={[0, 0.85, 0.24]}>
+        <meshStandardMaterial color="#2A2A2E" roughness={0.7} />
+      </RoundedBox>
+      {/* Stem */}
+      <mesh position={[0, 0.28, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.42, 12]} />
+        <meshStandardMaterial color="#1A1A1F" roughness={0.4} metalness={0.6} />
+      </mesh>
+      {/* Base */}
+      <mesh position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[0.03, 0.32, 0.04, 16]} />
+        <meshStandardMaterial color="#1A1A1F" roughness={0.4} metalness={0.6} />
+      </mesh>
+      {/* Wheels */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const angle = (i / 5) * Math.PI * 2;
+        const r = 0.3;
+        return (
+          <mesh
+            key={`wheel-${i}`}
+            position={[Math.cos(angle) * r, 0.025, Math.sin(angle) * r]}
+          >
+            <sphereGeometry args={[0.03, 8, 6]} />
+            <meshStandardMaterial color="#0F0F12" roughness={0.6} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -38,14 +209,14 @@ function FurnitureHotspots() {
       <InteractiveHotspot
         target={{ kind: "furniture", id: "sofa" }}
         hotspotKey="furniture:sofa"
-        size={[3.4, 1.4, 1.6]}
-        position={[0, 0.7, 3.0]}
+        size={[1.6, 1.4, 3.4]}
+        position={[-7.45, 0.7, 3.0]}
       />
       <InteractiveHotspot
         target={{ kind: "furniture", id: "coffee-table" }}
         hotspotKey="furniture:coffee-table"
-        size={[1.6, 0.8, 1.0]}
-        position={[0, 0.4, 4.6]}
+        size={[1.0, 0.8, 1.6]}
+        position={[-5.85, 0.4, 3.0]}
       />
       <InteractiveHotspot
         target={{ kind: "furniture", id: "tv" }}
@@ -81,9 +252,15 @@ function FurnitureHotspots() {
   );
 }
 
-function RugArea() {
+function RugArea({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={[0, 0.008, 3.5]}>
+    <group position={position} rotation={rotation}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[5.4, 3.6]} />
         <meshStandardMaterial color="#8F3E36" roughness={1} metalness={0} />
@@ -140,9 +317,15 @@ function RugArea() {
   );
 }
 
-function Sofa({ position }: { position: [number, number, number] }) {
+function Sofa({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Base */}
       <RoundedBox args={[3.6, 0.42, 1.3]} radius={0.12} smoothness={4} position={[0, 0.26, 0]}>
         <meshStandardMaterial color="#C9B89A" roughness={0.95} />
@@ -197,9 +380,15 @@ function Sofa({ position }: { position: [number, number, number] }) {
   );
 }
 
-function CoffeeTable({ position }: { position: [number, number, number] }) {
+function CoffeeTable({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Top */}
       <RoundedBox args={[1.5, 0.06, 0.85]} radius={0.04} smoothness={4} position={[0, 0.42, 0]}>
         <meshStandardMaterial color="#B6905C" roughness={0.55} metalness={0.08} />
@@ -488,8 +677,7 @@ function BackWallWindows() {
   const WIN_W = 17.6;
   const WIN_H = 2.2;
   const FRAME_D = 0.12;
-  // 3 vertical muntins split the view into 4 visual panes, 1 horizontal muntin across the middle
-  const paneCenters = [-6.6, -2.2, 2.2, 6.6];
+  const lightCenters = [-6.6, -2.2, 2.2, 6.6];
 
   return (
     <group position={[0, 2.55, -5.07]}>
@@ -537,29 +725,13 @@ function BackWallWindows() {
           <meshBasicMaterial color="#FFFFFF" transparent opacity={0.1} toneMapped={false} />
         </mesh>
       ))}
-      {/* 3 vertical muntins between the 4 panes */}
-      {paneCenters.slice(0, -1).map((c, i) => {
-        const next = paneCenters[i + 1];
-        const x = (c + next) / 2;
-        return (
-          <mesh key={`v-${i}`} position={[x, 0, 0.065]}>
-            <planeGeometry args={[0.06, WIN_H]} />
-            <meshStandardMaterial color="#A89475" roughness={0.7} />
-          </mesh>
-        );
-      })}
-      {/* Horizontal muntin across the middle */}
-      <mesh position={[0, 0, 0.065]}>
-        <planeGeometry args={[WIN_W, 0.05]} />
-        <meshStandardMaterial color="#A89475" roughness={0.7} />
-      </mesh>
       {/* Outer frame sill */}
       <mesh position={[0, -WIN_H / 2 - 0.12, 0.02]}>
         <boxGeometry args={[WIN_W + 0.6, 0.16, 0.25]} />
         <meshStandardMaterial color="#D7C8A8" roughness={0.8} />
       </mesh>
       {/* Warm daylight spilling into the room, distributed along the window */}
-      {paneCenters.map((x, i) => (
+      {lightCenters.map((x, i) => (
         <pointLight
           key={`L-${i}`}
           position={[x, 0, 2.2]}

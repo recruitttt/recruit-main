@@ -2,9 +2,14 @@
 
 import * as THREE from "three";
 import { useMemo } from "react";
+import type { ThreeEvent } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 
-export function RoomFloor() {
+type Props = {
+  onOpenSpaceClick?: () => void;
+};
+
+export function RoomFloor({ onOpenSpaceClick }: Props) {
   const floorGeom = useMemo(() => new THREE.PlaneGeometry(22, 12, 1, 1), []);
   const plankLines = useMemo(() => {
     const arr: { z: number; alpha: number }[] = [];
@@ -29,7 +34,12 @@ export function RoomFloor() {
   }, []);
 
   return (
-    <group>
+    <group
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        event.stopPropagation();
+        onOpenSpaceClick?.();
+      }}
+    >
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} geometry={floorGeom}>
         <meshStandardMaterial color="#D6C2A0" roughness={0.82} metalness={0} envMapIntensity={0.2} />
       </mesh>

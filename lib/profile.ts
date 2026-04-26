@@ -56,6 +56,24 @@ export type ProfilePrefs = {
   companySizes?: string[];
 };
 
+export type Personalization = {
+  careerGoals?: string;
+  workEnvironment?: {
+    remote?: boolean;
+    teamSize?: string;
+    pace?: string;
+  };
+  motivations?: string[];
+  communicationStyle?: string;
+  valuesAlignment?: string[];
+  storyFragments?: Array<{
+    topic: string;
+    story: string;
+    updatedAt: string;
+  }>;
+  lastInteractionAt?: string;
+};
+
 export type ResumeRecord = {
   filename: string;
   rawText?: string;
@@ -103,6 +121,7 @@ export type UserProfile = {
   skills: string[];
   github?: GitHubEnrichment;
   prefs: ProfilePrefs;
+  personalization?: Personalization;
   suggestions: ProfileSuggestion[];
   provenance: Record<string, ProvenanceSource>;
   log: ProfileLogEntry[];

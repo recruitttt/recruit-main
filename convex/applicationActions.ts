@@ -130,6 +130,25 @@ export const runApplicationJob = action({
     const profile = tailoredResume
       ? withResumePath(baseProfile, tailoredResume.path, tailoredResume.filename)
       : baseProfile;
+
+    let brainstormedAnswers: Array<{ questionType: string; answer: string }> = [];
+    try {
+      const recruiter = await ctx.runQuery(anyApi.recruiters.findByJobId, { jobId: args.jobId });
+      if (recruiter) {
+        const conv = await ctx.runQuery(anyApi.recruiters.getConversation, { recruiterId: recruiter._id });
+        brainstormedAnswers = (conv?.brainstormedAnswers ?? []).map((a: { questionType: string; answer: string }) => ({
+          questionType: a.questionType,
+          answer: a.answer,
+        }));
+      }
+    } catch {
+      // recruiter or conversation not found — proceed without
+    }
+    brainstormedAnswers = [
+      ...brainstormedAnswers,
+      ...((job.brainstormedAnswers ?? []) as Array<{ questionType: string; answer: string }>),
+    ];
+
     const jobInput: ApplicationJobInput = {
       id: args.jobId,
       demoUserId,
@@ -145,6 +164,7 @@ export const runApplicationJob = action({
       llmMode: job.llmMode ?? "best_effort",
       repairLimit: job.repairLimit ?? 1,
       idempotencyKey: job.idempotencyKey,
+      brainstormedAnswers,
     };
 
     await checkpoint(ctx, args.jobId, "browser_starting", "claimed", {

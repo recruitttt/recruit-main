@@ -10,17 +10,24 @@ import { RoomStations } from "./room-stations";
 import { RoomAgents } from "./room-agents";
 import { RoomCamera } from "./room-camera";
 import { RoomFurniture } from "./room-furniture";
+import { RoomRecruiters } from "./room-recruiters";
+import { DeskHub } from "./desk-hub";
+import { ApplicationTerminal } from "./application-terminal";
+import { PersonalizationCompanion } from "./personalization-companion";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
+import { useRoomStore } from "./room-store";
 
 export type RoomSceneProps = {
+  userId?: string | null;
   introPhase?: RoomIntroPhase;
   onReady?: () => void;
 };
 
-export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
+export default function RoomScene({ userId = null, introPhase, onReady }: RoomSceneProps) {
   const activeIntroPhase = introPhase && introPhase !== "done" ? introPhase : null;
+  const clearFocus = useRoomStore((s) => s.clearFocus);
 
   useEffect(() => {
     onReady?.();
@@ -28,7 +35,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
 
   return (
     <Canvas
-      shadows="soft"
+      shadows
       frameloop="always"
       dpr={[1, 2]}
       gl={{
@@ -37,6 +44,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         outputColorSpace: THREE.SRGBColorSpace,
       }}
       camera={{ position: [0, 6.8, 12.4], fov: 46, near: 0.1, far: 80 }}
+      onPointerMissed={clearFocus}
       style={{
         position: "absolute",
         top: 0,
@@ -53,10 +61,14 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
       </Suspense>
       <RoomLighting />
       <IntroRevealGroup phase={introPhase}>
-        <RoomFloor />
+        <RoomFloor onOpenSpaceClick={clearFocus} />
         <RoomFurniture />
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
+        <RoomRecruiters userId={userId} />
+        <DeskHub userId={userId} />
+        <ApplicationTerminal userId={userId} />
+        <PersonalizationCompanion />
         {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows
           position={[0, 0.004, -0.4]}

@@ -53,7 +53,22 @@ export function FocusPanel() {
 
   return (
     <AnimatePresence>
-      {focusTarget ? <PanelShell key={panelKey(focusTarget)} target={focusTarget} onClose={clearFocus} /> : null}
+      {focusTarget ? (
+        <>
+          <motion.button
+            key="focus-dismiss-backdrop"
+            type="button"
+            aria-label="Close focused view"
+            className="pointer-events-auto absolute inset-0 z-20 cursor-default bg-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            onClick={clearFocus}
+          />
+          <PanelShell key={panelKey(focusTarget)} target={focusTarget} onClose={clearFocus} />
+        </>
+      ) : null}
     </AnimatePresence>
   );
 }
@@ -70,7 +85,7 @@ function PanelShell({ target, onClose }: { target: FocusTarget; onClose: () => v
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 32, opacity: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="pointer-events-auto absolute right-4 top-4 bottom-4 w-[380px] overflow-hidden rounded-[24px] border border-white/50 bg-white/85 shadow-[0_30px_70px_-30px_rgba(15,23,42,0.22),0_12px_32px_-16px_rgba(15,23,42,0.12)] backdrop-blur-2xl"
+      className="pointer-events-auto absolute right-4 top-4 bottom-4 z-30 w-[380px] overflow-hidden rounded-[24px] border border-white/50 bg-white/85 shadow-[0_30px_70px_-30px_rgba(15,23,42,0.22),0_12px_32px_-16px_rgba(15,23,42,0.12)] backdrop-blur-2xl"
     >
       <div
         aria-hidden

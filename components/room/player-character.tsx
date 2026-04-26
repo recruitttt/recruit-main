@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -7,13 +8,11 @@ import { RoundedBox, Outlines, Html } from "@react-three/drei";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { agentHomePosition } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
-import { playerActive, playerPosition } from "@/lib/room/player-position";
+import { BOUNDS, playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
 import { useRoomStore } from "./room-store";
 
-const SPAWN: readonly [number, number, number] = [0, 0, 4.6];
 const PLAYER_BODY_HUE = "#94A3B8";
 const PLAYER_CAP_HUE = "#F97316";
-const BOUNDS = { minX: -9, maxX: 9, minZ: -1.4, maxZ: 5.6 };
 const NEAREST_AGENT_RADIUS = 1.8;
 const PLAYER_SPEED = WALK_SPEED * 1.35;
 
@@ -49,14 +48,16 @@ function PlayerCharacterActive() {
   const legLRef = useRef<THREE.Group>(null);
   const legRRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
-  const positionRef = useRef(new THREE.Vector3(SPAWN[0], 0, SPAWN[2]));
-  const yawRef = useRef(Math.PI);
+  const positionRef = useRef(new THREE.Vector3(SPAWN_POINT[0], SPAWN_POINT[1], SPAWN_POINT[2]));
+  const yawRef = useRef(SPAWN_FACING);
   const keys = useRef<Keys>({ forward: false, back: false, left: false, right: false, interact: false });
   const palette = useMemo(() => makePalette(PLAYER_BODY_HUE), []);
 
   const setFocusTarget = useRoomStore((s) => s.setFocusTarget);
   const setNearest = useRoomStore((s) => s.setPlayerNearestAgent);
   const nearestId = useRoomStore((s) => s.playerNearestAgentId);
+  const setPlayerPose = useRoomStore((s) => s.setPlayerPose);
+  const setCameraMode = useRoomStore((s) => s.setCameraMode);
 
   useEffect(() => {
     if (groupRef.current) groupRef.current.position.copy(positionRef.current);
@@ -87,11 +88,33 @@ function PlayerCharacterActive() {
       return (el as HTMLElement).isContentEditable === true;
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTextEntryFocused()) return;
+      if (e.code === "Escape" || e.key === "Escape") {
+        const pose = useRoomStore.getState().playerPose;
+        if (pose === "sitting") {
+          setPlayerPose("transitioning");
+          setCameraMode("overview");
+          window.setTimeout(() => setPlayerPose("standing"), 800);
+          e.preventDefault();
+          return;
+        }
+      }
       const k = map[e.code];
       if (!k) return;
-      if (isTextEntryFocused()) return;
       if (k === "interact") {
-        const id = useRoomStore.getState().playerNearestAgentId;
+        const state = useRoomStore.getState();
+        const pose = state.playerPose;
+        const pos = positionRef.current;
+        const distToDesk = Math.hypot(pos.x - 0, pos.z - 0);
+        const canSit = distToDesk < 1.2 && pose === "standing";
+        if (canSit) {
+          setPlayerPose("transitioning");
+          setCameraMode("first-person-desk");
+          window.setTimeout(() => setPlayerPose("sitting"), 800);
+          e.preventDefault();
+          return;
+        }
+        const id = state.playerNearestAgentId;
         if (id) setFocusTarget({ kind: "agent", id });
         return;
       }
@@ -109,7 +132,7 @@ function PlayerCharacterActive() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [setFocusTarget]);
+  }, [setFocusTarget, setPlayerPose, setCameraMode]);
 
   useFrame(({ clock }, delta) => {
     const k = keys.current;
@@ -212,10 +235,16 @@ function PlayerCharacterActive() {
             <cylinderGeometry args={[0.34, 0.36, 0.16, 24]} />
             <meshStandardMaterial color={PLAYER_CAP_HUE} roughness={0.55} />
           </mesh>
-          <mesh position={[0, 0.32, 0.36]} rotation={[Math.PI / 2.6, 0, 0]}>
-            <cylinderGeometry args={[0.18, 0.22, 0.04, 24, 1, false, -Math.PI / 2, Math.PI]} />
+          <RoundedBox
+            args={[0.54, 0.045, 0.3]}
+            radius={0.035}
+            smoothness={4}
+            position={[0, 0.27, 0.38]}
+            rotation={[0.03, 0, 0]}
+            castShadow
+          >
             <meshStandardMaterial color={PLAYER_CAP_HUE} roughness={0.55} />
-          </mesh>
+          </RoundedBox>
           <mesh position={[-0.13, 0.05, 0.27]}>
             <sphereGeometry args={[0.04, 12, 12]} />
             <meshStandardMaterial color="#101827" roughness={0.4} />
@@ -226,8 +255,35 @@ function PlayerCharacterActive() {
           </mesh>
         </group>
       </group>
+      <DeskSitPrompt positionRef={positionRef} />
       {nearestId ? <NearestPrompt agentName={AGENTS[nearestId].name} /> : null}
     </group>
+  );
+}
+
+function DeskSitPrompt({ positionRef }: { positionRef: React.RefObject<THREE.Vector3> }) {
+  const playerPose = useRoomStore((s) => s.playerPose);
+  const [visible, setVisible] = React.useState(false);
+  useFrame(() => {
+    if (!positionRef.current) return;
+    const pos = positionRef.current;
+    const distToDesk = Math.hypot(pos.x - 0, pos.z - 0);
+    const shouldShow = distToDesk < 1.2 && playerPose === "standing";
+    if (shouldShow !== visible) setVisible(shouldShow);
+  });
+  if (!visible) return null;
+  return (
+    <Html
+      position={[0, 1.95, 0]}
+      center
+      distanceFactor={9}
+      style={{ pointerEvents: "none" }}
+      zIndexRange={[40, 0]}
+    >
+      <div className="pointer-events-none -translate-y-1 select-none rounded-full border border-white/55 bg-emerald-700/90 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white shadow-[0_8px_18px_-10px_rgba(15,23,42,0.4)]">
+        E · sit at desk
+      </div>
+    </Html>
   );
 }
 

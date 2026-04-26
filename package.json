@@ -45,6 +45,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@sparticuz/chromium-min": "^131.0.1",
+    "@tweenjs/tween.js": "^25.0.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "ai": "^6.0.168",

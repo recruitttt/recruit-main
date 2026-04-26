@@ -410,6 +410,14 @@ export default defineSchema({
     finalOutcome: v.optional(v.any()),
     evidenceSummary: v.optional(v.any()),
     error: v.optional(v.string()),
+    brainstormedAnswers: v.optional(
+      v.array(
+        v.object({
+          questionType: v.string(),
+          answer: v.string(),
+        }),
+      ),
+    ),
     createdAt: isoString,
     updatedAt: isoString,
     completedAt: v.optional(isoString),
@@ -433,6 +441,57 @@ export default defineSchema({
     payload: v.any(),
     createdAt: isoString,
   }).index("by_job", ["jobId", "createdAt"]),
+
+  recruiters: defineTable({
+    userId: v.string(),
+    jobId: v.id("applicationJobs"),
+    companyName: v.string(),
+    companyDomain: v.optional(v.string()),
+    recruiterName: v.string(),
+    appearanceSeed: v.number(),
+    positionIndex: v.number(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("applied"),
+      v.literal("departed"),
+    ),
+    companyContext: v.optional(v.string()),
+    contextFetchedAt: v.optional(isoString),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_position", ["userId", "positionIndex"])
+    .index("by_job", ["jobId"]),
+
+  // IMPORTANT: `messages` is an unbounded grow-in-place array. Convex has a 1MB
+  // per-document limit. The recruiter mutation in `convex/recruiters.ts`
+  // (Phase B2.5) MUST cap messages to the most recent N (e.g., 200) and/or
+  // truncate `toolCalls` to avoid silent append failures in long conversations.
+  recruiterConversations: defineTable({
+    recruiterId: v.id("recruiters"),
+    userId: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("user"), v.literal("recruiter"), v.literal("tool")),
+        content: v.string(),
+        timestamp: isoString,
+        toolCalls: v.optional(v.array(v.any())),
+      }),
+    ),
+    brainstormedAnswers: v.array(
+      v.object({
+        questionType: v.string(),
+        answer: v.string(),
+        extractedAt: isoString,
+      }),
+    ),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_recruiter", ["recruiterId"])
+    .index("by_user", ["userId"]),
 
   applications: defineTable({
     demoUserId: v.string(),
