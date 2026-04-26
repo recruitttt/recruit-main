@@ -127,6 +127,10 @@ button, a {
   -webkit-tap-highlight-color: transparent;
 }
 
+* {
+  min-width: 0;
+}
+
 input, textarea, select {
   font-family: inherit;
 }

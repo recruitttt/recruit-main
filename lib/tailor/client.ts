@@ -44,7 +44,7 @@ export function clearCachedApplications(): void {
   } catch {}
 }
 
-async function callResearch(
+export async function callResearch(
   job: Job,
   signal?: AbortSignal
 ): Promise<{ ok: true; research: JobResearch } | { ok: false; reason: string }> {
@@ -64,7 +64,7 @@ async function callResearch(
   }
 }
 
-async function callTailor(
+export async function callTailor(
   profile: UserProfile,
   research: JobResearch,
   job: Job,
@@ -87,6 +87,33 @@ async function callTailor(
   } catch (err) {
     return { ok: false, reason: (err as Error).message ?? "tailor_fetch_failed" };
   }
+}
+
+export async function runTailorJob(
+  job: Job,
+  profile: UserProfile,
+  onEvent: (event: PipelineEvent) => void,
+  opts: RunOptions = {}
+): Promise<TailoredApplication | null> {
+  onEvent({ type: "queued", jobId: job.id, jobIndex: 0 });
+  onEvent({ type: "research-start", jobId: job.id });
+  const research = await callResearch(job, opts.signal);
+  if (!research.ok) {
+    onEvent({ type: "error", jobId: job.id, phase: "research", reason: research.reason });
+    return null;
+  }
+  onEvent({ type: "research-done", jobId: job.id, research: research.research });
+
+  onEvent({ type: "tailor-start", jobId: job.id });
+  const tailor = await callTailor(profile, research.research, job, opts.signal);
+  if (!tailor.ok) {
+    onEvent({ type: "error", jobId: job.id, phase: "tailor", reason: tailor.reason });
+    return null;
+  }
+
+  onEvent({ type: "tailor-done", jobId: job.id, application: tailor.application });
+  onEvent({ type: "complete", results: [tailor.application] });
+  return tailor.application;
 }
 
 export type RunOptions = {

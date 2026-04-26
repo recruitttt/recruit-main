@@ -71,6 +71,30 @@ export async function researchJob(
   const model = process.env.RESEARCH_MODEL ?? "gpt-4o-mini";
   const startedAt = Date.now();
 
+  // Prefer the job description captured during ingestion. That keeps the
+  // inspection flow consistent and avoids re-scraping when the source text is
+  // already available.
+  if (job.descriptionPlain && job.descriptionPlain.trim().length > 120) {
+    const ingested = await chatJSON(
+      apiKey,
+      [
+        { role: "system", content: RESEARCH_FALLBACK_SYSTEM_PROMPT },
+        { role: "user", content: researchFallbackUserPrompt(job, job.descriptionPlain) },
+      ],
+      { model: "gpt-4o-mini", temperature: 0, signal }
+    );
+
+    if (ingested.ok) {
+      const parsed = safeParse(ingested.raw);
+      if (parsed) {
+        return {
+          ok: true,
+          research: normalize(parsed, job, "ingested-description", Date.now() - startedAt),
+        };
+      }
+    }
+  }
+
   // Pass 1: deep research (autonomous web search).
   const deepResearch = await chatResponsesJSON(
     apiKey,

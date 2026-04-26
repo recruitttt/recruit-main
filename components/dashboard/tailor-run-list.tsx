@@ -86,18 +86,20 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
   // Hydrate cached applications on mount so refreshes preserve prior runs.
   React.useEffect(() => {
     const cache = readCachedApplications();
-    setRows((prev) =>
-      prev.map((r) => {
-        const cached = cache[r.job.id];
-        if (!cached) return r;
-        return {
-          ...r,
-          status: "cached",
-          application: cached,
-          source: cached.research.source,
-        };
-      })
-    );
+    queueMicrotask(() => {
+      setRows((prev) =>
+        prev.map((r) => {
+          const cached = cache[r.job.id];
+          if (!cached) return r;
+          return {
+            ...r,
+            status: "cached",
+            application: cached,
+            source: cached.research.source,
+          };
+        })
+      );
+    });
   }, []);
 
   const profileReady =
@@ -219,6 +221,7 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
           const score = row.application?.tailoringScore;
           const coverage = row.application?.keywordCoverage;
           const gaps = row.application?.tailoredResume?.tailoringNotes?.gaps ?? [];
+          const qualityIssues = row.application?.tailoredResume?.tailoringNotes?.qualityIssues ?? [];
           const fallbackBg = row.job.logoBg ?? "#222";
           const fallbackText = row.job.logoText ?? row.job.company.slice(0, 1).toUpperCase();
 
@@ -263,7 +266,9 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                       <>
                         <span>·</span>
                         <span title="Research source">
-                          {row.source === "deep-research"
+                          {row.source === "ingested-description"
+                            ? "ingested JD"
+                            : row.source === "deep-research"
                             ? "deep research"
                             : row.source === "firecrawl-fallback"
                             ? "firecrawl fallback"
@@ -308,6 +313,21 @@ export function TailorRunList({ jobs = mockTailorJobs }: { jobs?: Job[] }) {
                           className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-800"
                         >
                           {g}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {qualityIssues.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                      <span className="text-[var(--color-fg-subtle)] font-mono uppercase tracking-[0.12em]">
+                        quality
+                      </span>
+                      {qualityIssues.slice(0, 3).map((issue, j) => (
+                        <span
+                          key={j}
+                          className="rounded-full border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-sky-800"
+                        >
+                          {issue}
                         </span>
                       ))}
                     </div>
