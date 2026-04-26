@@ -1,5 +1,6 @@
 import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex-http";
+import { omDemoTailoredPdf, shouldUseOmDemoData } from "@/lib/om-demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -9,17 +10,33 @@ type PdfPayload = {
 };
 
 export async function GET(req: Request) {
-  const client = await getConvexClient();
-  if (!client) {
-    return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
-  }
-
   const url = new URL(req.url);
   const jobId = url.searchParams.get("jobId");
   const demoUserId = url.searchParams.get("demoUserId") ?? undefined;
   const inline = url.searchParams.get("inline") === "1";
   if (!jobId) {
     return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
+  }
+
+  if (shouldUseOmDemoData()) {
+    const tailored = omDemoTailoredPdf(jobId);
+    if (!tailored) {
+      return Response.json({ ok: false, reason: "pdf_not_found" }, { status: 404 });
+    }
+    const bytes = Uint8Array.from(Buffer.from(tailored.base64, "base64"));
+    const disposition = inline ? "inline" : "attachment";
+    return new Response(bytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `${disposition}; filename="${tailored.filename.replace(/"/g, "")}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  const client = await getConvexClient();
+  if (!client) {
+    return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
   }
 
   try {

@@ -25,6 +25,9 @@ import {
 } from "@/lib/job-ranking";
 import { rankWithHybridV2, type V2Telemetry } from "@/lib/job-ranking-v2";
 import type { UserProfile } from "@/lib/profile";
+import { resumeFallbackText } from "@/lib/tailor/resume-fallback-text";
+import { textToPdf, toBase64 } from "@/lib/tailor/simple-pdf";
+import type { Job, TailoredApplication, TailoredResume } from "@/lib/tailor/types";
 
 export const OM_DEMO_USER_ID = "om-demo";
 const OM_DEMO_RECOMMENDATION_COUNT = 100;
@@ -816,4 +819,117 @@ function demoDescription(org: OmDemoOrganization, title = org.title) {
     `The role focuses on ${org.techStack.slice(0, 4).join(", ")} and shipping reliable AI systems at company scale.`,
     "This is seeded OM demo data, not a live job posting.",
   ].join("\n\n");
+}
+
+const omDemoTailoredCache = new Map<string, { filename: string; application: TailoredApplication }>();
+
+export function omDemoTailoredApplication(
+  jobId: string,
+): { filename: string; application: TailoredApplication } | null {
+  const cached = omDemoTailoredCache.get(jobId);
+  if (cached) return cached;
+
+  const detail = omDemoJobDetail(jobId);
+  if (!detail) return null;
+  const sourceJob = detail.job;
+  if (!sourceJob) return null;
+
+  const job: Job = {
+    id: jobId,
+    company: sourceJob.company,
+    role: sourceJob.title,
+    jobUrl: sourceJob.jobUrl,
+    location: sourceJob.location,
+    descriptionPlain: sourceJob.descriptionPlain,
+  };
+
+  const fixtureApp = (detail.tailoredApplication ?? {}) as Record<string, unknown>;
+  const fixtureResume = fixtureApp.tailoredResume as Partial<TailoredResume> | undefined;
+  const fixtureResearch = fixtureApp.research as
+    | {
+        source?: TailoredApplication["research"]["source"];
+        jdSummary?: string;
+        requirements?: unknown[];
+        techStack?: unknown[];
+      }
+    | undefined;
+
+  const org = organizationForJobId(jobId);
+  const tailoredResume: TailoredResume = {
+    name: DEMO_PROFILE.name ?? "Demo Candidate",
+    email: DEMO_PROFILE.email ?? "demo@example.com",
+    location: DEMO_PROFILE.location,
+    links: {
+      github: DEMO_PROFILE.links.github,
+      linkedin: DEMO_PROFILE.links.linkedin,
+      website: DEMO_PROFILE.links.website,
+    },
+    headline: fixtureResume?.headline ?? `${DEMO_PROFILE.headline} — ${job.role} at ${job.company}`,
+    summary:
+      fixtureResume?.summary ??
+      `${DEMO_PROFILE.summary} Aligned with ${job.company}'s focus on ${org.products.slice(0, 2).join(" and ")}.`,
+    skills:
+      fixtureResume?.skills && fixtureResume.skills.length > 0
+        ? fixtureResume.skills
+        : Array.from(new Set([...DEMO_PROFILE.skills, ...org.techStack])).slice(0, 12),
+    experience: fixtureResume?.experience ?? [],
+    education: fixtureResume?.education ?? [],
+    projects: fixtureResume?.projects ?? [],
+    coverLetterBlurb:
+      fixtureResume?.coverLetterBlurb ??
+      `Excited to contribute to ${job.company}'s ${org.products[0] ?? "platform"} as ${job.role}.`,
+    tailoringNotes: fixtureResume?.tailoringNotes ?? {
+      matchedKeywords: org.techStack.slice(0, 6),
+      emphasizedExperience: DEMO_PROFILE.experience.map((exp) => `${exp.title} at ${exp.company}`),
+      gaps: [],
+      confidence: 0.86,
+    },
+  };
+
+  const research: TailoredApplication["research"] = {
+    source: fixtureResearch?.source ?? "ingested-description",
+    summary:
+      fixtureResearch?.jdSummary ?? `${job.role} at ${job.company}. ${org.prestigeLine}`,
+    requirementsCount: Array.isArray(fixtureResearch?.requirements)
+      ? fixtureResearch.requirements.length
+      : 6,
+    techStackCount: Array.isArray(fixtureResearch?.techStack)
+      ? fixtureResearch.techStack.length
+      : org.techStack.length,
+  };
+
+  const pdfBytes = textToPdf(resumeFallbackText(tailoredResume));
+  const pdfBase64 = toBase64(pdfBytes);
+  const safeCompany = job.company.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
+  const filename = `Resume_${safeCompany || "Tailored"}.pdf`;
+
+  const tailoringScore =
+    typeof fixtureApp.tailoringScore === "number" ? fixtureApp.tailoringScore : 86;
+  const keywordCoverage =
+    typeof fixtureApp.keywordCoverage === "number" ? fixtureApp.keywordCoverage : 0.78;
+  const durationMs =
+    typeof fixtureApp.durationMs === "number" ? fixtureApp.durationMs : 4200;
+
+  const application: TailoredApplication = {
+    jobId,
+    job,
+    research,
+    tailoredResume,
+    pdfBase64,
+    tailoringScore,
+    keywordCoverage,
+    durationMs,
+  };
+
+  const result = { filename, application };
+  omDemoTailoredCache.set(jobId, result);
+  return result;
+}
+
+export function omDemoTailoredPdf(
+  jobId: string,
+): { filename: string; base64: string } | null {
+  const tailored = omDemoTailoredApplication(jobId);
+  if (!tailored) return null;
+  return { filename: tailored.filename, base64: tailored.application.pdfBase64 };
 }

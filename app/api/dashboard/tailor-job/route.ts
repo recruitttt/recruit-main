@@ -1,5 +1,6 @@
 import { track } from "@vercel/analytics/server";
 import { getConvexClient } from "@/lib/convex-http";
+import { omDemoTailoredApplication, shouldUseOmDemoData } from "@/lib/om-demo-data";
 import type { UserProfile } from "@/lib/profile";
 import { tailorPersistedJob } from "@/lib/tailor/persisted-job";
 
@@ -14,11 +15,6 @@ type Body = {
 };
 
 export async function POST(req: Request) {
-  const client = await getConvexClient();
-  if (!client) {
-    return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
-  }
-
   let body: Body;
   try {
     body = await req.json();
@@ -29,6 +25,24 @@ export async function POST(req: Request) {
   const { jobId } = body;
   if (!jobId) {
     return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
+  }
+
+  if (shouldUseOmDemoData()) {
+    const tailored = omDemoTailoredApplication(jobId);
+    if (!tailored) {
+      return Response.json({ ok: false, reason: "job_not_found" }, { status: 404 });
+    }
+    await track("tailor_job_completed", { jobId, profileSource: "demo" }).catch(() => {});
+    return Response.json({
+      ok: true,
+      application: tailored.application,
+      profileSource: "demo",
+    });
+  }
+
+  const client = await getConvexClient();
+  if (!client) {
+    return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
   }
 
   const result = await tailorPersistedJob({
