@@ -171,3 +171,76 @@ export const deleteForUser = mutation({
     return null;
   },
 });
+
+// summary — one row per intake `kind` summarizing the latest run state for
+// the requesting user. Used by the Ready Room status pills and by the
+// onboarding launch-pipeline gate to refuse start when an intake is still
+// `running` (unless `force: true`).
+//
+// Returns one entry for every kind in INTAKE_KINDS — `status: "none"` when no
+// run row exists for that user+kind. The launch-pipeline route inspects the
+// `running` entries to decide whether to short-circuit with HTTP 409.
+const INTAKE_KINDS = [
+  "github",
+  "linkedin",
+  "resume",
+  "web",
+  "chat",
+  "ai-report",
+] as const;
+
+type IntakeKind = (typeof INTAKE_KINDS)[number];
+
+interface IntakeSummaryEntry {
+  kind: IntakeKind;
+  status: "pending" | "running" | "completed" | "failed" | "none";
+  startedAt?: string;
+  completedAt?: string;
+  errorMessage?: string;
+}
+
+export const summary = query({
+  args: { userId: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
+
+    const out: IntakeSummaryEntry[] = [];
+    for (const kind of INTAKE_KINDS) {
+      const rows = await ctx.db
+        .query("intakeRuns")
+        .withIndex("by_user_kind", (q: any) =>
+          q.eq("userId", args.userId).eq("kind", kind)
+        )
+        .order("desc")
+        .take(1);
+      const row = rows[0] as
+        | {
+            status: "queued" | "running" | "completed" | "failed";
+            startedAt?: string;
+            completedAt?: string;
+            error?: string;
+          }
+        | undefined;
+
+      if (!row) {
+        out.push({ kind, status: "none" });
+        continue;
+      }
+
+      // Map the table's "queued" status to the public-facing "pending" so
+      // callers don't need to track Convex-internal vocabulary.
+      const status: IntakeSummaryEntry["status"] =
+        row.status === "queued" ? "pending" : row.status;
+      out.push({
+        kind,
+        status,
+        startedAt: row.startedAt,
+        completedAt: row.completedAt,
+        errorMessage: row.error,
+      });
+    }
+
+    return out;
+  },
+});

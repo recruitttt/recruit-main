@@ -453,3 +453,420 @@ export const deleteForUser = mutation({
     return null;
   },
 });
+
+// ---------------------------------------------------------------------------
+// assembleForPipeline — gather every intake source into a single
+// `UserProfile`-shaped blob suitable for handing to the job-search /
+// resume-tailoring pipeline.
+//
+// Sources merged:
+//   - userProfiles.profile (base — chat answers, manual edits, resume blob)
+//   - githubSnapshots      (handle, repos, totals → profile.github)
+//   - repoSummaries        (per-repo Haiku → profile.github.topRepos[].whatItDoes,
+//                           keyTechnologies, accomplishments)
+//   - linkedinSnapshots    (experience/education/skills → profile.experience,
+//                           profile.education, profile.skills)
+//   - experienceSummaries  (per-experience Haiku → roleSummary,
+//                           keyResponsibilities, technologiesMentioned attached
+//                           to matching experience entry by company+title)
+//
+// Returns `null` if there's nothing at all to assemble (no profile row, no
+// snapshot rows). Field caps mirror the merge cap constants above so the
+// downstream pipeline never sees a payload bigger than what we'd persist.
+// ---------------------------------------------------------------------------
+
+interface AssembledRepoExtras {
+  whatItDoes?: string;
+  oneLineDescription?: string;
+  keyTechnologies?: string[];
+  accomplishments?: string[];
+}
+
+interface AssembledTopRepo extends GitHubRepo, AssembledRepoExtras {}
+
+interface AssembledExperienceExtras {
+  roleSummary?: string;
+  keyResponsibilities?: string[];
+  technologiesMentioned?: string[];
+}
+
+interface AssembledExperience extends WorkExperience, AssembledExperienceExtras {}
+
+interface AssembledProfile extends UserProfile {
+  experience: AssembledExperience[];
+  github?: GitHubEnrichment & { topRepos: AssembledTopRepo[] };
+}
+
+interface RepoSummaryRow {
+  repoFullName?: string;
+  summary?: {
+    whatItDoes?: string;
+    oneLineDescription?: string;
+    keyTechnologies?: ReadonlyArray<string>;
+    accomplishments?: ReadonlyArray<string>;
+  } | null;
+}
+
+interface ExperienceSummaryRow {
+  company?: string;
+  position?: string;
+  summary?: {
+    roleSummary?: string;
+    keyResponsibilities?: ReadonlyArray<string>;
+    technologiesMentioned?: ReadonlyArray<string>;
+  } | null;
+}
+
+interface LinkedinExperienceRaw {
+  position_title?: string | null;
+  company?: string | null;
+  location?: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+  description?: string | null;
+}
+
+interface LinkedinEducationRaw {
+  institution?: string | null;
+  degree?: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+}
+
+interface LinkedinSnapshotRaw {
+  name?: string | null;
+  about?: string | null;
+  location?: string | null;
+  jobTitle?: string | null;
+  profileUrl?: string;
+  experiences?: ReadonlyArray<LinkedinExperienceRaw>;
+  educations?: ReadonlyArray<LinkedinEducationRaw>;
+  skills?: ReadonlyArray<{ name?: string | null }>;
+}
+
+interface GithubSnapshotRaw {
+  user?: {
+    login?: string;
+    bio?: string | null;
+    company?: string | null;
+    publicRepos?: number;
+    followers?: number;
+    location?: string | null;
+  };
+  repos?: ReadonlyArray<{
+    name?: string;
+    fullName?: string;
+    description?: string | null;
+    primaryLanguage?: string | null;
+    stargazerCount?: number;
+    url?: string;
+  }>;
+  profileReadme?: string | null;
+}
+
+function lowerTrim(value: string | null | undefined): string {
+  return (value ?? "").toLowerCase().trim();
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildExperienceFromLinkedin(
+  raw: LinkedinSnapshotRaw | undefined
+): WorkExperience[] {
+  if (!raw?.experiences || !Array.isArray(raw.experiences)) return [];
+  const out: WorkExperience[] = [];
+  for (const exp of raw.experiences) {
+    const company = (exp.company ?? "").trim();
+    const title = (exp.position_title ?? "").trim();
+    if (!company && !title) continue;
+    out.push({
+      company: company || "(unknown)",
+      title: title || "(unknown)",
+      startDate: exp.from_date ?? undefined,
+      endDate: exp.to_date ?? undefined,
+      description: exp.description ?? undefined,
+      location: exp.location ?? undefined,
+    });
+  }
+  return out;
+}
+
+function buildEducationFromLinkedin(
+  raw: LinkedinSnapshotRaw | undefined
+): Education[] {
+  if (!raw?.educations || !Array.isArray(raw.educations)) return [];
+  const out: Education[] = [];
+  for (const edu of raw.educations) {
+    const school = (edu.institution ?? "").trim();
+    if (!school) continue;
+    out.push({
+      school,
+      degree: edu.degree ?? undefined,
+      startDate: edu.from_date ?? undefined,
+      endDate: edu.to_date ?? undefined,
+    });
+  }
+  return out;
+}
+
+function buildSkillsFromLinkedin(
+  raw: LinkedinSnapshotRaw | undefined
+): string[] {
+  if (!raw?.skills || !Array.isArray(raw.skills)) return [];
+  const out: string[] = [];
+  for (const skill of raw.skills) {
+    const name = nonEmptyString(skill?.name);
+    if (name) out.push(name);
+  }
+  return out;
+}
+
+function buildGithubFromSnapshot(
+  raw: GithubSnapshotRaw | undefined
+): GitHubEnrichment | undefined {
+  if (!raw?.user) return undefined;
+  const reposIn = Array.isArray(raw.repos) ? raw.repos : [];
+  const topRepos: GitHubRepo[] = [];
+  for (const repo of reposIn) {
+    const name = nonEmptyString(repo.name) ?? nonEmptyString(repo.fullName);
+    const url = nonEmptyString(repo.url);
+    if (!name && !url) continue;
+    topRepos.push({
+      name: name ?? "(unknown)",
+      description: repo.description ?? undefined,
+      language: repo.primaryLanguage ?? undefined,
+      stars: typeof repo.stargazerCount === "number" ? repo.stargazerCount : undefined,
+      url:
+        url ??
+        (raw.user?.login && name
+          ? `https://github.com/${raw.user.login}/${name}`
+          : `https://github.com/${name ?? ""}`),
+    });
+  }
+
+  return {
+    username: raw.user.login,
+    bio: raw.user.bio ?? undefined,
+    company: raw.user.company ?? undefined,
+    publicRepos: typeof raw.user.publicRepos === "number" ? raw.user.publicRepos : undefined,
+    followers: typeof raw.user.followers === "number" ? raw.user.followers : undefined,
+    topRepos,
+  };
+}
+
+// Match summary rows to top repos. We match on (full repo name) first, then
+// fall back to bare repo name. Returns a new repos array — never mutates.
+function attachRepoSummaries(
+  topRepos: ReadonlyArray<GitHubRepo>,
+  summaries: ReadonlyArray<RepoSummaryRow>,
+  githubLogin: string | undefined
+): AssembledTopRepo[] {
+  if (!summaries.length) return topRepos.map((r) => ({ ...r }));
+  const summaryByFullName = new Map<string, RepoSummaryRow>();
+  const summaryByBareName = new Map<string, RepoSummaryRow>();
+  for (const row of summaries) {
+    const full = lowerTrim(row.repoFullName);
+    if (full) summaryByFullName.set(full, row);
+    const bare = full.includes("/") ? full.split("/").pop() ?? "" : full;
+    if (bare) summaryByBareName.set(bare, row);
+  }
+  return topRepos.map((repo) => {
+    const bare = lowerTrim(repo.name);
+    const fullByLogin = githubLogin ? `${lowerTrim(githubLogin)}/${bare}` : "";
+    const summaryRow =
+      (fullByLogin && summaryByFullName.get(fullByLogin)) ||
+      summaryByBareName.get(bare) ||
+      null;
+    if (!summaryRow?.summary) return { ...repo };
+    const s = summaryRow.summary;
+    return {
+      ...repo,
+      whatItDoes: nonEmptyString(s.whatItDoes),
+      oneLineDescription: nonEmptyString(s.oneLineDescription),
+      keyTechnologies: Array.isArray(s.keyTechnologies)
+        ? Array.from(s.keyTechnologies)
+        : undefined,
+      accomplishments: Array.isArray(s.accomplishments)
+        ? Array.from(s.accomplishments)
+        : undefined,
+    };
+  });
+}
+
+// Match per-experience Haiku summaries to experience entries by
+// (company, title). LinkedIn `position_title` maps to UserProfile `title`.
+// Match is case-insensitive on the trimmed pair.
+function attachExperienceSummaries(
+  experiences: ReadonlyArray<WorkExperience>,
+  summaries: ReadonlyArray<ExperienceSummaryRow>
+): AssembledExperience[] {
+  if (!summaries.length) return experiences.map((e) => ({ ...e }));
+  const byKey = new Map<string, ExperienceSummaryRow>();
+  for (const row of summaries) {
+    const key = `${lowerTrim(row.company)}::${lowerTrim(row.position)}`;
+    if (key !== "::" && !byKey.has(key)) byKey.set(key, row);
+  }
+  return experiences.map((exp) => {
+    const key = `${lowerTrim(exp.company)}::${lowerTrim(exp.title)}`;
+    const summaryRow = byKey.get(key);
+    if (!summaryRow?.summary) return { ...exp };
+    const s = summaryRow.summary;
+    return {
+      ...exp,
+      roleSummary: nonEmptyString(s.roleSummary),
+      keyResponsibilities: Array.isArray(s.keyResponsibilities)
+        ? Array.from(s.keyResponsibilities)
+        : undefined,
+      technologiesMentioned: Array.isArray(s.technologiesMentioned)
+        ? Array.from(s.technologiesMentioned)
+        : undefined,
+    };
+  });
+}
+
+export const assembleForPipeline = query({
+  args: { userId: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
+
+    // Pull every source in parallel — Convex queries can read multiple
+    // tables in one transaction without coordination concerns.
+    const [
+      profileRow,
+      githubSnapshotRow,
+      linkedinSnapshotRow,
+      repoSummaryRows,
+      experienceSummaryRows,
+    ] = await Promise.all([
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .unique(),
+      ctx.db
+        .query("githubSnapshots")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .unique(),
+      ctx.db
+        .query("linkedinSnapshots")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .unique(),
+      ctx.db
+        .query("repoSummaries")
+        .withIndex("by_user_repo", (q) => q.eq("userId", args.userId))
+        .collect(),
+      ctx.db
+        .query("experienceSummaries")
+        .withIndex("by_user_exp", (q) => q.eq("userId", args.userId))
+        .collect(),
+    ]);
+
+    const baseProfile = ensureProfile(profileRow?.profile);
+    const githubRaw = (githubSnapshotRow as { raw?: GithubSnapshotRaw } | null)
+      ?.raw;
+    const linkedinRaw = (linkedinSnapshotRow as { raw?: LinkedinSnapshotRaw } | null)
+      ?.raw;
+
+    // ---- Build LinkedIn-derived patches --------------------------------
+    const linkedinExperience = buildExperienceFromLinkedin(linkedinRaw);
+    const linkedinEducation = buildEducationFromLinkedin(linkedinRaw);
+    const linkedinSkills = buildSkillsFromLinkedin(linkedinRaw);
+    const linkedinPatch: Partial<UserProfile> = {};
+    if (linkedinRaw?.name) linkedinPatch.name = linkedinRaw.name;
+    if (linkedinRaw?.location) linkedinPatch.location = linkedinRaw.location;
+    if (linkedinRaw?.jobTitle) linkedinPatch.headline = linkedinRaw.jobTitle;
+    if (linkedinRaw?.about) linkedinPatch.summary = linkedinRaw.about;
+    if (linkedinRaw?.profileUrl) {
+      linkedinPatch.links = { linkedin: linkedinRaw.profileUrl };
+    }
+    if (linkedinExperience.length > 0) linkedinPatch.experience = linkedinExperience;
+    if (linkedinEducation.length > 0) linkedinPatch.education = linkedinEducation;
+    if (linkedinSkills.length > 0) linkedinPatch.skills = linkedinSkills;
+
+    // ---- Build GitHub-derived patch ------------------------------------
+    const githubEnrichment = buildGithubFromSnapshot(githubRaw);
+    const githubPatch: Partial<UserProfile> = {};
+    if (githubEnrichment) githubPatch.github = githubEnrichment;
+
+    // ---- Compose: base ← linkedin ← github -----------------------------
+    // Apply LinkedIn first, then GitHub. LinkedIn is preferred for
+    // identity/headline/summary because it's user-curated; GitHub fills in
+    // structural data (the github enrichment block, repo list, etc.).
+    let merged = mergeProfileBlob(baseProfile, linkedinPatch);
+    merged = mergeProfileBlob(merged, githubPatch);
+
+    // Backfill identity-ish fields that no source set yet from the GitHub
+    // snapshot. We only fill when the field is still empty so we never
+    // overwrite something LinkedIn or the user explicitly provided.
+    if (!merged.location && githubRaw?.user?.location) {
+      merged = { ...merged, location: githubRaw.user.location };
+    }
+    if (!merged.headline && githubRaw?.user?.bio) {
+      merged = { ...merged, headline: githubRaw.user.bio };
+    }
+
+    // ---- Provenance: union of stored + freshly-applied source labels ---
+    const mergedProvenance: Record<string, ProvenanceSource> = {
+      ...(baseProfile.provenance ?? {}),
+    };
+    for (const key of Object.keys(linkedinPatch)) {
+      if (key === "provenance" || key === "log" || key === "updatedAt") continue;
+      mergedProvenance[key] = "linkedin";
+    }
+    for (const key of Object.keys(githubPatch)) {
+      if (key === "provenance" || key === "log" || key === "updatedAt") continue;
+      mergedProvenance[key] = "github";
+    }
+    if (baseProfile.resume) mergedProvenance["resume"] = mergedProvenance["resume"] ?? "resume";
+    merged.provenance = mergedProvenance;
+
+    // ---- Attach per-repo + per-experience summaries --------------------
+    const githubLogin = merged.github?.username ?? githubRaw?.user?.login;
+    const enrichedTopRepos = merged.github
+      ? attachRepoSummaries(
+          merged.github.topRepos,
+          repoSummaryRows as ReadonlyArray<RepoSummaryRow>,
+          githubLogin
+        )
+      : [];
+    const enrichedExperience = attachExperienceSummaries(
+      merged.experience,
+      experienceSummaryRows as ReadonlyArray<ExperienceSummaryRow>
+    );
+
+    const assembled: AssembledProfile = {
+      ...merged,
+      experience: enrichedExperience,
+      github: merged.github
+        ? { ...merged.github, topRepos: enrichedTopRepos }
+        : undefined,
+    };
+
+    // Did we actually have anything to merge? If the base row is missing AND
+    // there's no GitHub/LinkedIn snapshot AND there's no resume, return null
+    // so the caller can short-circuit.
+    const hasAnything =
+      Boolean(profileRow) ||
+      Boolean(githubSnapshotRow) ||
+      Boolean(linkedinSnapshotRow) ||
+      repoSummaryRows.length > 0 ||
+      experienceSummaryRows.length > 0;
+    if (!hasAnything) return null;
+
+    return {
+      profile: assembled,
+      sources: {
+        userProfile: Boolean(profileRow),
+        github: Boolean(githubSnapshotRow),
+        linkedin: Boolean(linkedinSnapshotRow),
+        resume: Boolean(baseProfile.resume),
+        repoSummaryCount: repoSummaryRows.length,
+        experienceSummaryCount: experienceSummaryRows.length,
+      },
+    };
+  },
+});

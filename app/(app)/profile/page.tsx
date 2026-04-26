@@ -24,6 +24,7 @@ import { GraphView } from "@/components/profile/GraphView";
 
 import { cx, mistClasses } from "@/components/design-system";
 import { getSessionUser } from "./_session";
+import { IntakeStatusRow } from "./_intake-status-row";
 
 export const metadata = {
   title: "Profile · Recruit",
@@ -58,6 +59,9 @@ export default async function ProfilePage({
 
       {/* Both subtrees mounted so subscriptions survive a tab flip. */}
       <div hidden={view !== "data"}>
+        <div className="mx-auto w-full max-w-[1200px] px-4 pt-4 md:px-6">
+          <IntakeStatusRow userId={sessionUser.id} />
+        </div>
         <DataView
           userId={sessionUser.id}
           fallbackName={sessionUser.name ?? undefined}

@@ -48,15 +48,15 @@ import {
 } from "@/lib/intake/shared/source-state";
 import { onboardingMatches } from "@/lib/mock-data";
 import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
-import { logProfileEvent, mergeProfile, readProfile } from "@/lib/profile";
-import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
+import { logProfileEvent, mergeProfile } from "@/lib/profile";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // ----------------------------------------------------------------------------
 // Step model — locked at 5 to match spec §8 (Account, Resume, Connect, Prefs,
-// Activate). Step indices stay stable so the SceneTransition / 3D visual sync
-// stays intact.
+// Activate). Step indices stay stable for the progress-bar visual sync.
+// On Activate the page hands off to /ready (the 2D Ready Room) instead of
+// the legacy 3D scene transition.
 // ----------------------------------------------------------------------------
 
 type Step = "account" | "resume" | "connect" | "prefs" | "activate";
@@ -83,7 +83,7 @@ const STEP_PROMPTS: Record<Step, string> = {
   resume: "Upload your resume so I can ground every application in real history.",
   connect: "Link any other sources. Background pulls fire instantly so you can keep moving.",
   prefs: "Last bit. Any roles, locations, or work-auth constraints I should respect?",
-  activate: "Everything queued. Let me consolidate the picture and open the dashboard.",
+  activate: "Everything queued. Confirm and I'll open the Ready Room while sources finish.",
 };
 
 type IntakeKind = "github" | "linkedin" | "resume" | "web" | "ai-report";
@@ -172,7 +172,6 @@ function OnboardingChatContent() {
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
   const stepParam = searchParams.get("step");
-  const { active: transitionActive, trigger: triggerTransition, handleComplete } = useSceneTransition();
   const session = authClient.useSession();
   const userId = session.data?.user?.id ?? null;
 
@@ -255,7 +254,7 @@ function OnboardingChatContent() {
   }, []);
 
   useEffect(() => {
-    router.prefetch("/dashboard/room");
+    router.prefetch("/ready");
   }, [router]);
 
   useEffect(() => {
@@ -640,7 +639,11 @@ function OnboardingChatContent() {
         console.error("[onboarding] markOnboardingComplete failed", err);
       });
     }
-    window.setTimeout(triggerTransition, 900);
+    // Brief activation reveal flash, then route into the 2D Ready Room.
+    // The job pipeline no longer fires here — the user kicks it off from
+    // /ready when they hit "Start searching for jobs" (see
+    // components/ready/start-search-cta.tsx).
+    window.setTimeout(() => router.push("/ready"), 700);
   };
 
   // ---------------------------------------------------------------------------
@@ -648,11 +651,7 @@ function OnboardingChatContent() {
   // ---------------------------------------------------------------------------
 
   return (
-    <>
-      <AnimatePresence>
-        {transitionActive && <SceneTransition onComplete={handleComplete} />}
-      </AnimatePresence>
-      <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
+    <main className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       <header className="sticky top-0 z-30 border-b border-white/40 bg-white/55 backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 py-4 md:px-8">
           <Link href="/">
@@ -776,8 +775,7 @@ function OnboardingChatContent() {
           />
         </aside>
       </div>
-      </main>
-    </>
+    </main>
   );
 }
 
@@ -1518,7 +1516,7 @@ function ActivateStepCard({
         <ReviewSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} />
         <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-600">
-            Confirm this is accurate. Scout will consolidate the picture and open the dashboard.
+            Confirm this is accurate. Scout will open the Ready Room so you can chat while intake finishes.
           </p>
           {hasConvex ? (
             <ConnectedConfirmButton
@@ -1547,37 +1545,15 @@ function ConnectedConfirmButton({
   const [error, setError] = useState("");
   const [stage, setStage] = useState<LaunchStage>("idle");
 
-  async function handleConfirm() {
+  function handleConfirm() {
     try {
       setError("");
       setSaving(true);
       setStage("starting");
       onMergeFinalProfile();
-
-      // TODO Phase 4: replace this REST call with
-      //   useAction(api.intakeActions.runAiReport, { userId })
-      // Once the Sonnet consolidator action is wired up the existing pipeline
-      // route can be deleted. For now we keep the legacy launch-pipeline call
-      // so the user still lands on a populated dashboard.
-      const profile = readProfile();
-      const response = await fetch("/api/onboarding/launch-pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile }),
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { ok: true; runId?: string; status?: "started"; message?: string }
-        | { ok: false; reason?: string }
-        | null;
-
-      if (!response.ok || !body?.ok) {
-        throw new Error(
-          body && !body.ok
-            ? body.reason ?? `launch_${response.status}`
-            : `launch_${response.status}`,
-        );
-      }
-
+      // The job pipeline used to fire here; it now kicks off from /ready when
+      // the user explicitly hits "Start searching for jobs". Onboarding's
+      // final step just routes into the Ready Room.
       onLaunch();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1587,13 +1563,13 @@ function ConnectedConfirmButton({
   }
 
   const buttonLabel =
-    stage === "error" ? "Retry launch" : saving ? "Starting dashboard" : "Confirm and start";
+    stage === "error" ? "Retry" : saving ? "Opening Ready Room" : "Confirm and continue";
 
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
       {stage === "starting" && (
         <div className="w-full rounded-[18px] border border-sky-200/70 bg-sky-50/45 px-3 py-2 text-xs leading-5 text-sky-800 sm:w-72">
-          Saving your profile and opening the dashboard. Background intake continues there.
+          Saving your profile. We&apos;ll wait for your sources in the Ready Room.
         </div>
       )}
       <ActionButton variant="primary" size="lg" loading={saving} onClick={handleConfirm}>
