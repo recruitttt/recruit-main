@@ -22,8 +22,13 @@
 import { ConvexHttpClient } from "convex/browser";
 import { z } from "zod";
 
+import { api } from "@/convex/_generated/api";
 import { getSessionUserId, getToken } from "@/lib/auth-server";
 import { linkedinAdapter } from "@/lib/intake/linkedin";
+import {
+  isLinkedinProfileUrl,
+  normalizeLinkedinProfileUrl,
+} from "@/lib/intake/shared/source-state";
 import { runIntake } from "@/lib/intake/shared/runIntake";
 import { convexHttpClientToCtx } from "@/lib/intake/shared/runIntakeNode";
 import { createSseWriter } from "@/lib/intake/shared/sse";
@@ -43,17 +48,13 @@ export const maxDuration = 600;
 // ---------------------------------------------------------------------------
 
 const RequestSchema = z.object({
-  profileUrl: z
-    .string()
-    .url()
-    .refine(
-      (u) =>
-        u.startsWith("https://www.linkedin.com/in/") ||
-        u.startsWith("https://linkedin.com/in/"),
-      {
-        message: "URL must look like https://www.linkedin.com/in/<handle>",
-      }
-    ),
+  profileUrl: z.preprocess(
+    (value) =>
+      typeof value === "string" ? normalizeLinkedinProfileUrl(value) : value,
+    z.string().url().refine(isLinkedinProfileUrl, {
+      message: "URL must look like https://www.linkedin.com/in/<handle>",
+    })
+  ),
 });
 
 type RequestBody = z.infer<typeof RequestSchema>;
@@ -131,6 +132,21 @@ export async function POST(req: Request): Promise<Response> {
   } catch {
     // Mutations targeted by this route accept `userId` arg, so unauthenticated
     // calls still work. We only attach the token when available.
+  }
+
+  // Persist the submitted URL before the long-running scrape begins. That lets
+  // /profile show LinkedIn as saved/processing immediately instead of waiting
+  // for Browserbase + LinkedIn auth + scraping to finish.
+  try {
+    await client.mutation(api.userProfiles.merge, {
+      userId,
+      patch: { links: { linkedin: body.profileUrl } },
+      provenance: { "links.linkedin": "linkedin" },
+      label: "linkedin:saved",
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "failed to save LinkedIn URL";
+    return jsonError(msg, 503);
   }
 
   // ---- Stream SSE -------------------------------------------------------
