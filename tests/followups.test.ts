@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 
 import {
   addBusinessDays,
+  applicationStatuses,
   buildDefaultFollowUpTasks,
+  followUpTaskStates,
   generateOutreachDraft,
   isFollowUpDue,
   nextOpenFollowUpAt,
@@ -12,6 +14,8 @@ const friday = "2026-04-24T16:00:00.000Z";
 
 assert.equal(addBusinessDays(friday, 1), "2026-04-27T16:00:00.000Z");
 assert.equal(addBusinessDays(friday, 5), "2026-05-01T16:00:00.000Z");
+assert.equal(addBusinessDays(friday, 0), friday);
+assert.throws(() => addBusinessDays("not-a-date", 1), /invalid_iso_date/);
 
 const defaults = buildDefaultFollowUpTasks(friday);
 assert.deepEqual(defaults.map((task) => task.channel), ["email", "linkedin"]);
@@ -21,6 +25,8 @@ assert.equal(defaults[1].scheduledFor, "2026-05-12T16:00:00.000Z");
 assert.equal(
   nextOpenFollowUpAt([
     { state: "sent_manually", scheduledFor: "2026-04-26T16:00:00.000Z" },
+    { state: "skipped", scheduledFor: "2026-04-25T16:00:00.000Z" },
+    { state: "blocked", scheduledFor: "2026-04-27T16:00:00.000Z" },
     { state: "draft_ready", scheduledFor: "2026-05-03T16:00:00.000Z" },
     { state: "scheduled", scheduledFor: "2026-05-01T16:00:00.000Z" },
   ]),
@@ -60,6 +66,7 @@ assert.match(email.subject ?? "", /Product Engineer/);
 assert.match(email.body, /I applied on Apr 24, 2026/);
 assert.match(email.body, /TypeScript, React, AI agents, Postgres/);
 assert.doesNotMatch(email.body, /\bsent\b automatically/i);
+assert.doesNotMatch(email.body, /automated/i);
 
 const linkedin = generateOutreachDraft({
   channel: "linkedin",
@@ -72,5 +79,24 @@ const linkedin = generateOutreachDraft({
 
 assert.equal(linkedin.subject, undefined);
 assert.match(linkedin.body, /recently applied/);
+
+const manual = generateOutreachDraft({
+  channel: "manual",
+  application: {
+    company: "OpenAI",
+    title: "Agent Engineer",
+    jobUrl: "https://jobs.example/openai",
+  },
+  profile: { headline: "Applied AI engineer" },
+});
+assert.match(manual.subject ?? "", /OpenAI Agent Engineer/);
+assert.match(manual.body, /Manual follow-up reminder/);
+assert.match(manual.body, /https:\/\/jobs.example\/openai/);
+
+assert.ok(applicationStatuses.includes("responded"));
+assert.ok(applicationStatuses.includes("interview"));
+assert.ok(applicationStatuses.includes("closed"));
+assert.ok(followUpTaskStates.includes("draft_ready"));
+assert.ok(followUpTaskStates.includes("sent_manually"));
 
 console.log("Follow-up scheduling and draft tests passed");

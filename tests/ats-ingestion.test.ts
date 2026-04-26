@@ -37,6 +37,20 @@ assert.equal(greenhouseJob?.department, "Engineering");
 assert.equal(greenhouseJob?.isRemote, true);
 assert.equal(greenhouseJob?.salaryMin, 180000);
 assert.equal(greenhouseJob?.salaryMax, 220000);
+assert.equal(greenhouseJob?.dedupeKey, "greenhouse:acme:123");
+
+const greenhouseDuplicate = normalizeGreenhouseJob(
+  greenhouseSource,
+  {
+    id: 123,
+    name: "Senior Voice Engineer",
+    absolute_url: "https://boards.greenhouse.io/acme/jobs/123?ignored=true",
+  },
+  "run2"
+);
+assert.equal(greenhouseDuplicate?.dedupeKey, greenhouseJob?.dedupeKey);
+assert.equal(normalizeGreenhouseJob(greenhouseSource, { id: 124, name: "", absolute_url: "https://x" }, "run1"), null);
+assert.equal(normalizeGreenhouseJob(greenhouseSource, { id: 124, name: "Engineer" }, "run1"), null);
 
 const leverSource: AtsSource = {
   provider: "lever",
@@ -70,6 +84,21 @@ assert.equal(leverJob?.employmentType, "Full-time");
 assert.equal(leverJob?.team, "Core");
 assert.equal(leverJob?.salaryMin, 150000);
 assert.equal(leverJob?.currency, "USD");
+assert.equal(leverJob?.isRemote, false);
+assert.equal(leverJob?.dedupeKey, "lever:beta:abc");
+
+const remoteLeverJob = normalizeLeverJob(
+  leverSource,
+  {
+    id: "remote-1",
+    text: "Backend Engineer",
+    hostedUrl: "https://jobs.lever.co/beta/remote-1",
+    categories: { location: "Remote - Canada" },
+  },
+  "run1"
+);
+assert.equal(remoteLeverJob?.isRemote, true);
+assert.equal(normalizeLeverJob(leverSource, { id: "bad", hostedUrl: "https://jobs.lever.co/beta/bad" }, "run1"), null);
 
 const workdaySource: AtsSource = {
   provider: "workday",
@@ -103,6 +132,12 @@ assert.equal(workdayJob?.sourceSlug, "workday:gamma-report");
 assert.equal(workdayJob?.dedupeKey, "workday:gamma-report:wd-1");
 assert.equal(workdayJob?.isRemote, true);
 assert.equal(workdayJob?.descriptionPlain, "Own model infrastructure.");
+assert.equal(workdayJob?.publishedAt, "2026-04-18");
+assert.equal(
+  normalizeWorkdayJob(workdaySource, { Job_ID: "wd-bad", Job_URL: "https://gamma/jobs/wd-bad" }, "run1"),
+  null
+);
 assert.equal(stripHtml("<p>One&nbsp;&amp;&nbsp;two</p>"), "One & two");
+assert.equal(stripHtml("<p>Line one</p><br><p>Line&nbsp;two</p>"), "Line one Line two");
 
 console.log("ATS ingestion normalizer tests passed");
