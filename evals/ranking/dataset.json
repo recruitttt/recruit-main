@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "schemaNote": "Each sample has a profile and a list of candidate jobs labeled with one of: great, good, meh, bad. The ranker is judged on how well it orders jobs by relevance to the profile.",
+  "samples": [
+    {
+      "id": "senior-backend-go-distributed",
+      "profile": {
+        "headline": "Senior backend engineer focused on distributed systems",
+        "summary": "8 years building distributed services at scale. Strong in Go, Kafka, Postgres.",
+        "skills": ["Go", "Kafka", "Postgres", "Kubernetes", "API design"],
+        "prefs": {
+          "roles": ["Senior Backend Engineer", "Staff Backend Engineer"],
+          "locations": ["Remote", "San Francisco"],
+          "minSalary": "$200k"
+        },
+        "yearsExperience": 8,
+        "targetSeniority": "senior"
+      },
+      "jobs": [
+        {
+          "id": "j-be-1",
+          "title": "Senior Backend Engineer, Platform",
+          "company": "Stripe",
+          "location": "Remote - US",
+          "isRemote": true,
+          "department": "Engineering",
+          "team": "Platform",
+          "descriptionPlain": "Build distributed systems handling millions of events per second. Go, Postgres, Kafka.",
+          "compensationSummary": "$220k-$280k",
+          "salaryMax": 280000,
+          "jobUrl": "https://jobs.ashbyhq.com/stripe/be-1",
+          "label": "great"
+        },
+        {
+          "id": "j-be-2",
+          "title": "Staff Backend Engineer",
+          "company": "Vercel",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Lead backend systems at scale. Go preferred.",
+          "compensationSummary": "$240k-$310k",
+          "salaryMax": 310000,
+          "jobUrl": "https://jobs.ashbyhq.com/vercel/be-2",
+          "label": "great"
+        },
+        {
+          "id": "j-be-3",
+          "title": "Backend Engineer",
+          "company": "Acme Health",
+          "location": "Remote - US",
+          "isRemote": true,
+          "descriptionPlain": "Build healthcare backend services. Python, Postgres.",
+          "compensationSummary": "$180k-$220k",
+          "salaryMax": 220000,
+          "jobUrl": "https://jobs.ashbyhq.com/acme/be-3",
+          "label": "good"
+        },
+        {
+          "id": "j-fe-1",
+          "title": "Senior Frontend Engineer",
+          "company": "Linear",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Build React UI at scale.",
+          "compensationSummary": "$200k-$260k",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/linear/fe-1",
+          "label": "bad"
+        },
+        {
+          "id": "j-junior-1",
+          "title": "Junior Backend Engineer",
+          "company": "Startup",
+          "location": "San Francisco",
+          "isRemote": false,
+          "descriptionPlain": "Entry-level backend role.",
+          "compensationSummary": "$130k-$160k",
+          "salaryMax": 160000,
+          "jobUrl": "https://jobs.ashbyhq.com/startup/junior-1",
+          "label": "bad"
+        },
+        {
+          "id": "j-pm-1",
+          "title": "Senior Product Manager, Platform",
+          "company": "Datadog",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Manage platform product strategy.",
+          "compensationSummary": "$210k-$260k",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/datadog/pm-1",
+          "label": "bad"
+        },
+        {
+          "id": "j-be-fullstack",
+          "title": "Founding Engineer (Backend Lead)",
+          "company": "Seed Stage AI Co",
+          "location": "Remote - US",
+          "isRemote": true,
+          "descriptionPlain": "Build backend infrastructure for an AI product. Go, Postgres, Kafka.",
+          "compensationSummary": "$210k-$260k + equity",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/seed/founding-be",
+          "label": "good"
+        },
+        {
+          "id": "j-mid-1",
+          "title": "Mid-level Backend Engineer",
+          "company": "Mid Co",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Backend role for engineers with 3-5 yrs experience.",
+          "compensationSummary": "$160k-$190k",
+          "salaryMax": 190000,
+          "jobUrl": "https://jobs.ashbyhq.com/mid/be-mid",
+          "label": "meh"
+        }
+      ]
+    },
+    {
+      "id": "frontend-react-design-engineer",
+      "profile": {
+        "headline": "Senior frontend / design engineer",
+        "summary": "6 years building polished React applications and design systems. Strong in TypeScript, Tailwind, Framer Motion.",
+        "skills": ["React", "TypeScript", "Tailwind CSS", "Design systems", "Framer Motion"],
+        "prefs": {
+          "roles": ["Senior Frontend Engineer", "Design Engineer"],
+          "locations": ["Remote"],
+          "minSalary": "$170k"
+        },
+        "yearsExperience": 6,
+        "targetSeniority": "senior"
+      },
+      "jobs": [
+        {
+          "id": "j-de-1",
+          "title": "Senior Design Engineer",
+          "company": "Linear",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Design and build polished interfaces. React, TypeScript, design systems.",
+          "compensationSummary": "$200k-$260k",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/linear/de-1",
+          "label": "great"
+        },
+        {
+          "id": "j-fe-2",
+          "title": "Senior Frontend Engineer",
+          "company": "Vercel",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Build the next generation of frontend platform tooling.",
+          "compensationSummary": "$200k-$260k",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/vercel/fe-2",
+          "label": "great"
+        },
+        {
+          "id": "j-be-only",
+          "title": "Senior Backend Engineer",
+          "company": "BackendCo",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Distributed systems. Go and Rust.",
+          "compensationSummary": "$210k-$260k",
+          "salaryMax": 260000,
+          "jobUrl": "https://jobs.ashbyhq.com/backend/be",
+          "label": "bad"
+        },
+        {
+          "id": "j-fe-junior",
+          "title": "Frontend Developer (Junior)",
+          "company": "Startup",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Entry-level React role.",
+          "compensationSummary": "$120k-$140k",
+          "salaryMax": 140000,
+          "jobUrl": "https://jobs.ashbyhq.com/startup/fe-junior",
+          "label": "bad"
+        },
+        {
+          "id": "j-fullstack-1",
+          "title": "Senior Full-stack Engineer",
+          "company": "PolishCo",
+          "location": "Remote",
+          "isRemote": true,
+          "descriptionPlain": "Build the entire UX from React frontend to Node backend.",
+          "compensationSummary": "$190k-$240k",
+          "salaryMax": 240000,
+          "jobUrl": "https://jobs.ashbyhq.com/polish/fs",
+          "label": "good"
+        }
+      ]
+    }
+  ]
+}

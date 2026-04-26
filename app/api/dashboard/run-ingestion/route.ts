@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   }
 
   const results = await Promise.all(
-    providers.value.map((provider) => runProvider(client, provider, limitSources.value, rank))
+    providers.value.map((provider) => runProvider(client, provider, limitSources.value, rank, body.value.profile))
   );
 
   const failed = results.filter((result) => !result.ok);
@@ -92,7 +92,8 @@ async function runProvider(
   client: Awaited<ReturnType<typeof getConvexClient>>,
   provider: Provider,
   limitSources: number | undefined,
-  rank: boolean
+  rank: boolean,
+  profile: unknown
 ): Promise<ProviderResult> {
   if (!client) return { provider, ok: false, error: "missing_convex_url" };
 
@@ -106,6 +107,7 @@ async function runProvider(
       try {
         ranking = await client.action(api.ashbyActions.rankIngestionRun, {
           runId: (ingestion as { runId: Id<"ingestionRuns"> }).runId,
+          ...(profile ? { profile } : {}),
         });
       } catch (err) {
         rankingWarning = errorMessage(err);

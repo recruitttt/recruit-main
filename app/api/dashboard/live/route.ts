@@ -1,12 +1,12 @@
 import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex-http";
-import { emptyFollowUps, omDemoLivePayload, shouldUseOmDemoData } from "@/lib/om-demo-data";
+import { emptyFollowUps, rankedOmDemoLivePayload, shouldUseOmDemoData } from "@/lib/om-demo-data";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   if (shouldUseOmDemoData()) {
-    return Response.json(omDemoLivePayload());
+    return Response.json(await rankedOmDemoLivePayload());
   }
 
   const client = await getConvexClient();

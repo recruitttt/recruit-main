@@ -62,6 +62,7 @@ export type LiveRecommendation = {
   rationale?: string;
   strengths?: string[];
   risks?: string[];
+  scoringMode?: string;
   organization?: OrganizationLogo;
   job?: {
     _id?: string;
@@ -72,6 +73,8 @@ export type LiveRecommendation = {
     sourceSlug?: string;
     descriptionPlain?: string;
     compensationSummary?: string;
+    department?: string;
+    team?: string;
     organization?: OrganizationLogo;
   } | null;
 };

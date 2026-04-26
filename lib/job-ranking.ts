@@ -1,6 +1,7 @@
 export type RankingProfile = {
   headline?: string;
   summary?: string;
+  resumeText?: string;
   location?: string;
   skills?: string[];
   experience?: Array<{
@@ -176,6 +177,7 @@ export function buildProfileSearchQuery(profile: RankingProfile): string {
     roles.join(" "),
     profile.headline ?? "",
     profile.summary ?? "",
+    profile.resumeText ?? "",
     skills.slice(0, 18).join(" "),
     experience
       .slice(0, 4)

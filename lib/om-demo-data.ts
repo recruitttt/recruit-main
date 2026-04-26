@@ -5,6 +5,7 @@ import organizations from "@/data/om-demo/organizations.json";
 import pipelineLogs from "@/data/om-demo/pipeline-logs.json";
 import recommendations from "@/data/om-demo/recommendations.json";
 import verification from "@/data/om-demo/verification.json";
+import MiniSearch, { type SearchResult } from "minisearch";
 import type {
   JobDetail,
   LivePipelineLog,
@@ -12,9 +13,22 @@ import type {
   LiveRunSummary,
   OrganizationLogo,
 } from "@/components/dashboard/dashboard-types";
+import { DEMO_PROFILE } from "@/lib/demo-profile";
+import { contentHash } from "@/lib/embeddings/cache";
+import { toRichRankingProfile } from "@/lib/intake/shared/toRankingProfile";
+import {
+  buildProfileSearchQuery,
+  evaluateHardFilters,
+  normalizeScore,
+  type RankingJob,
+  type RankingProfile,
+} from "@/lib/job-ranking";
+import { rankWithHybridV2, type V2Telemetry } from "@/lib/job-ranking-v2";
+import type { UserProfile } from "@/lib/profile";
 
 export const OM_DEMO_USER_ID = "om-demo";
 const OM_DEMO_RECOMMENDATION_COUNT = 100;
+const OM_DEMO_CACHE_TTL_MS = 5 * 60 * 1000;
 const OM_DEMO_COMPANY_PAGE_BASE_URL = "https://recruit-company-pages.vercel.app";
 const OM_DEMO_COMPANY_PAGE_SLUGS: Record<string, string> = {
   "google-deepmind": "google-deepmind",
@@ -43,11 +57,84 @@ type OmDemoOrganization = OrganizationLogo & {
   techStack: string[];
 };
 
+type RankedOmDemoPayload = ReturnType<typeof staticOmDemoLivePayload>;
+
+type RankedLiveRecommendation = LiveRecommendation & {
+  scoringMode?: string;
+};
+
+type OmDemoRankingCandidate = {
+  recommendation: LiveRecommendation;
+  job: RankingJob;
+  decision: ReturnType<typeof evaluateHardFilters>;
+};
+
+type OmDemoCacheEntry = {
+  expiresAt: number;
+  payload: RankedOmDemoPayload;
+};
+
+const rankedPayloadCache = new Map<string, Promise<RankedOmDemoPayload> | OmDemoCacheEntry>();
+let latestRankedByJobId = new Map<string, RankedLiveRecommendation>();
+let latestRankedPayload: OmDemoCacheEntry | null = null;
+
 export function shouldUseOmDemoData() {
-  return process.env.DASHBOARD_DATA_SOURCE !== "convex";
+  const mode = (process.env.DASHBOARD_DATA_SOURCE ?? "").trim().toLowerCase();
+  if (["convex", "live"].includes(mode)) return false;
+  if (["fixture", "fixtures", "demo", "om-demo"].includes(mode)) return true;
+  return !process.env.NEXT_PUBLIC_CONVEX_URL;
 }
 
 export function omDemoLivePayload() {
+  return staticOmDemoLivePayload();
+}
+
+export async function rankedOmDemoLivePayload(profileInput?: UserProfile | RankingProfile | null) {
+  if (!profileInput && latestRankedPayload && latestRankedPayload.expiresAt > Date.now()) {
+    return latestRankedPayload.payload;
+  }
+
+  const profile = toOmDemoRankingProfile(profileInput);
+  const cacheKey = contentHash(JSON.stringify({ profile, capability: rankerCapabilityKey() }));
+  const cached = rankedPayloadCache.get(cacheKey);
+  if (cached) {
+    if (cached instanceof Promise) return cached;
+    if (cached.expiresAt > Date.now()) return cached.payload;
+    rankedPayloadCache.delete(cacheKey);
+  }
+
+  const pending = buildRankedOmDemoLivePayload(profile);
+  rankedPayloadCache.set(cacheKey, pending);
+  try {
+    const payload = await pending;
+    const entry = {
+      expiresAt: Date.now() + OM_DEMO_CACHE_TTL_MS,
+      payload,
+    };
+    rankedPayloadCache.set(cacheKey, entry);
+    latestRankedPayload = entry;
+    latestRankedByJobId = new Map(
+      payload.recommendations
+        .filter((recommendation): recommendation is RankedLiveRecommendation & { jobId: string } =>
+          typeof recommendation.jobId === "string"
+        )
+        .map((recommendation) => [recommendation.jobId, recommendation])
+    );
+    return payload;
+  } catch (err) {
+    rankedPayloadCache.delete(cacheKey);
+    throw err;
+  }
+}
+
+function rankerCapabilityKey() {
+  return {
+    openai: Boolean(process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY),
+    cohere: Boolean(process.env.COHERE_API_KEY || process.env.AI_GATEWAY_API_KEY),
+  };
+}
+
+function staticOmDemoLivePayload() {
   const enrichedRecommendations = omDemoRecommendations();
   return {
     run: {
@@ -77,7 +164,11 @@ export function omDemoLivePayload() {
 export function omDemoJobDetail(jobId: string) {
   const demo = generatedRecommendationByJobId(jobId);
   if (demo) {
-    return enrichJobDetailFromGenerated(demo.baseDetail, demo.org, demo.recommendation);
+    return enrichJobDetailFromGenerated(
+      demo.baseDetail,
+      demo.org,
+      latestRankedByJobId.get(jobId) ?? demo.recommendation
+    );
   }
 
   const detail = (jobDetails as unknown as Array<JobDetail>).find(
@@ -101,6 +192,184 @@ export function emptyFollowUps() {
       rejectedClosed: 0,
     },
   };
+}
+
+async function buildRankedOmDemoLivePayload(profile: RankingProfile): Promise<RankedOmDemoPayload> {
+  const baseRecommendations = omDemoRecommendations();
+  const candidates = buildOmDemoRankingCandidates(baseRecommendations, profile);
+  const bm25Candidates = rankOmDemoCandidatesWithMiniSearch(candidates, profile);
+  let telemetry: V2Telemetry | undefined;
+  const v2Result = await rankWithHybridV2({
+    profile,
+    candidates: bm25Candidates.map((candidate) => ({
+      jobId: candidate.job.id,
+      job: candidate.job,
+      bm25Score: candidate.bm25Score,
+      bm25Normalized: candidate.bm25Normalized,
+      ruleScore: candidate.ruleScore,
+      softSignals: candidate.softSignals,
+    })),
+    recommendationCutoff: 0,
+    maxRecommendations: OM_DEMO_RECOMMENDATION_COUNT,
+    telemetry: (next) => {
+      telemetry = next;
+    },
+  });
+
+  const baseById = new Map(
+    baseRecommendations.map((recommendation) => [recommendation.jobId, recommendation])
+  );
+  const rankedRecommendations = [...v2Result.scores]
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .map((score, index) => {
+      const base = baseById.get(score.jobId);
+      if (!base) return null;
+      const ranked: RankedLiveRecommendation = {
+        ...base,
+        rank: index + 1,
+        score: score.totalScore,
+        llmScore: score.llmScore,
+        rationale: score.rationale ?? base.rationale,
+        strengths: score.strengths.length > 0 ? score.strengths : base.strengths,
+        risks: score.risks,
+        scoringMode: score.scoringMode,
+        job: base.job
+          ? {
+              ...base.job,
+              score: score.totalScore,
+            } as NonNullable<LiveRecommendation["job"]>
+          : base.job,
+      };
+      return ranked;
+    })
+    .filter((recommendation): recommendation is RankedLiveRecommendation => recommendation !== null);
+
+  const payload = staticOmDemoLivePayload();
+  payload.recommendations = rankedRecommendations;
+  payload.run = {
+    ...payload.run,
+    scoringMode: v2Result.mode,
+    llmScoredCount: rankedRecommendations.length,
+    recommendedCount: rankedRecommendations.length,
+    recommendations: rankedRecommendations,
+  };
+  payload.logs = omDemoPipelineLogs(rankedRecommendations, {
+    mode: v2Result.mode,
+    telemetry,
+  });
+  return payload;
+}
+
+function buildOmDemoRankingCandidates(
+  baseRecommendations: LiveRecommendation[],
+  profile: RankingProfile
+): OmDemoRankingCandidate[] {
+  const filterProfile: RankingProfile = {
+    ...profile,
+    prefs: {
+      ...profile.prefs,
+      locations: [],
+      minSalary: undefined,
+    },
+  };
+
+  return baseRecommendations.map((recommendation) => {
+    const job = recommendationToRankingJob(recommendation);
+    return {
+      recommendation,
+      job,
+      decision: evaluateHardFilters(job, filterProfile, { softMode: true }),
+    };
+  });
+}
+
+type OmDemoBm25Candidate = {
+  job: RankingJob;
+  bm25Score: number;
+  bm25Normalized: number;
+  ruleScore: number;
+  softSignals: Record<string, number>;
+};
+
+function rankOmDemoCandidatesWithMiniSearch(
+  candidates: OmDemoRankingCandidate[],
+  profile: RankingProfile
+): OmDemoBm25Candidate[] {
+  if (candidates.length === 0) return [];
+  const docs = candidates.map(({ job }) => ({
+    id: job.id,
+    title: job.title,
+    company: job.company,
+    location: job.location ?? "",
+    team: job.team ?? "",
+    department: job.department ?? "",
+    description: job.descriptionPlain ?? "",
+  }));
+  const query = buildProfileSearchQuery(profile);
+  const search = new MiniSearch({
+    fields: ["title", "company", "team", "department", "location", "description"],
+    storeFields: ["title"],
+    searchOptions: {
+      boost: { title: 5, company: 4, team: 3, department: 2, description: 1, location: 0.5 },
+      fuzzy: 0.1,
+      prefix: true,
+      combineWith: "OR",
+    },
+  });
+  search.addAll(docs);
+  const results: SearchResult[] =
+    query.length > 0
+      ? search.search(query)
+      : docs.map((doc) => ({ id: doc.id, score: 1 }) as SearchResult);
+  const resultScores = new Map(results.map((result) => [String(result.id), result.score]));
+  const maxBm25 = Math.max(1, ...Array.from(resultScores.values()));
+
+  return candidates
+    .map(({ job, decision }) => {
+      const bm25Score = resultScores.get(job.id) ?? 0;
+      return {
+        job,
+        bm25Score,
+        bm25Normalized: normalizeScore(bm25Score, maxBm25),
+        ruleScore: decision.ruleScore,
+        softSignals: decision.softSignals,
+      };
+    })
+    .sort((a, b) => b.bm25Normalized - a.bm25Normalized);
+}
+
+function recommendationToRankingJob(recommendation: LiveRecommendation): RankingJob {
+  const job = (recommendation.job ?? {}) as NonNullable<LiveRecommendation["job"]> & Record<string, unknown>;
+  const jobId = recommendation.jobId ?? job._id ?? generatedRecordId(undefined, "job", recommendation.rank - 1);
+  const location = recommendation.location ?? job.location;
+  const descriptionPlain = [
+    job.descriptionPlain,
+    recommendation.rationale,
+    (recommendation.strengths ?? []).join(" "),
+    (recommendation.risks ?? []).join(" "),
+  ].filter((part): part is string => Boolean(part && part.trim().length > 0)).join("\n\n");
+
+  return {
+    id: jobId,
+    title: recommendation.title ?? job.title ?? "Software Engineer",
+    company: recommendation.company ?? job.company ?? "Unknown",
+    location,
+    isRemote: /\bremote\b/i.test(location ?? ""),
+    workplaceType: /\bremote\b/i.test(location ?? "") ? "remote" : undefined,
+    department: "department" in job && typeof job.department === "string" ? job.department : undefined,
+    team: "team" in job && typeof job.team === "string" ? job.team : undefined,
+    descriptionPlain,
+    compensationSummary: recommendation.compensationSummary ?? job.compensationSummary,
+    jobUrl: recommendation.jobUrl ?? job.jobUrl ?? "#",
+  };
+}
+
+function toOmDemoRankingProfile(profileInput?: UserProfile | RankingProfile | null): RankingProfile {
+  if (!profileInput) return toRichRankingProfile(DEMO_PROFILE);
+  if ("links" in profileInput || "suggestions" in profileInput || "provenance" in profileInput) {
+    return toRichRankingProfile(profileInput as UserProfile);
+  }
+  return profileInput as RankingProfile;
 }
 
 function omDemoRecommendations(): LiveRecommendation[] {
@@ -244,6 +513,7 @@ function enrichJobDetailFromGenerated(
   recommendation: LiveRecommendation,
 ): JobDetail {
   const score = recommendation.score;
+  const ranked = recommendation as RankedLiveRecommendation;
   const title = recommendation.title;
   const jobUrl = recommendation.jobUrl;
   const originalIndex = recommendationIndexForJobId(recommendation.jobId ?? detail.job?._id);
@@ -262,10 +532,11 @@ function enrichJobDetailFromGenerated(
       ? {
           ...detail.score,
           totalScore: score,
-          llmScore: score,
+          llmScore: recommendation.llmScore ?? score,
           rationale: recommendation.rationale,
           strengths: recommendation.strengths,
           risks: recommendation.risks,
+          scoringMode: ranked.scoringMode ?? detail.score.scoringMode,
         }
       : detail.score,
     tailoredApplication: detail.tailoredApplication
@@ -392,7 +663,13 @@ function ruledOutRisks(org: OmDemoOrganization) {
   ];
 }
 
-function omDemoPipelineLogs(enrichedRecommendations: LiveRecommendation[]): LivePipelineLog[] {
+function omDemoPipelineLogs(
+  enrichedRecommendations: LiveRecommendation[],
+  ranking?: {
+    mode: string;
+    telemetry?: V2Telemetry;
+  }
+): LivePipelineLog[] {
   const byJobId = new Map(enrichedRecommendations.map((recommendation) => [recommendation.jobId, recommendation]));
   for (const recommendation of enrichedRecommendations) {
     const originalId = recommendation.jobId?.replace(/--om-demo-\d+$/, "");
@@ -402,7 +679,7 @@ function omDemoPipelineLogs(enrichedRecommendations: LiveRecommendation[]): Live
     (recommendations as LiveRecommendation[]).map((recommendation) => [recommendation.jobId, recommendation])
   );
 
-  return (pipelineLogs as LivePipelineLog[]).map((log) => {
+  const rewrittenLogs = (pipelineLogs as LivePipelineLog[]).map((log) => {
     const payload = rewriteLogPayload(log.payload, byJobId);
     return {
       ...log,
@@ -410,6 +687,55 @@ function omDemoPipelineLogs(enrichedRecommendations: LiveRecommendation[]): Live
       payload,
     };
   });
+
+  if (!ranking) return rewrittenLogs;
+
+  const now = new Date().toISOString();
+  const telemetry = ranking.telemetry;
+  const top = enrichedRecommendations[0];
+  const fallbackWarnings: LivePipelineLog[] = [];
+  if (telemetry && !telemetry.embeddingsAvailable) {
+    fallbackWarnings.push({
+      _id: "om-demo-ranking-embeddings-fallback",
+      createdAt: now,
+      stage: "ranking",
+      level: "warning",
+      message: "Embeddings unavailable for OM demo ranking; v2 fell back to BM25-only retrieval.",
+      payload: { error: telemetry.embeddingError },
+    });
+  }
+  if (telemetry && !telemetry.rerankUsed) {
+    fallbackWarnings.push({
+      _id: "om-demo-ranking-rerank-fallback",
+      createdAt: now,
+      stage: "scoring",
+      level: "warning",
+      message: "Cohere rerank unavailable for OM demo ranking; v2 used fused retrieval score.",
+      payload: { error: telemetry.rerankError },
+    });
+  }
+
+  return [
+    {
+      _id: "om-demo-ranking-v2",
+      createdAt: now,
+      stage: "ranking",
+      level: "success",
+      message: `Ranked ${enrichedRecommendations.length} OM demo jobs with ${ranking.mode}.`,
+      payload: {
+        mode: ranking.mode,
+        topJobId: top?.jobId,
+        topCompany: top?.company,
+        topTitle: top?.title,
+        topScore: top?.score,
+        embeddingMs: telemetry?.embedDurationMs,
+        rerankMs: telemetry?.rerankDurationMs,
+        rationaleMs: telemetry?.rationaleDurationMs,
+      },
+    },
+    ...fallbackWarnings,
+    ...rewrittenLogs,
+  ];
 }
 
 function rewriteLogPayload(
