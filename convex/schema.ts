@@ -229,6 +229,7 @@ export default defineSchema({
   ashbyFormFillRuns: defineTable({
     demoUserId: v.string(),
     jobId: v.optional(v.id("ingestedJobs")),
+    ingestionRunId: v.optional(v.id("ingestionRuns")),
     targetUrl: v.string(),
     finalUrl: v.optional(v.string()),
     organizationSlug: v.optional(v.string()),
@@ -259,6 +260,7 @@ export default defineSchema({
   })
     .index("by_demo_user_started", ["demoUserId", "startedAt"])
     .index("by_job", ["jobId"])
+    .index("by_ingestion_run", ["ingestionRunId"])
     .index("by_status", ["status"]),
 
   ashbyPromptAliases: defineTable({
