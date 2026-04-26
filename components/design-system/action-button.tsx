@@ -1,7 +1,20 @@
-import type * as React from "react";
+"use client";
+
+import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
+import { fastEaseOut } from "@/lib/motion-presets";
 import { mistClasses } from "./mist-tokens";
 import { cx } from "./utils";
+
+export type ActionButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
+  children?: ReactNode;
+  variant?: "primary" | "secondary" | "ghost" | "success" | "danger" | "dangerStrong";
+  size?: "sm" | "md" | "lg" | "icon";
+  loading?: boolean;
+  secondary?: boolean;
+  variantKey?: string;
+};
 
 export function ActionButton({
   children,
@@ -13,21 +26,21 @@ export function ActionButton({
   secondary,
   variantKey: _variantKey,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "success" | "danger" | "dangerStrong";
-  size?: "sm" | "md" | "lg" | "icon";
-  loading?: boolean;
-  secondary?: boolean;
-  variantKey?: string;
-}) {
+}: ActionButtonProps) {
   const resolvedVariant = secondary ? "secondary" : variant;
   void _variantKey;
+  const reduce = useReducedMotion();
+
+  const isInteractive = !reduce && !disabled && !loading;
 
   return (
-    <button
+    <motion.button
       disabled={disabled || loading}
+      whileHover={isInteractive ? { scale: 1.02, y: -1 } : undefined}
+      whileTap={isInteractive ? { scale: 0.97 } : undefined}
+      transition={fastEaseOut}
       className={cx(
-        "inline-flex items-center justify-center gap-2 border font-semibold leading-none whitespace-nowrap transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-2 border font-semibold leading-none whitespace-nowrap transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none",
         size === "sm" ? "h-9 px-3 text-xs" : size === "lg" ? "h-12 px-5 text-base" : size === "icon" ? "h-10 w-10 px-0 text-sm aspect-square" : "h-10 px-4 text-sm",
         size === "icon" || size === "sm" ? "rounded-full" : resolvedVariant === "primary" ? "rounded-[24px]" : "rounded-full",
         resolvedVariant === "primary" && "border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[0_14px_34px_rgba(63,122,86,0.18)] hover:shadow-[0_18px_40px_rgba(63,122,86,0.24)]",
@@ -42,6 +55,6 @@ export function ActionButton({
     >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {loading ? "Loading" : children}
-    </button>
+    </motion.button>
   );
 }

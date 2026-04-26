@@ -4,6 +4,9 @@ interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "rect" | "circle" | "text";
 }
 
+// Uses the project-wide `shimmer` keyframe (defined in app/globals.css) via the
+// `animate-shimmer` utility exposed by `@theme`'s `--animate-shimmer` token.
+// The pseudo-element draws a moving sheen over a soft slate base.
 export function Skeleton({ variant = "rect", className, ...props }: SkeletonProps) {
   return (
     <div
@@ -12,9 +15,10 @@ export function Skeleton({ variant = "rect", className, ...props }: SkeletonProp
         variant === "rect" && "rounded-md",
         variant === "circle" && "rounded-full aspect-square",
         variant === "text" && "rounded-sm h-3.5 w-full",
-        "before:absolute before:inset-0 before:-translate-x-full",
-        "before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent",
-        "before:animate-[shimmer_2s_linear_infinite]",
+        "before:absolute before:inset-0",
+        "before:bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.6)_50%,transparent_100%)]",
+        "before:bg-[length:200%_100%] before:bg-[position:-200%_0]",
+        "motion-safe:before:animate-shimmer",
         className,
       )}
       aria-busy="true"

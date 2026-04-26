@@ -1,4 +1,8 @@
+"use client";
+
 import type * as React from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { fadeUp } from "@/lib/motion-presets";
 import { mistClasses } from "./mist-tokens";
 import { cx } from "./utils";
 
@@ -16,8 +20,15 @@ export function Panel({
   className?: string;
   variantKey?: string;
 }) {
+  const reduce = useReducedMotion();
+
   return (
-    <section className={cx("min-w-0 border p-5", mistClasses.panel, className)}>
+    <motion.section
+      variants={fadeUp}
+      initial={reduce ? false : "hidden"}
+      animate="visible"
+      className={cx("min-w-0 border p-5", mistClasses.panel, className)}
+    >
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className={mistClasses.sectionLabel}>{title}</div>
@@ -26,6 +37,6 @@ export function Panel({
         {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
       </div>
       {children}
-    </section>
+    </motion.section>
   );
 }

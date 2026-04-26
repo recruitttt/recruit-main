@@ -1,4 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "motion/react";
+import { scaleIn } from "@/lib/motion-presets";
 
 type Size = "sm" | "md" | "lg";
 
@@ -20,18 +24,9 @@ const gap: Record<Size, string> = {
   lg: "gap-3",
 };
 
-export function Wordmark({ className, size = "md" }: { className?: string; size?: Size }) {
-  return (
-    <div className={cn("flex items-center", gap[size], className)}>
-      <Mark size={size} />
-      <span className={cn("font-serif tracking-tight text-[var(--color-accent)] leading-none", textSize[size])}>
-        recruit
-      </span>
-    </div>
-  );
-}
-
-export function Mark({ className, size = "md" }: { className?: string; size?: Size }) {
+// Static SVG without its own animation. Used inside `Wordmark` so the parent
+// can own the entry transition (avoids compounding scaleIn animations).
+function MarkSvg({ className, size = "md" }: { className?: string; size?: Size }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -68,6 +63,37 @@ export function Mark({ className, size = "md" }: { className?: string; size?: Si
         className="opacity-75"
       />
     </svg>
+  );
+}
+
+export function Wordmark({ className, size = "md" }: { className?: string; size?: Size }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      variants={scaleIn}
+      initial={reduce ? false : "hidden"}
+      animate="visible"
+      className={cn("flex items-center", gap[size], className)}
+    >
+      <MarkSvg size={size} />
+      <span className={cn("font-serif tracking-tight text-[var(--color-accent)] leading-none", textSize[size])}>
+        recruit
+      </span>
+    </motion.div>
+  );
+}
+
+export function Mark({ className, size = "md" }: { className?: string; size?: Size }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      variants={scaleIn}
+      initial={reduce ? false : "hidden"}
+      animate="visible"
+      className="inline-flex"
+    >
+      <MarkSvg className={className} size={size} />
+    </motion.span>
   );
 }
 

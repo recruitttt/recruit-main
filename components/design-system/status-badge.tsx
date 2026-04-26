@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { getStatusColor, type StatusTone } from "./mist-tokens";
+import { cx } from "./utils";
 
 export function StatusBadge({
   children,
@@ -12,6 +13,7 @@ export function StatusBadge({
   variantKey?: string;
 }) {
   const color = getStatusColor(tone);
+  const isLive = tone === "active" || tone === "accent";
 
   return (
     <span
@@ -22,7 +24,12 @@ export function StatusBadge({
         color: variant === "solid" ? "white" : color,
       }}
     >
-      {variant === "dot" && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }} />}
+      {variant === "dot" && (
+        <span
+          className={cx("h-2 w-2 rounded-full", isLive && "motion-safe:animate-pulse-soft")}
+          style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }}
+        />
+      )}
       {children}
     </span>
   );

@@ -1,5 +1,9 @@
+"use client";
+
 import type * as React from "react";
 import { X, type LucideIcon } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { fastEaseOut } from "@/lib/motion-presets";
 import { getStatusColor, type StatusTone } from "./mist-tokens";
 import { cx } from "./utils";
 
@@ -19,9 +23,12 @@ export function FilterChip({
 }) {
   const color = getStatusColor(tone);
   const isPillow = mode === "pillow" || mode === "score";
+  const reduce = useReducedMotion();
 
   return (
-    <span
+    <motion.span
+      layout={!reduce}
+      transition={fastEaseOut}
       className={cx(
         "inline-flex items-center rounded-full border font-semibold",
         isPillow ? "min-h-10 gap-2.5 py-1 pl-2 pr-3 text-sm" : "min-h-8 gap-2 px-3 text-xs",
@@ -40,20 +47,37 @@ export function FilterChip({
       }}
     >
       {(mode === "dot" || mode === "filter") && !Icon && (
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }} />
+        <motion.span
+          layout={!reduce}
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }}
+        />
       )}
       {Icon && mode !== "dot" && (
-        <span className={cx("inline-flex shrink-0 items-center justify-center rounded-full border", isPillow ? "h-7 w-7" : "h-5 w-5")} style={{ borderColor: `${color}24`, background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.38))" }}>
+        <motion.span
+          layout={!reduce}
+          className={cx("inline-flex shrink-0 items-center justify-center rounded-full border", isPillow ? "h-7 w-7" : "h-5 w-5")}
+          style={{ borderColor: `${color}24`, background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.38))" }}
+        >
           <Icon className={isPillow ? "h-3.5 w-3.5" : "h-3 w-3"} strokeWidth={2} />
-        </span>
+        </motion.span>
       )}
-      <span className={mode === "filter" ? "text-slate-700" : undefined}>{label}</span>
-      {meta && <span className="font-mono text-[11px] opacity-70">{meta}</span>}
+      <motion.span layout={!reduce} className={mode === "filter" ? "text-slate-700" : undefined}>
+        {label}
+      </motion.span>
+      {meta && (
+        <motion.span layout={!reduce} className="font-mono text-[11px] opacity-70">
+          {meta}
+        </motion.span>
+      )}
       {mode === "filter" && (
-        <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/60 bg-white/40 text-slate-500">
+        <motion.span
+          layout={!reduce}
+          className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/60 bg-white/40 text-slate-500"
+        >
           <X className="h-3 w-3" />
-        </span>
+        </motion.span>
       )}
-    </span>
+    </motion.span>
   );
 }

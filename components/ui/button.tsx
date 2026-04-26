@@ -1,9 +1,13 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
+import { fastEaseOut } from "@/lib/motion-presets";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap leading-none rounded-md text-sm font-medium tracking-tight transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap leading-none rounded-md text-sm font-medium tracking-tight transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
   {
     variants: {
       variant: {
@@ -34,17 +38,27 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+  extends Omit<HTMLMotionProps<"button">, "children">,
+    VariantProps<typeof buttonVariants> {
+  children?: React.ReactNode;
+}
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => (
-    <button
-      ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
-    />
-  )
+  ({ className, variant, size, disabled, ...props }, ref) => {
+    const reduce = useReducedMotion();
+    const isInteractive = !reduce && !disabled;
+    return (
+      <motion.button
+        ref={ref}
+        disabled={disabled}
+        whileHover={isInteractive ? { scale: 1.02, y: -1 } : undefined}
+        whileTap={isInteractive ? { scale: 0.97 } : undefined}
+        transition={fastEaseOut}
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...props}
+      />
+    );
+  }
 );
 Button.displayName = "Button";
 

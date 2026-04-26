@@ -36,8 +36,7 @@ export function StageBadge({
     >
       {isLive && (
         <span
-          className="h-1.5 w-1.5 rounded-full bg-current"
-          style={{ animation: "pulse-soft 2s ease-in-out infinite" }}
+          className="h-1.5 w-1.5 rounded-full bg-current motion-safe:animate-pulse-soft"
         />
       )}
       <span>{stage}</span>
