@@ -11,8 +11,10 @@
 import type * as ashby from "../ashby.js";
 import type * as ashbyActions from "../ashbyActions.js";
 import type * as atsIngestion from "../atsIngestion.js";
+import type * as auth from "../auth.js";
 import type * as dlq from "../dlq.js";
 import type * as followups from "../followups.js";
+import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -24,8 +26,10 @@ declare const fullApi: ApiFromModules<{
   ashby: typeof ashby;
   ashbyActions: typeof ashbyActions;
   atsIngestion: typeof atsIngestion;
+  auth: typeof auth;
   dlq: typeof dlq;
   followups: typeof followups;
+  http: typeof http;
 }>;
 
 /**
@@ -54,4 +58,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+};

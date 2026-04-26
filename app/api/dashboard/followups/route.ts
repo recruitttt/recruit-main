@@ -1,6 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
-
 import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-http";
 
 export const dynamic = "force-dynamic";
 
@@ -58,14 +57,8 @@ type FollowUpAction =
       responseSummary: string;
     };
 
-function getConvexClient() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url.replace(/\/+$/, ""));
-}
-
 export async function GET() {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) {
     return Response.json({ summary: emptySummary() });
   }
@@ -79,7 +72,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const client = getConvexClient();
+  const client = await getConvexClient();
   if (!client) {
     return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
   }

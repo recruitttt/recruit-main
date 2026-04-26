@@ -16,6 +16,12 @@ const mutation = mutationGeneric;
 
 const DEMO_USER_ID = "demo";
 
+async function scopedDemoUserId(ctx: any, requestedDemoUserId?: string) {
+  if (requestedDemoUserId) return requestedDemoUserId;
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject ? `auth:${identity.subject}` : DEMO_USER_ID;
+}
+
 const statusValidator = v.union(
   v.literal("draft"),
   v.literal("ready_to_apply"),
@@ -44,7 +50,7 @@ export const listApplications = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const limit = boundedLimit(args.limit, 100);
     const docs = args.status
       ? await ctx.db
@@ -75,7 +81,7 @@ export const listDueFollowUps = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = args.now ?? new Date().toISOString();
     const limit = boundedLimit(args.limit, 50);
     const scheduled = await tasksByStateBefore(ctx, demoUserId, "scheduled", now, limit);
@@ -91,7 +97,7 @@ export const followUpSummary = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = args.now ?? new Date().toISOString();
     const applications = await ctx.db
       .query("applications")
@@ -143,7 +149,7 @@ export const upsertApplication = mutation({
   },
   returns: v.id("applications"),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = new Date().toISOString();
     const status = args.status ?? "draft";
     const appliedAt =

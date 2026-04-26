@@ -11,6 +11,12 @@ const DEMO_USER_ID = "demo";
 
 type DecisionStatus = "open" | "cached" | "skipped" | "resolved";
 
+async function scopedDemoUserId(ctx: any, requestedDemoUserId?: string) {
+  if (requestedDemoUserId) return requestedDemoUserId;
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject ? `auth:${identity.subject}` : DEMO_USER_ID;
+}
+
 function serializeItem(item: (typeof mockDLQItems)[number], decision?: any) {
   const status = (decision?.status ?? "open") as DecisionStatus;
   return {
@@ -77,7 +83,7 @@ export const listDemoQueue = query({
   args: { demoUserId: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const decisions = await ctx.db
       .query("dlq_items")
       .withIndex("by_user", (q: any) => q.eq("user_id", demoUserId))
@@ -101,7 +107,7 @@ export const approveAndCache = mutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     return await upsertDecision(ctx, {
-      demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      demoUserId: await scopedDemoUserId(ctx, args.demoUserId),
       itemId: args.itemId,
       status: "cached",
       answer: args.answer,
@@ -117,7 +123,7 @@ export const skipRole = mutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     return await upsertDecision(ctx, {
-      demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      demoUserId: await scopedDemoUserId(ctx, args.demoUserId),
       itemId: args.itemId,
       status: "skipped",
     });
@@ -132,7 +138,7 @@ export const markResolved = mutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     return await upsertDecision(ctx, {
-      demoUserId: args.demoUserId ?? DEMO_USER_ID,
+      demoUserId: await scopedDemoUserId(ctx, args.demoUserId),
       itemId: args.itemId,
       status: "resolved",
     });
