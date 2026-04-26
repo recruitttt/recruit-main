@@ -34,23 +34,25 @@ export function ActivateStepCard({
           selectedRoles={selectedRoles}
           linkCount={linkCount}
         />
-        <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm leading-6 text-slate-600">
+        <div className="flex flex-col gap-4 border-t border-white/45 pt-4 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+          <p className="text-sm leading-6 text-slate-600 lg:flex-1 lg:max-w-xl">
             {canConfirm
               ? "Confirm this is accurate. Scout will open the Ready Room so you can chat while intake finishes."
               : "Pick at least one role target before opening the Ready Room."}
           </p>
-          {hasConvex ? (
-            <ConnectedConfirmButton
-              disabled={!canConfirm}
-              onMergeFinalProfile={onMergeFinalProfile}
-              onLaunch={onLaunch}
-            />
-          ) : (
-            <ActionButton variant="secondary" size="lg" disabled>
-              Convex not configured
-            </ActionButton>
-          )}
+          <div className="shrink-0">
+            {hasConvex ? (
+              <ConnectedConfirmButton
+                disabled={!canConfirm}
+                onMergeFinalProfile={onMergeFinalProfile}
+                onLaunch={onLaunch}
+              />
+            ) : (
+              <ActionButton variant="secondary" size="lg" disabled>
+                Convex not configured
+              </ActionButton>
+            )}
+          </div>
         </div>
       </div>
     </ChatCard>
