@@ -2,11 +2,49 @@
 
 import { InteractiveHotspot } from "./interactive-hotspot";
 
-import { useRef, useMemo } from "react";
+import { Suspense, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { RoundedBox } from "@react-three/drei";
+import { RoundedBox, useGLTF } from "@react-three/drei";
 import { useBeachTexture } from "./beach-texture";
+
+// CC0 GLB assets from the Kenney Furniture Kit
+// (https://kenney.nl/assets/furniture-kit, CC0 1.0). Drop new GLBs into
+// `public/models/` and import-then-preload them here. The Draco decoder
+// path is forwarded to drei in case future GLBs ship Draco-compressed
+// geometry; non-Draco files load fine without it. The decoder files
+// live in `public/draco/`, copied once from
+// `node_modules/three/examples/jsm/libs/draco/gltf/`.
+const PLANT_GLB_URL = "/models/plant.glb";
+const LAMP_GLB_URL = "/models/lamp.glb";
+const DRACO_DECODER_URL = "/draco/";
+
+useGLTF.preload(PLANT_GLB_URL, DRACO_DECODER_URL);
+useGLTF.preload(LAMP_GLB_URL, DRACO_DECODER_URL);
+
+/**
+ * Deep-clone a loaded GLB scene so per-instance material edits do not
+ * leak back into the cache that drei shares across consumers. The
+ * `customize` callback receives a cloned material it can freely mutate
+ * (tint, emissive, roughness, etc.) and must return the material to use.
+ */
+function cloneSceneWithMaterials(
+  scene: THREE.Object3D,
+  customize: (material: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial
+): THREE.Object3D {
+  const root = scene.clone(true);
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+    const src = obj.material;
+    if (!src) return;
+    const mats = Array.isArray(src) ? src : [src];
+    obj.material = mats.map((mat) => {
+      if (!(mat instanceof THREE.MeshStandardMaterial)) return mat;
+      return customize(mat.clone());
+    });
+  });
+  return root;
+}
 
 /**
  * Extra room dressing: sofa + coffee table, rug, TV, back-wall windows,
@@ -352,134 +390,96 @@ function Bookshelf({ position }: { position: [number, number, number] }) {
   );
 }
 
+type PlantVariant = "fern" | "palm" | "succulent";
+
+const PLANT_VARIANTS: Record<
+  PlantVariant,
+  { scale: number; rotationY: number; tint: string }
+> = {
+  fern: { scale: 3.4, rotationY: 0, tint: "#5C8F50" },
+  palm: { scale: 4.2, rotationY: 1.1, tint: "#3E7A3A" },
+  succulent: { scale: 2.6, rotationY: -0.6, tint: "#7AAE6A" },
+};
+
 function PlantInPot({
   position,
   variant,
 }: {
   position: [number, number, number];
-  variant: "fern" | "palm" | "succulent";
+  variant: PlantVariant;
 }) {
   return (
     <group position={position}>
-      {/* Pot */}
-      <mesh>
-        <cylinderGeometry args={[0.28, 0.22, 0.42, 20]} />
-        <meshStandardMaterial color="#C87A4A" roughness={0.85} />
-      </mesh>
-      {/* Rim */}
-      <mesh position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[0.3, 0.28, 0.06, 20]} />
-        <meshStandardMaterial color="#A8603A" roughness={0.75} />
-      </mesh>
-      {/* Soil */}
-      <mesh position={[0, 0.18, 0]}>
-        <cylinderGeometry args={[0.26, 0.26, 0.02, 20]} />
-        <meshStandardMaterial color="#3B2A1C" roughness={1} />
-      </mesh>
-      {variant === "fern" && <Fern />}
-      {variant === "palm" && <Palm />}
-      {variant === "succulent" && <Succulent />}
+      <Suspense fallback={null}>
+        <PlantModel variant={variant} />
+      </Suspense>
     </group>
   );
 }
 
-function Fern() {
-  const leaves = useMemo(
-    () => Array.from({ length: 14 }).map((_, i) => ({
-      angle: (i / 14) * Math.PI * 2 + Math.random() * 0.2,
-      tilt: 0.4 + Math.random() * 0.3,
-      len: 0.48 + Math.random() * 0.16,
-    })),
-    []
+function PlantModel({ variant }: { variant: PlantVariant }) {
+  const { scene } = useGLTF(PLANT_GLB_URL, DRACO_DECODER_URL);
+  const cfg = PLANT_VARIANTS[variant];
+  const cloned = useMemo(
+    () =>
+      cloneSceneWithMaterials(scene, (material) => {
+        // Bias foliage toward the variant tint while keeping relative brightness.
+        const tint = new THREE.Color(cfg.tint);
+        material.color = material.color.lerp(tint, 0.55);
+        material.roughness = 0.92;
+        return material;
+      }),
+    [scene, cfg.tint]
   );
-  return (
-    <group position={[0, 0.2, 0]}>
-      {leaves.map((l, i) => (
-        <group key={i} rotation={[l.tilt, l.angle, 0]}>
-          <mesh position={[0, l.len / 2, 0]}>
-            <coneGeometry args={[0.06, l.len, 6]} />
-            <meshStandardMaterial color={i % 2 === 0 ? "#4A7A3E" : "#5C8F50"} roughness={0.9} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
 
-function Palm() {
-  const blades = useMemo(
-    () => Array.from({ length: 10 }).map((_, i) => ({
-      angle: (i / 10) * Math.PI * 2,
-      tilt: 0.25 + Math.random() * 0.2,
-    })),
-    []
-  );
   return (
-    <group position={[0, 0.2, 0]}>
-      {/* Trunk */}
-      <mesh position={[0, 0.4, 0]}>
-        <cylinderGeometry args={[0.035, 0.05, 0.8, 10]} />
-        <meshStandardMaterial color="#8C6A3F" roughness={0.85} />
-      </mesh>
-      {/* Blades */}
-      <group position={[0, 0.78, 0]}>
-        {blades.map((b, i) => (
-          <group key={i} rotation={[b.tilt, b.angle, 0]}>
-            <mesh position={[0, 0.28, 0]}>
-              <boxGeometry args={[0.07, 0.56, 0.015]} />
-              <meshStandardMaterial color={i % 2 === 0 ? "#3E7A3A" : "#4C9046"} roughness={0.9} />
-            </mesh>
-          </group>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-function Succulent() {
-  return (
-    <group position={[0, 0.2, 0]}>
-      {[0.12, 0.1, 0.08].map((r, i) => (
-        <mesh key={i} position={[0, 0.04 + i * 0.06, 0]}>
-          <sphereGeometry args={[r, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#5D8D60" roughness={0.85} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.22, 0]}>
-        <sphereGeometry args={[0.04, 10, 8]} />
-        <meshStandardMaterial color="#C77B8F" roughness={0.8} />
-      </mesh>
-    </group>
+    <primitive
+      object={cloned}
+      scale={cfg.scale}
+      rotation={[0, cfg.rotationY, 0]}
+    />
   );
 }
 
 function FloorLamp({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
-      {/* Soft spill from the shade */}
+      {/* Soft spill from the shade — kept as a primitive disc so the
+          floor still gets a warm halo regardless of GLB load state. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
         <circleGeometry args={[0.82, 36]} />
         <meshBasicMaterial color="#FFE1A8" transparent opacity={0.16} depthWrite={false} />
       </mesh>
-      {/* Base */}
-      <mesh>
-        <cylinderGeometry args={[0.2, 0.24, 0.05, 20]} />
-        <meshStandardMaterial color="#2A2723" roughness={0.6} metalness={0.3} />
-      </mesh>
-      {/* Pole */}
-      <mesh position={[0, 0.95, 0]}>
-        <cylinderGeometry args={[0.012, 0.012, 1.9, 8]} />
-        <meshStandardMaterial color="#3A332B" roughness={0.5} metalness={0.4} />
-      </mesh>
-      {/* Shade */}
-      <mesh position={[0, 1.95, 0]}>
-        <coneGeometry args={[0.28, 0.4, 20, 1, true]} />
-        <meshStandardMaterial color="#F4EBDA" roughness={0.9} side={THREE.DoubleSide} emissive="#FFE7B0" emissiveIntensity={0.32} />
-      </mesh>
-      {/* Warm point light from shade */}
+      <Suspense fallback={null}>
+        <LampModel />
+      </Suspense>
+      {/* Warm point light positioned above the lamp shade. */}
       <pointLight position={[0, 1.8, 0]} intensity={0.78} distance={4.4} color="#FFD89B" decay={2} />
     </group>
   );
+}
+
+function LampModel() {
+  const { scene } = useGLTF(LAMP_GLB_URL, DRACO_DECODER_URL);
+  const cloned = useMemo(
+    () =>
+      cloneSceneWithMaterials(scene, (material) => {
+        // The Kenney lamp ships flat-shaded. Light-coloured surfaces are
+        // the shade — warm them so the lamp reads as glowing rather than
+        // plain plastic.
+        const isShade = material.color.r > 0.7 && material.color.g > 0.7;
+        if (isShade) {
+          material.emissive = new THREE.Color("#FFE7B0");
+          material.emissiveIntensity = 0.32;
+        }
+        material.roughness = isShade ? 0.9 : 0.6;
+        return material;
+      }),
+    [scene]
+  );
+
+  // Scale to match the prior 1.95m-tall primitive lamp.
+  return <primitive object={cloned} scale={2.3} />;
 }
 
 function BackWallWindows() {
