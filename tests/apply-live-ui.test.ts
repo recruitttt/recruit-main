@@ -75,6 +75,19 @@ assert.equal(withSnapshot[0]?.pageUrl, "https://jobs.ashbyhq.com/attio/1/applica
 assert.equal(withSnapshot[0]?.screenshotPng, "annotated");
 assert.equal(withSnapshot[0]?.fieldCount, 2);
 
+const withSurfaceScreenshot = reduceLiveApplyEvent(withSnapshot, {
+  kind: "surface_snapshot",
+  runId: "remote_1",
+  jobSlug: "aleph-2",
+  fieldCount: 3,
+  url: "https://jobs.ashbyhq.com/aleph/2/application",
+  title: "Aleph application",
+  screenshotPng: "surface",
+});
+assert.equal(withSurfaceScreenshot[1]?.pageUrl, "https://jobs.ashbyhq.com/aleph/2/application");
+assert.equal(withSurfaceScreenshot[1]?.screenshotPng, "surface");
+assert.equal(withSurfaceScreenshot[1]?.fieldCount, 3);
+
 const withFields = [
   {
     kind: "field_set" as const,
@@ -105,7 +118,7 @@ const withFields = [
     value: "https://github.com/anti-integral",
     via: "computer" as const,
   },
-].reduce(reduceLiveApplyEvent, withSnapshot);
+].reduce(reduceLiveApplyEvent, withSurfaceScreenshot);
 assert.equal(withFields[0]?.fields.length, 2);
 assert.deepEqual(fieldProgress(withFields[0]!), { total: 2, filled: 1, failed: 0, pending: 1 });
 
@@ -132,6 +145,6 @@ assert.equal(metrics.active, 0);
 assert.equal(metrics.needsReview, 1);
 assert.equal(metrics.submitted, 1);
 assert.equal(metrics.fieldsFilled, 1);
-assert.equal(metrics.fieldsTotal, 2);
+assert.equal(metrics.fieldsTotal, 5);
 
 console.log("Apply live UI tests passed");

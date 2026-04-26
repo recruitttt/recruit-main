@@ -15,6 +15,9 @@ import {
   POST as focusRecruit2Job,
 } from "../app/api/applications/runs/[runId]/jobs/[jobId]/focus/route";
 import {
+  GET as getScreenshot,
+} from "../app/api/applications/runs/[runId]/jobs/[jobId]/screenshot/route";
+import {
   GET as proxyRecruit2Events,
 } from "../app/api/applications/runs/[runId]/recruit2/events/route";
 import { startConvexApplyRun } from "../lib/apply-service/convex-engine";
@@ -22,6 +25,7 @@ import { getApplyRunStore, startRecruit2ApplyRun } from "../lib/apply-service";
 
 process.env.RECRUIT2_APPLY_API_URL = "";
 process.env.APPLY_LAB_PUBLIC_BASE_URL = "";
+process.env.NEXT_PUBLIC_CONVEX_URL = "";
 
 function jsonRequest(body: unknown, url = "http://test.local/api/applications/batch/start") {
   return new Request(url, {
@@ -214,6 +218,20 @@ async function main() {
   } as never);
   assert.equal(runResponse.status, 200);
   assert.equal((await runResponse.json() as { run: { id: string } }).run.id, runId);
+
+  const missingRunScreenshotResponse = await getScreenshot(
+    new Request("http://test.local/api/applications/runs/missing/jobs/job_1/screenshot"),
+    { params: { runId: "missing", jobId: "job_1" } } as never,
+  );
+  assert.equal(missingRunScreenshotResponse.status, 404);
+  assert.equal((await missingRunScreenshotResponse.json() as { reason: string }).reason, "run_not_found");
+
+  const convexFallbackScreenshotResponse = await getScreenshot(
+    new Request("http://test.local/api/applications/runs/missing/jobs/job_1/screenshot?convexJobId=convex_job_1"),
+    { params: { runId: "missing", jobId: "job_1" } } as never,
+  );
+  assert.equal(convexFallbackScreenshotResponse.status, 503);
+  assert.equal((await convexFallbackScreenshotResponse.json() as { reason: string }).reason, "missing_convex_url");
 
   const eventsResponse = await getEvents(new Request(`http://test.local/api/applications/runs/${runId}/events`), {
     params: { runId },

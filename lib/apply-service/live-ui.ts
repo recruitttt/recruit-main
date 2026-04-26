@@ -82,7 +82,16 @@ export type LiveApplyEvent = { runId?: string } & (
   | { kind: "site_blocked"; jobSlug: string; reason: string; currentUrl?: string; liveViewUrl?: string; fullscreenUrl?: string; screenshotPng?: string }
   | { kind: "manual_finish_required"; jobSlug: string; reason: string; currentUrl?: string; liveViewUrl?: string; fullscreenUrl?: string; screenshotPng?: string }
   | { kind: "missing_required_answer"; jobSlug: string; question: string; fieldLabel?: string; screenshotPng?: string }
-  | { kind: "surface_snapshot"; jobSlug: string; url: string; title?: string; fieldCount: number; notes?: string }
+  | {
+      kind: "surface_snapshot";
+      jobSlug: string;
+      url: string;
+      title?: string;
+      fieldCount: number;
+      notes?: string;
+      screenshotPng?: string;
+      annotatedScreenshotPng?: string;
+    }
   | { kind: "ats_detected"; jobSlug: string; adapter: string }
   | { kind: "phase_transition"; jobSlug: string; phase: string; atMs: number }
 );
@@ -256,6 +265,11 @@ function reduceJob(job: LiveApplyJob, event: LiveApplyEvent): LiveApplyJob {
         ...(event.title ? { pageTitle: event.title } : {}),
         fieldCount: event.fieldCount,
         ...(event.notes ? { attention: event.notes } : {}),
+        ...(event.annotatedScreenshotPng
+          ? { annotatedScreenshotPng: event.annotatedScreenshotPng, screenshotPng: event.annotatedScreenshotPng }
+          : event.screenshotPng
+            ? { screenshotPng: event.screenshotPng }
+            : {}),
       };
     case "field_set":
       return {

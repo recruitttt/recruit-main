@@ -7,16 +7,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   context: { params: { runId: string; jobId: string } | Promise<{ runId: string; jobId: string }> },
 ): Promise<Response> {
   const { runId, jobId } = await readParams(context);
   const run = getApplyRunStore().getRun(runId);
-  if (!run) return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
-  const job = run.jobs.find((j) => j.id === jobId);
-  if (!job) return Response.json({ ok: false, reason: "job_not_found" }, { status: 404 });
+  const fallbackConvexJobId = new URL(req.url).searchParams.get("convexJobId")?.trim();
+  const job = run?.jobs.find((j) => j.id === jobId) ?? null;
+  if (run && !job) return Response.json({ ok: false, reason: "job_not_found" }, { status: 404 });
+  if (!run && !fallbackConvexJobId) {
+    return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
+  }
 
-  const convexJobId = job.remoteJobSlug;
+  const convexJobId = job?.remoteJobSlug ?? fallbackConvexJobId;
   if (!convexJobId) {
     return Response.json({ ok: false, reason: "no_convex_job_id" }, { status: 409 });
   }

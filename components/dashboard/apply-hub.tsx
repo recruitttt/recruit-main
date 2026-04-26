@@ -207,13 +207,16 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       if (cancelled || !run?.id || !selectedLiveJob?.id) return;
       try {
         const response = await fetch(
-          `/api/applications/runs/${encodeURIComponent(run!.id)}/jobs/${encodeURIComponent(selectedLiveJob!.id)}/screenshot`,
+          screenshotUrl(run!, selectedLiveJob!),
           { cache: "no-store" },
         );
         if (!response.ok || cancelled) return;
         const body = await response.json() as { ok: boolean; screenshotPng?: string };
         if (body.ok && body.screenshotPng && !cancelled) {
           setFocusedShot({ jobId: selectedLiveJob!.id, png: body.screenshotPng });
+          setLiveJobs((current) => current.map((job) => (
+            job.id === selectedLiveJob!.id ? { ...job, screenshotPng: body.screenshotPng } : job
+          )));
         }
       } catch {
         // Best-effort polling.
@@ -513,6 +516,12 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       </div>
     </section>
   );
+}
+
+function screenshotUrl(run: ApplyRun, job: LiveApplyJob): string {
+  const base = `/api/applications/runs/${encodeURIComponent(run.id)}/jobs/${encodeURIComponent(job.id)}/screenshot`;
+  if (run.source !== "convex-application-actions" || !job.remoteSlug) return base;
+  return `${base}?convexJobId=${encodeURIComponent(job.remoteSlug)}`;
 }
 
 function ModeControl({ value, onChange }: { value: ApplyMode; onChange: (mode: ApplyMode) => void }) {
