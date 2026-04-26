@@ -215,7 +215,21 @@ function main() {
     "utf8"
   );
   assert.match(authModule, /disconnectGithub/);
-  assert.match(authModule, /components\.betterAuth\.adapter\.deleteOne/);
+  assert.match(authModule, /findGithubAccounts/);
+  assert.match(authModule, /components\.betterAuth\.adapter as any\)\.deleteMany/);
+
+  const sourceConnections = readFileSync(
+    new URL("../convex/sourceConnections.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(sourceConnections, /deleteMany/);
+
+  const authGithub = readFileSync(
+    new URL("../lib/auth-github.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(authGithub, /findMany/);
+  assert.match(authGithub, /find\(\s*\(row\)/);
 }
 
 main();

@@ -16,6 +16,11 @@ import {
 const query = queryGeneric;
 const mutation = mutationGeneric;
 
+type GithubAccountRow = {
+  accountId?: string | null;
+  accessToken?: string | null;
+};
+
 export const authComponent = createClient<DataModel>(
   (components as { betterAuth: Parameters<typeof createClient<DataModel>>[0] })
     .betterAuth
@@ -59,6 +64,34 @@ async function requireOwner(
   if (identity.subject !== userId) throw new Error("Forbidden");
 }
 
+async function findGithubAccounts(
+  ctx: { runQuery: (...args: any[]) => Promise<any> },
+  userId: string
+): Promise<GithubAccountRow[]> {
+  const result = (await ctx.runQuery(
+    (components.betterAuth.adapter as any).findMany,
+    {
+      input: {
+        model: "account",
+        where: [
+          { field: "userId", operator: "eq", value: userId },
+          { field: "providerId", operator: "eq", value: "github" },
+        ],
+      },
+      paginationOpts: { cursor: null, numItems: 50 },
+    }
+  )) as { page?: GithubAccountRow[] } | null;
+
+  return result?.page ?? [];
+}
+
+function hasUsableAccessToken(account: GithubAccountRow | null | undefined) {
+  return (
+    typeof account?.accessToken === "string" &&
+    account.accessToken.length > 0
+  );
+}
+
 export const connectedAccounts = query({
   args: { userId: v.string() },
   returns: v.object({
@@ -70,20 +103,18 @@ export const connectedAccounts = query({
   }),
   handler: async (ctx, args) => {
     await requireOwner(ctx, args.userId);
-    const account = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "account",
-      where: [
-        { field: "userId", operator: "eq", value: args.userId },
-        { field: "providerId", operator: "eq", value: "github" },
-      ],
-    })) as { accountId?: string | null; accessToken?: string | null } | null;
+    const accounts = await findGithubAccounts(ctx, args.userId);
+    const account =
+      accounts.find((candidate) => hasUsableAccessToken(candidate)) ??
+      accounts[0] ??
+      null;
 
     return {
       github: {
-        linked: Boolean(account),
-        hasAccessToken:
-          typeof account?.accessToken === "string" &&
-          account.accessToken.length > 0,
+        linked: Boolean(accounts.length),
+        hasAccessToken: accounts.some((candidate) =>
+          hasUsableAccessToken(candidate)
+        ),
         ...(typeof account?.accountId === "string"
           ? { accountId: account.accountId }
           : {}),
@@ -97,15 +128,19 @@ export const disconnectGithub = mutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     await requireOwner(ctx, args.userId);
-    return await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
-      input: {
-        model: "account",
-        where: [
-          { field: "userId", operator: "eq", value: args.userId },
-          { field: "providerId", operator: "eq", value: "github" },
-        ],
-      },
-    });
+    return await ctx.runMutation(
+      (components.betterAuth.adapter as any).deleteMany,
+      {
+        input: {
+          model: "account",
+          where: [
+            { field: "userId", operator: "eq", value: args.userId },
+            { field: "providerId", operator: "eq", value: "github" },
+          ],
+        },
+        paginationOpts: { cursor: null, numItems: 1000 },
+      }
+    );
   },
 });
 
@@ -185,6 +220,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       // account without an explicit linkSocial() call.
       accountLinking: {
         enabled: true,
+        // Explicit "Connect GitHub" runs from an authenticated Recruit
+        // session, including the shared demo user whose email will never match
+        // a real GitHub account. Treat that click as consent to attach the
+        // GitHub OAuth account to the current user.
+        allowDifferentEmails: true,
         trustedProviders: ["github"],
       },
     },
@@ -210,17 +250,14 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
               // Check whether the user has a linked GitHub account (i.e. a
               // GitHub access token exists in better-auth's account table).
-              const githubAccount = await ctx.runQuery(
-                components.betterAuth.adapter.findOne,
-                {
-                  model: "account",
-                  where: [
-                    { field: "userId", operator: "eq", value: userId },
-                    { field: "providerId", operator: "eq", value: "github" },
-                  ],
-                }
-              );
-              if (!githubAccount) return;
+              const githubAccounts = await findGithubAccounts(ctx, userId);
+              if (
+                !githubAccounts.some((account) =>
+                  hasUsableAccessToken(account)
+                )
+              ) {
+                return;
+              }
 
               // De-dupe: running/queued imports stay untouched. Completed
               // rows only count when a GitHub snapshot exists; earlier broken
