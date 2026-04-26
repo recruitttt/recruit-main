@@ -1,21 +1,25 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  mockApplications,
-  mockMappedQuestions,
-  mockPersonaReviews,
-  stageOrder,
-  stageLabels,
-  type Stage,
-} from "@/lib/mock-data";
+  ArrowLeft,
+  Check,
+  Download,
+  ExternalLink,
+  FileText,
+  Play,
+  ShieldCheck,
+} from "lucide-react";
+
+import { getApplicationDetail, type ApplicationDetailEvent } from "@/lib/application-detail";
+import { stageLabels, stageOrder } from "@/lib/mock-data";
+import { formatRelative, cn } from "@/lib/utils";
 import { CompanyLogo } from "@/components/ui/logo";
 import { StageBadge, Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
-import { ArrowLeft, ExternalLink, FileText, Download, Play, Check } from "lucide-react";
-import { formatRelative, cn } from "@/lib/utils";
 
-const sourceLabels: Record<string, string> = {
+export const dynamic = "force-dynamic";
+
+const sourceLabels = {
   resume: "Resume",
   settings: "Settings",
   cache: "Cache hit",
@@ -23,7 +27,7 @@ const sourceLabels: Record<string, string> = {
   user: "You answered",
 };
 
-const sourceColors: Record<string, string> = {
+const sourceColors = {
   resume: "text-cyan-700 border-cyan-500/30 bg-cyan-500/10",
   settings: "text-violet-700 border-violet-500/30 bg-violet-500/10",
   cache: "text-emerald-700 border-emerald-500/30 bg-emerald-500/10",
@@ -31,10 +35,17 @@ const sourceColors: Record<string, string> = {
   user: "text-[var(--color-fg-muted)] border-[var(--color-border-strong)] bg-[var(--color-surface-1)]",
 };
 
-const verdictColors: Record<string, string> = {
+const verdictColors = {
   Strong: "text-emerald-700",
   "On the line": "text-amber-700",
   Weak: "text-red-700",
+};
+
+const eventColors: Record<ApplicationDetailEvent["level"], string> = {
+  info: "bg-cyan-500/10 text-cyan-700 border-cyan-500/30",
+  success: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+  warning: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+  error: "bg-red-500/10 text-red-700 border-red-500/30",
 };
 
 export default async function ApplicationDetailPage({
@@ -43,73 +54,90 @@ export default async function ApplicationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const app = mockApplications.find((a) => a.id === id);
-  if (!app) notFound();
-
-  const currentStageIndex = stageOrder.indexOf(app.stage);
+  const app = await getApplicationDetail(id);
+  const currentStageIndex = Math.max(stageOrder.indexOf(app.stage), 0);
+  const sourceTone = app.source === "live" ? "success" : app.source === "fallback" ? "warn" : "accent";
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
       <Link
         href="/dashboard"
-        className="mb-5 inline-flex items-center gap-1.5 text-[12px] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-muted)] font-mono"
+        className="mb-5 inline-flex items-center gap-1.5 text-[12px] font-mono text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-muted)]"
       >
         <ArrowLeft className="h-3 w-3" /> Back to dashboard
       </Link>
 
-      {/* header */}
+      {app.notice && (
+        <div className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[12px] leading-5 text-amber-700">
+          {app.notice}
+        </div>
+      )}
+
       <div className="mb-7 flex items-start justify-between gap-6">
-        <div className="flex items-start gap-4">
+        <div className="flex min-w-0 items-start gap-4">
           <CompanyLogo bg={app.logoBg} text={app.logoText} size={56} className="rounded-xl" />
-          <div>
-            <div className="flex items-center gap-3 mb-1">
+          <div className="min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-3">
               <h1 className="font-serif text-[32px] leading-tight tracking-tight text-[var(--color-fg)]">
                 {app.role}
               </h1>
-              <StageBadge stage={app.stage} pulse />
+              <StageBadge stage={app.stage} pulse={app.source === "live"} />
+              <Pill tone={sourceTone}>{app.source}</Pill>
             </div>
-            <div className="flex items-center gap-3 text-[13px] text-[var(--color-fg-muted)]">
+            <div className="flex flex-wrap items-center gap-3 text-[13px] text-[var(--color-fg-muted)]">
               <span className="font-medium text-[var(--color-fg)]">{app.company}</span>
               <span>·</span>
               <span>{app.location}</span>
-              {app.salaryRange && <><span>·</span><span>{app.salaryRange}</span></>}
+              {app.salaryRange && (
+                <>
+                  <span>·</span>
+                  <span>{app.salaryRange}</span>
+                </>
+              )}
               <span>·</span>
               <Pill tone="accent">via {app.provider}</Pill>
             </div>
-            <a
-              href={app.jobUrl}
-              className="mt-2 inline-flex items-center gap-1 text-[12px] font-mono text-[var(--color-fg-subtle)] hover:text-[var(--color-accent)]"
-            >
-              {app.jobUrl} <ExternalLink className="h-3 w-3" />
-            </a>
+            {app.jobUrl === "#" ? (
+              <div className="mt-2 text-[12px] font-mono text-[var(--color-fg-subtle)]">
+                live id: {app.id}
+              </div>
+            ) : (
+              <a
+                href={app.jobUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex max-w-full items-center gap-1 truncate text-[12px] font-mono text-[var(--color-fg-subtle)] hover:text-[var(--color-accent)]"
+              >
+                <span className="truncate">{app.jobUrl}</span> <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm">
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="secondary" size="sm" disabled={app.artifacts.every((artifact) => artifact.kind !== "file")}>
             <Download className="h-3.5 w-3.5" /> Resume PDF
           </Button>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" disabled={app.browserEvidence.tone !== "Recorded"}>
             <Play className="h-3.5 w-3.5" /> Replay run
           </Button>
         </div>
       </div>
 
-      {/* score strip */}
-      <div className="mb-6 grid grid-cols-2 gap-px bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg overflow-hidden md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-border)] md:grid-cols-4">
         {[
-          { label: "Match score", value: app.matchScore, hint: "JD vs intake" },
-          { label: "Tailoring score", value: app.tailoringScore || "—", hint: "Resume rewrite quality" },
-          { label: "Questions filled", value: "14/14", hint: "Including DLQ approvals" },
-          { label: "Cache reuses", value: 7, hint: "Saved this run" },
+          { label: "Match score", value: scoreValue(app.matchScore), hint: "JD vs intake" },
+          { label: "Tailoring score", value: scoreValue(app.tailoringScore), hint: "Resume rewrite quality" },
+          { label: "Questions", value: app.questionSummary.split(" ")[0] ?? "seeded", hint: app.questionSummary },
+          { label: "Cache reuses", value: app.cacheReuseCount ?? "pending", hint: app.cacheReuseCount === null ? "Provider cache data pending" : "Saved this run" },
         ].map((s) => (
           <div key={s.label} className="bg-[var(--color-surface)] p-4">
-            <div className="text-[10px] uppercase tracking-[0.15em] text-[var(--color-fg-subtle)] font-mono">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--color-fg-subtle)]">
               {s.label}
             </div>
-            <div className="mt-2 text-[28px] font-serif tracking-tight text-[var(--color-fg)] tabular-nums leading-none">
+            <div className="mt-2 font-serif text-[28px] leading-none tracking-tight text-[var(--color-fg)] tabular-nums">
               {s.value}
             </div>
-            <div className="mt-2 text-[11px] text-[var(--color-fg-subtle)] font-mono">
+            <div className="mt-2 line-clamp-2 text-[11px] font-mono text-[var(--color-fg-subtle)]">
               {s.hint}
             </div>
           </div>
@@ -117,13 +145,11 @@ export default async function ApplicationDetailPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* left column: timeline + browser preview */}
         <div className="space-y-6 lg:col-span-2">
-          {/* status timeline */}
           <Card>
             <CardHeader>
               <CardTitle>Run timeline</CardTitle>
-              <span className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
+              <span className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
                 Started {formatRelative(app.startedAt)}
               </span>
             </CardHeader>
@@ -138,29 +164,24 @@ export default async function ApplicationDetailPage({
                         <div
                           className={cn(
                             "flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-mono transition-colors",
-                            done && "bg-emerald-500/15 border-emerald-500/50 text-emerald-700",
-                            active && "bg-cyan-500/15 border-cyan-500/50 text-cyan-700 ring-2 ring-cyan-500/25",
-                            !done && !active && "bg-[var(--color-bg)] border-[var(--color-border)] text-[var(--color-fg-subtle)]"
+                            done && "border-emerald-500/50 bg-emerald-500/15 text-emerald-700",
+                            active && "border-cyan-500/50 bg-cyan-500/15 text-cyan-700 ring-2 ring-cyan-500/25",
+                            !done && !active && "border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)]"
                           )}
                         >
                           {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : String(i + 1).padStart(2, "0")}
                         </div>
                         <div
                           className={cn(
-                            "mt-2 text-[10px] uppercase tracking-[0.15em] font-mono",
-                            (done || active) ? "text-[var(--color-fg)]" : "text-[var(--color-fg-subtle)]"
+                            "mt-2 font-mono text-[10px] uppercase tracking-[0.15em]",
+                            done || active ? "text-[var(--color-fg)]" : "text-[var(--color-fg-subtle)]"
                           )}
                         >
                           {stageLabels[s]}
                         </div>
                       </div>
                       {i < stageOrder.length - 1 && (
-                        <div
-                          className={cn(
-                            "h-px flex-1 mx-2 mb-6",
-                            done ? "bg-emerald-500/40" : "bg-[var(--color-border)]"
-                          )}
-                        />
+                        <div className={cn("mx-2 mb-6 h-px flex-1", done ? "bg-emerald-500/40" : "bg-[var(--color-border)]")} />
                       )}
                     </div>
                   );
@@ -169,62 +190,84 @@ export default async function ApplicationDetailPage({
             </CardBody>
           </Card>
 
-          {/* browser session preview */}
           <Card>
             <CardHeader>
               <CardTitle>Browser session</CardTitle>
               <div className="flex items-center gap-2">
-                <Pill tone="success">Recorded</Pill>
-                <Button variant="ghost" size="sm">
+                <Pill tone={app.browserEvidence.tone === "Recorded" ? "success" : "warn"}>
+                  {app.browserEvidence.tone}
+                </Pill>
+                <Button variant="ghost" size="sm" disabled={app.browserEvidence.tone !== "Recorded"}>
                   <Play className="h-3 w-3" /> Watch replay
                 </Button>
               </div>
             </CardHeader>
             <CardBody className="p-0">
-              <div className="relative aspect-[16/9] bg-gradient-to-br from-[var(--color-bg)] to-[var(--color-surface-2)] flex items-center justify-center border-t border-[var(--color-border)]">
+              <div className="relative flex aspect-[16/9] items-center justify-center border-t border-[var(--color-border)] bg-gradient-to-br from-[var(--color-bg)] to-[var(--color-surface-2)]">
                 <div className="absolute inset-x-0 top-0 flex items-center gap-1.5 border-b border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3 py-2 backdrop-blur">
                   <div className="h-2 w-2 rounded-full bg-[var(--color-surface-2)]" />
                   <div className="h-2 w-2 rounded-full bg-[var(--color-surface-2)]" />
                   <div className="h-2 w-2 rounded-full bg-[var(--color-surface-2)]" />
-                  <div className="ml-2 flex h-5 items-center rounded bg-[var(--color-bg)] px-2 text-[10px] text-[var(--color-fg-subtle)] font-mono">
-                    {app.jobUrl}
+                  <div className="ml-2 flex h-5 min-w-0 items-center rounded bg-[var(--color-bg)] px-2 text-[10px] font-mono text-[var(--color-fg-subtle)]">
+                    <span className="truncate">{app.jobUrl === "#" ? app.id : app.jobUrl}</span>
                   </div>
-                  <span className="ml-auto flex items-center gap-1.5 text-[10px] text-emerald-700 font-mono">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{animation: "pulse-soft 2s ease-in-out infinite"}} />
-                    Browserbase · Live
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" style={{ animation: "pulse-soft 2s ease-in-out infinite" }} />
+                    Browserbase · {app.browserEvidence.tone}
                   </span>
                 </div>
-                <div className="text-center text-[var(--color-fg-subtle)] text-[12px] font-mono">
-                  Browserbase session preview
-                  <div className="mt-1 text-[10px]">[ recording playback ]</div>
+                <div className="px-6 text-center font-mono text-[12px] text-[var(--color-fg-subtle)]">
+                  <div className="text-[var(--color-fg-muted)]">{app.browserEvidence.label}</div>
+                  <div className="mt-1 text-[10px] leading-5">{app.browserEvidence.detail}</div>
                 </div>
               </div>
             </CardBody>
           </Card>
 
-          {/* mapped questions */}
           <Card>
             <CardHeader>
-              <CardTitle>Mapped questions <span className="text-[var(--color-fg-subtle)] font-mono ml-2 text-[11px]">14 of 14 resolved</span></CardTitle>
+              <CardTitle>
+                Mapped questions{" "}
+                <span className="ml-2 font-mono text-[11px] text-[var(--color-fg-subtle)]">
+                  {app.questionSummary}
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardBody className="p-0">
               <div className="divide-y divide-[var(--color-border)]">
-                {mockMappedQuestions.map((q) => (
+                {app.questions.map((q) => (
                   <div key={q.id} className="px-5 py-3.5">
-                    <div className="flex items-start justify-between gap-3 mb-1.5">
-                      <div className="text-[13px] text-[var(--color-fg)]">
-                        {q.label}
-                      </div>
-                      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide font-mono", sourceColors[q.source])}>
+                    <div className="mb-1.5 flex items-start justify-between gap-3">
+                      <div className="text-[13px] text-[var(--color-fg)]">{q.label}</div>
+                      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide", sourceColors[q.source])}>
                         {sourceLabels[q.source]}
                       </span>
                     </div>
-                    <div className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed font-mono">
-                      {q.answer}
+                    <div className="font-mono text-[12px] leading-relaxed text-[var(--color-fg-muted)]">{q.answer}</div>
+                    <div className="mt-1.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">{q.canonicalKey}</div>
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Event log</CardTitle>
+              <Pill tone={app.source === "live" ? "success" : "neutral"}>{app.source === "live" ? "convex" : "seeded"}</Pill>
+            </CardHeader>
+            <CardBody className="p-0">
+              <div className="divide-y divide-[var(--color-border)]">
+                {app.events.map((event) => (
+                  <div key={event.id} className="grid gap-3 px-5 py-3.5 md:grid-cols-[96px_1fr_auto]">
+                    <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">{formatEventTime(event.time)}</div>
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--color-fg-subtle)]">{event.stage}</div>
+                      <div className="mt-1 text-[13px] leading-5 text-[var(--color-fg-muted)]">{event.message}</div>
                     </div>
-                    <div className="mt-1.5 text-[10px] text-[var(--color-fg-subtle)] font-mono">
-                      {q.canonicalKey}
-                    </div>
+                    <span className={cn("h-fit rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide", eventColors[event.level])}>
+                      {event.evidence ?? event.level}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -232,8 +275,20 @@ export default async function ApplicationDetailPage({
           </Card>
         </div>
 
-        {/* right column: persona reviews + log */}
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Submit evidence</CardTitle>
+              <Pill tone={app.submitEvidence.tone}>{app.submitEvidence.status}</Pill>
+            </CardHeader>
+            <CardBody>
+              <div className="flex items-start gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+                <ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--color-fg-muted)]" />
+                <p className="text-[12px] leading-5 text-[var(--color-fg-muted)]">{app.submitEvidence.detail}</p>
+              </div>
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>3-persona review</CardTitle>
@@ -241,24 +296,16 @@ export default async function ApplicationDetailPage({
             </CardHeader>
             <CardBody className="p-0">
               <div className="divide-y divide-[var(--color-border)]">
-                {mockPersonaReviews.map((r) => (
+                {app.personaReviews.map((r) => (
                   <div key={r.persona} className="px-5 py-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-[12px] font-medium text-[var(--color-fg)]">
-                        {r.persona}
-                      </div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-[12px] font-medium text-[var(--color-fg)]">{r.persona}</div>
                       <div className="flex items-center gap-2">
-                        <span className={cn("text-[10px] uppercase tracking-[0.15em] font-mono", verdictColors[r.verdict])}>
-                          {r.verdict}
-                        </span>
-                        <span className="font-mono text-[14px] text-[var(--color-fg)] tabular-nums">
-                          {r.score}
-                        </span>
+                        <span className={cn("font-mono text-[10px] uppercase tracking-[0.15em]", verdictColors[r.verdict])}>{r.verdict}</span>
+                        <span className="font-mono text-[14px] text-[var(--color-fg)] tabular-nums">{r.score}</span>
                       </div>
                     </div>
-                    <p className="text-[12px] text-[var(--color-fg-muted)] leading-relaxed">
-                      {r.notes}
-                    </p>
+                    <p className="text-[12px] leading-relaxed text-[var(--color-fg-muted)]">{r.notes}</p>
                   </div>
                 ))}
               </div>
@@ -267,32 +314,26 @@ export default async function ApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Resume artifact</CardTitle>
+              <CardTitle>Artifacts</CardTitle>
             </CardHeader>
-            <CardBody>
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-4 flex items-center gap-3">
-                <FileText className="h-5 w-5 text-[var(--color-fg-muted)]" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] text-[var(--color-fg)] truncate">
-                    mo-hoshir-{app.company.toLowerCase()}.pdf
+            <CardBody className="space-y-3">
+              {app.artifacts.map((artifact) => (
+                <div key={`${artifact.title}-${artifact.meta}`} className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+                  <FileText className="h-5 w-5 text-[var(--color-fg-muted)]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] text-[var(--color-fg)]">{artifact.title}</div>
+                    <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">{artifact.meta}</div>
                   </div>
-                  <div className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
-                    Tailored · 2 pages · 184KB
+                  <Pill tone={artifact.kind === "file" ? "success" : "neutral"}>{artifact.kind}</Pill>
+                </div>
+              ))}
+              <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                {app.summary.map((item) => (
+                  <div key={item.label} className="rounded border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-2">
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">{item.label}</div>
+                    <div className="mt-1 truncate text-[var(--color-fg)]">{item.value}</div>
                   </div>
-                </div>
-                <Button variant="ghost" size="icon">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-mono">
-                <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-2">
-                  <div className="text-[var(--color-fg-subtle)] uppercase tracking-wider text-[10px]">Bullets reordered</div>
-                  <div className="mt-1 text-[var(--color-fg)]">7</div>
-                </div>
-                <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-1)] px-2.5 py-2">
-                  <div className="text-[var(--color-fg-subtle)] uppercase tracking-wider text-[10px]">Skills emphasized</div>
-                  <div className="mt-1 text-[var(--color-fg)]">+4</div>
-                </div>
+                ))}
               </div>
             </CardBody>
           </Card>
@@ -300,4 +341,15 @@ export default async function ApplicationDetailPage({
       </div>
     </div>
   );
+}
+
+function scoreValue(value: number | null): string {
+  if (value === null) return "pending";
+  return `${Math.round(value)}%`;
+}
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }

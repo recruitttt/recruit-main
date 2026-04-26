@@ -675,6 +675,15 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
               {tailoring.state.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Tailor selected job
             </Button>
+            {selected.jobId && (
+              <Link
+                href={`/applications/${selected.jobId}`}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/55 bg-white/24 px-3 text-xs font-semibold text-slate-700 transition hover:bg-white/40"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open detail
+              </Link>
+            )}
             {(tailoring.state.downloadable || tailored?.pdfReady) && (
               <Button size="sm" variant="secondary" onClick={tailoring.onDownload} disabled={!tailoring.state.downloadable}>
                 <Download className="h-3.5 w-3.5" />
