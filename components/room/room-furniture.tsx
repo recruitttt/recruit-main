@@ -24,7 +24,7 @@ export function RoomFurniture() {
       <WallTV position={[-9.9, 2.1, 1.5]} />
       <Bookshelf position={[9.9, 0, 1.8]} />
       <PlantInPot position={[-8.4, 0, 4.4]} variant="fern" />
-      <PlantInPot position={[8.6, 0, 4.6]} variant="palm" />
+      <PlantInPot position={[8.6, 0, 4.6]} variant="monstera" />
       <PlantInPot position={[2.4, 0, -4.4]} variant="succulent" />
       <FloorLamp position={[-8.55, 0, 1.15]} />
       <BackWallWindows />
@@ -546,7 +546,7 @@ function PlantInPot({
   variant,
 }: {
   position: [number, number, number];
-  variant: "fern" | "palm" | "succulent";
+  variant: "fern" | "monstera" | "succulent";
 }) {
   return (
     <group position={position}>
@@ -566,7 +566,7 @@ function PlantInPot({
         <meshStandardMaterial color="#3B2A1C" roughness={1} />
       </mesh>
       {variant === "fern" && <Fern />}
-      {variant === "palm" && <Palm />}
+      {variant === "monstera" && <Monstera />}
       {variant === "succulent" && <Succulent />}
     </group>
   );
@@ -595,48 +595,81 @@ function Fern() {
   );
 }
 
-function Palm() {
-  const blades = useMemo(
-    () => Array.from({ length: 10 }).map((_, i) => ({
-      angle: (i / 10) * Math.PI * 2,
-      tilt: 0.25 + Math.random() * 0.2,
-    })),
+function Monstera() {
+  const leaves = useMemo(
+    () => [
+      { x: -0.24, y: 0.72, z: 0.04, scale: 0.82, yaw: -0.52, roll: 0.32, color: "#2F6F3E" },
+      { x: 0.22, y: 0.78, z: 0.03, scale: 0.9, yaw: 0.45, roll: -0.28, color: "#367C49" },
+      { x: -0.08, y: 1.02, z: 0.0, scale: 1.0, yaw: -0.08, roll: 0.06, color: "#2E7441" },
+      { x: 0.34, y: 0.55, z: -0.02, scale: 0.72, yaw: 0.82, roll: -0.42, color: "#438A54" },
+      { x: -0.36, y: 0.5, z: -0.03, scale: 0.7, yaw: -0.85, roll: 0.44, color: "#3F8550" },
+      { x: 0.08, y: 1.22, z: 0.02, scale: 0.78, yaw: 0.24, roll: -0.1, color: "#2C6639" },
+    ],
     []
   );
   return (
-    <group position={[0, 0.2, 0]}>
-      {/* Trunk */}
-      <mesh position={[0, 0.4, 0]}>
-        <cylinderGeometry args={[0.035, 0.05, 0.8, 10]} />
-        <meshStandardMaterial color="#8C6A3F" roughness={0.85} />
-      </mesh>
-      {/* Blades */}
-      <group position={[0, 0.78, 0]}>
-        {blades.map((b, i) => (
-          <group key={i} rotation={[b.tilt, b.angle, 0]}>
-            <mesh position={[0, 0.28, 0]}>
-              <boxGeometry args={[0.07, 0.56, 0.015]} />
-              <meshStandardMaterial color={i % 2 === 0 ? "#3E7A3A" : "#4C9046"} roughness={0.9} />
+    <group position={[0, 0.16, 0]}>
+      {leaves.map((leaf, i) => (
+        <group key={i}>
+          <mesh
+            position={[leaf.x * 0.45, leaf.y * 0.5, leaf.z * 0.45]}
+            rotation={[0.16, leaf.yaw, leaf.roll]}
+          >
+            <cylinderGeometry args={[0.012, 0.018, leaf.y * 0.52, 6]} />
+            <meshStandardMaterial color="#476A38" roughness={0.82} />
+          </mesh>
+          <group position={[leaf.x, leaf.y, leaf.z]} rotation={[0.04, leaf.yaw, leaf.roll]}>
+            <mesh scale={[0.78 * leaf.scale, 1.08 * leaf.scale, 0.05]}>
+              <sphereGeometry args={[0.24, 20, 14]} />
+              <meshStandardMaterial color={leaf.color} roughness={0.72} metalness={0.02} />
+            </mesh>
+            <mesh position={[0, 0, 0.016]} rotation={[0, 0, Math.PI / 2]} scale={[leaf.scale, 1, 1]}>
+              <boxGeometry args={[0.006, 0.32, 0.006]} />
+              <meshStandardMaterial color="#77A96D" roughness={0.76} />
             </mesh>
           </group>
-        ))}
-      </group>
+        </group>
+      ))}
     </group>
   );
 }
 
 function Succulent() {
+  const leaves = useMemo(
+    () =>
+      Array.from({ length: 14 }).map((_, i) => {
+        const angle = (i / 14) * Math.PI * 2;
+        const inner = i % 2 === 0;
+        return {
+          angle,
+          radius: inner ? 0.1 : 0.17,
+          y: inner ? 0.2 : 0.16,
+          scale: inner ? 0.72 : 0.92,
+          color: inner ? "#6FA877" : "#557F5E",
+        };
+      }),
+    []
+  );
   return (
     <group position={[0, 0.2, 0]}>
-      {[0.12, 0.1, 0.08].map((r, i) => (
-        <mesh key={i} position={[0, 0.04 + i * 0.06, 0]}>
-          <sphereGeometry args={[r, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#5D8D60" roughness={0.85} />
+      {leaves.map((leaf, i) => (
+        <mesh
+          key={i}
+          position={[
+            Math.cos(leaf.angle) * leaf.radius,
+            leaf.y,
+            Math.sin(leaf.angle) * leaf.radius,
+          ]}
+          rotation={[0.38, -leaf.angle, 0.18]}
+          scale={[leaf.scale, 0.34, 0.18]}
+        >
+          <sphereGeometry args={[0.16, 16, 10]} />
+          <meshStandardMaterial color={leaf.color} roughness={0.78} />
         </mesh>
       ))}
-      <mesh position={[0, 0.22, 0]}>
-        <sphereGeometry args={[0.04, 10, 8]} />
-        <meshStandardMaterial color="#C77B8F" roughness={0.8} />
+      <mesh position={[0, 0.24, 0]} scale={[0.7, 0.36, 0.7]}>
+        <sphereGeometry args={[0.13, 16, 10]} />
+        <meshStandardMaterial color="#80B986" roughness={0.76} />
       </mesh>
     </group>
   );

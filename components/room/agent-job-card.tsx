@@ -3,7 +3,6 @@
 import { Html } from "@react-three/drei";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import { useLiveRoom } from "@/lib/room/use-live-room";
-import { stageLabels } from "@/lib/mock-data";
 
 const STAGE_TINT: Record<string, string> = {
   queued: "#94A3B8",
@@ -29,19 +28,15 @@ export function AgentJobCard({ agentId }: { agentId: AgentId }) {
       zIndexRange={[40, 0]}
       occlude={false}
     >
-      <div className="pointer-events-none -translate-y-2 select-none rounded-[14px] border border-white/55 bg-[#F8FBFF]/92 px-2.5 py-1.5 shadow-[0_12px_28px_-14px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-md">
-        <div className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.18em] text-[#6B7A90]">
+      <div className="pointer-events-none -translate-y-2 select-none rounded-[10px] border border-white/45 bg-white/72 px-2 py-1 shadow-[0_10px_22px_-16px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-md">
+        <div className="flex max-w-[110px] items-center gap-1.5">
           <span
-            className="h-1 w-1 rounded-full"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{ backgroundColor: tint, boxShadow: `0 0 6px ${tint}88` }}
           />
-          {stageLabels[task.stage]}
-        </div>
-        <div className="mt-0.5 max-w-[150px] truncate text-[10.5px] font-semibold leading-tight text-[#101827]">
-          {task.company}
-        </div>
-        <div className="max-w-[150px] truncate text-[9.5px] leading-tight text-[#465568]">
-          {task.role}
+          <span className="truncate text-[10.5px] font-semibold leading-none text-[#101827]">
+            {task.company}
+          </span>
         </div>
       </div>
     </Html>

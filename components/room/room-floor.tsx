@@ -9,13 +9,28 @@ type Props = {
   onOpenSpaceClick?: () => void;
 };
 
+const WOOD_ROWS = ["#D7AD75", "#C9975E", "#E1B983", "#BE884F", "#D2A56A"];
+
 export function RoomFloor({ onOpenSpaceClick }: Props) {
   const floorGeom = useMemo(() => new THREE.PlaneGeometry(22, 12, 1, 1), []);
+  const plankRows = useMemo(() => {
+    const rows: { z: number; color: string; opacity: number }[] = [];
+    let i = 0;
+    for (let z = -5.57; z <= 5.57; z += 0.62) {
+      rows.push({
+        z,
+        color: WOOD_ROWS[i % WOOD_ROWS.length],
+        opacity: 0.28 + (i % 3) * 0.035,
+      });
+      i += 1;
+    }
+    return rows;
+  }, []);
   const plankLines = useMemo(() => {
     const arr: { z: number; alpha: number }[] = [];
     let i = 0;
-    for (let z = -5.5; z <= 5.5; z += 0.85) {
-      arr.push({ z, alpha: 0.055 + (i % 4) * 0.012 });
+    for (let z = -5.88; z <= 5.88; z += 0.62) {
+      arr.push({ z, alpha: 0.12 + (i % 4) * 0.015 });
       i += 1;
     }
     return arr;
@@ -23,14 +38,30 @@ export function RoomFloor({ onOpenSpaceClick }: Props) {
   const plankSeams = useMemo(() => {
     const arr: { x: number; z: number; alpha: number }[] = [];
     let row = 0;
-    for (let z = -5.08; z <= 5.08; z += 0.85) {
-      const offset = row % 2 === 0 ? -8.9 : -7.3;
-      for (let x = offset; x <= 9.2; x += 3.2) {
-        arr.push({ x, z, alpha: 0.045 + ((row + Math.round(x)) % 3) * 0.012 });
+    for (let z = -5.57; z <= 5.57; z += 0.62) {
+      const offset = row % 2 === 0 ? -9.4 : -7.55;
+      for (let x = offset; x <= 9.8; x += 3.7) {
+        arr.push({ x, z, alpha: 0.08 + ((row + Math.round(x)) % 3) * 0.016 });
       }
       row += 1;
     }
     return arr;
+  }, []);
+  const grainMarks = useMemo(() => {
+    const marks: { x: number; z: number; w: number; alpha: number }[] = [];
+    for (let row = 0; row < 18; row += 1) {
+      const z = -5.22 + row * 0.62;
+      for (let i = 0; i < 5; i += 1) {
+        const seed = row * 17 + i * 11;
+        marks.push({
+          x: -9.4 + ((seed * 1.73) % 18.8),
+          z: z + (((seed * 0.37) % 0.24) - 0.12),
+          w: 0.7 + ((seed * 0.19) % 0.75),
+          alpha: 0.035 + (i % 3) * 0.012,
+        });
+      }
+    }
+    return marks;
   }, []);
 
   return (
@@ -41,26 +72,33 @@ export function RoomFloor({ onOpenSpaceClick }: Props) {
       }}
     >
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} geometry={floorGeom}>
-        <meshStandardMaterial color="#D6C2A0" roughness={0.82} metalness={0} envMapIntensity={0.2} />
+        <meshStandardMaterial color="#C89A63" roughness={0.72} metalness={0} envMapIntensity={0.26} />
       </mesh>
 
+      {plankRows.map((p, i) => (
+        <mesh key={`row-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0012, p.z]}>
+          <planeGeometry args={[22, 0.6]} />
+          <meshBasicMaterial color={p.color} transparent opacity={p.opacity} />
+        </mesh>
+      ))}
       {plankLines.map((p, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, p.z]}>
-          <planeGeometry args={[22, 0.012]} />
-          <meshBasicMaterial color="#8A6A40" transparent opacity={p.alpha} />
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0024, p.z]}>
+          <planeGeometry args={[22, 0.018]} />
+          <meshBasicMaterial color="#6F4A24" transparent opacity={p.alpha} />
         </mesh>
       ))}
       {plankSeams.map((p, i) => (
-        <mesh key={`seam-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.0025, p.z]}>
-          <planeGeometry args={[0.012, 0.62]} />
-          <meshBasicMaterial color="#8A6A40" transparent opacity={p.alpha} />
+        <mesh key={`seam-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.0028, p.z]}>
+          <planeGeometry args={[0.014, 0.48]} />
+          <meshBasicMaterial color="#6B431E" transparent opacity={p.alpha} />
         </mesh>
       ))}
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, -2.2]}>
-        <planeGeometry args={[20, 5]} />
-        <meshStandardMaterial color="#E9D7B0" roughness={1} transparent opacity={0.32} />
-      </mesh>
+      {grainMarks.map((p, i) => (
+        <mesh key={`grain-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.0032, p.z]}>
+          <planeGeometry args={[p.w, 0.012]} />
+          <meshBasicMaterial color="#5F3B1C" transparent opacity={p.alpha} />
+        </mesh>
+      ))}
 
       <RoundedBox args={[22, 7.4, 0.2]} radius={0.04} smoothness={4} position={[0, 3.7, -5.2]}>
         <meshStandardMaterial color="#F3EAD6" roughness={0.92} metalness={0} />
