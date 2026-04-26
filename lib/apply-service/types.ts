@@ -231,7 +231,7 @@ export type ApplyJob = {
 export type ApplyRun = {
   id: string;
   status: ApplyRunStatus;
-  source: "mock" | "recruit2-api";
+  source: "mock" | "recruit2-api" | "convex-application-actions";
   jobs: ApplyJob[];
   settings: ApplyServiceSettings;
   questionGroups: DeferredQuestionGroup[];

@@ -73,6 +73,9 @@ export const convexRefs = {
     createApplicationJob: makeFunctionReference<"mutation">(
       "applicationJobs:createApplicationJob"
     ),
+    createAndScheduleApplicationJob: makeFunctionReference<"mutation">(
+      "applicationJobs:createAndScheduleApplicationJob"
+    ),
     getApplicationJob: makeFunctionReference<"query">(
       "applicationJobs:getApplicationJob"
     ),

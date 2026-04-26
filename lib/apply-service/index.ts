@@ -4,7 +4,6 @@ export * from "./profile";
 export * from "./recruit2-api";
 export * from "./recruit2-payload";
 export * from "./request";
-export * from "./runtime";
 export * from "./settings";
 export * from "./shortlist";
 export * from "./singleton";

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
+  anyApi,
   internalMutationGeneric,
   internalQueryGeneric,
   mutationGeneric,
@@ -113,6 +114,98 @@ export const createApplicationJob = mutation({
       createdAt: now,
     });
     return { jobId, idempotencyKey, status: "queued" as const };
+  },
+});
+
+export const createAndScheduleApplicationJob = mutation({
+  args: {
+    demoUserId: v.optional(v.string()),
+    profileId: v.optional(v.string()),
+    jobId: v.optional(v.id("ingestedJobs")),
+    targetUrl: v.string(),
+    providerHint: v.optional(v.string()),
+    company: v.optional(v.string()),
+    title: v.optional(v.string()),
+    submitPolicy: v.optional(v.union(v.literal("dry_run"), v.literal("submit"))),
+    engine: v.optional(v.union(v.literal("deterministic"), v.literal("ai-fill"))),
+    llmMode: v.optional(v.union(v.literal("off"), v.literal("review_only"), v.literal("best_effort"))),
+    repairLimit: v.optional(v.number()),
+  },
+  returns: v.object({
+    jobId: v.id("applicationJobs"),
+    idempotencyKey: v.string(),
+    status: v.string(),
+    scheduled: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const provider = coerceProvider(args.providerHint) ?? detectProviderFromUrl(args.targetUrl);
+    const canonicalTargetUrl = canonicalizeJobUrl(args.targetUrl);
+    const idempotencyKey = computeApplicationIdempotencyKey({
+      demoUserId,
+      profileId: args.profileId,
+      provider,
+      providerJobId: extractProviderJobId(provider, canonicalTargetUrl),
+      targetUrl: canonicalTargetUrl,
+      company: args.company,
+      title: args.title,
+    });
+    const existing = await ctx.db
+      .query("applicationJobs")
+      .withIndex("by_idempotency", (q: any) => q.eq("idempotencyKey", idempotencyKey))
+      .first();
+
+    const now = new Date().toISOString();
+    const jobId = existing?._id ?? await ctx.db.insert("applicationJobs", omitUndefined({
+      demoUserId,
+      profileId: args.profileId,
+      jobId: args.jobId,
+      targetUrl: args.targetUrl,
+      canonicalTargetUrl,
+      providerHint: args.providerHint,
+      provider,
+      company: args.company,
+      title: args.title,
+      submitPolicy: args.submitPolicy ?? "dry_run",
+      engine: args.engine,
+      llmMode: args.llmMode ?? "best_effort",
+      repairLimit: args.repairLimit ?? 1,
+      status: "queued" as const,
+      attemptCount: 0,
+      repairAttemptCount: 0,
+      idempotencyKey,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    if (!existing) {
+      await ctx.db.insert("applicationJobCheckpoints", {
+        jobId,
+        status: "queued",
+        checkpoint: "job_created",
+        payload: { targetUrl: args.targetUrl, provider, submitPolicy: args.submitPolicy ?? "dry_run" },
+        createdAt: now,
+      });
+    }
+
+    const scheduled = !existing || !isTerminalStatus(existing.status);
+    if (scheduled) {
+      await ctx.scheduler.runAfter(0, anyApi.applicationActions.runApplicationJob, { jobId });
+      await ctx.db.insert("applicationJobCheckpoints", {
+        jobId,
+        status: existing?.status ?? "queued",
+        checkpoint: "scheduled",
+        payload: { source: "apply_service_fallback" },
+        createdAt: now,
+      });
+    }
+
+    return {
+      jobId,
+      idempotencyKey,
+      status: existing?.status ?? "queued",
+      scheduled,
+    };
   },
 });
 

@@ -17,6 +17,7 @@ import {
 import {
   GET as proxyRecruit2Events,
 } from "../app/api/applications/runs/[runId]/recruit2/events/route";
+import { startConvexApplyRun } from "../lib/apply-service/convex-engine";
 import { getApplyRunStore, startRecruit2ApplyRun } from "../lib/apply-service";
 
 process.env.RECRUIT2_APPLY_API_URL = "";
@@ -135,6 +136,44 @@ async function main() {
   assert.equal(unreachableRecruit2.ok, false);
   assert.equal(unreachableRecruit2.status, 503);
   assert.match(unreachableRecruit2.reason, /^apply_engine_unreachable: fetch failed/);
+
+  const convexStarted = await startConvexApplyRun({
+    jobs: [
+      {
+        id: "job_convex_1",
+        company: "Acme",
+        title: "AI Engineer",
+        url: "https://jobs.ashbyhq.com/acme/convex-1",
+      },
+      {
+        id: "job_convex_2",
+        company: "Beta",
+        title: "Backend Engineer",
+        url: "https://jobs.lever.co/beta/11111111-1111-4111-8111-111111111111",
+      },
+    ],
+    profile: { name: "Om Sanan", email: "om@example.com" },
+    tailoredResumes: {},
+    settings: {
+      maxApplicationsPerRun: 20,
+      maxConcurrentApplications: 10,
+      maxConcurrentPerDomain: 10,
+      mode: "manual",
+      devSkipRealSubmit: true,
+      computerUseModel: "gpt-5.4-nano",
+    },
+    consent: { externalTargetsApproved: true },
+  }, {
+    client: {
+      mutation: async (_ref: unknown, args: { targetUrl: string; providerHint?: string }) => ({
+        jobId: `convex_${args.providerHint}_${args.targetUrl.includes("lever") ? "2" : "1"}`,
+        scheduled: true,
+      }),
+    } as never,
+  });
+  assert.equal(convexStarted.ok, true);
+  assert.equal(convexStarted.ok ? convexStarted.jobs.length : 0, 2);
+  assert.equal(convexStarted.ok ? convexStarted.jobs[0]?.jobId : "", "convex_ashby_1");
 
   process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
   globalThis.fetch = (async () => {

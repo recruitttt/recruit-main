@@ -1,5 +1,6 @@
 import { readJson } from "../../_route-utils";
-import { normalizeApplyBatchRequest, startApplyBatch } from "@/lib/apply-service";
+import { normalizeApplyBatchRequest } from "@/lib/apply-service";
+import { startApplyBatch } from "@/lib/apply-service/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

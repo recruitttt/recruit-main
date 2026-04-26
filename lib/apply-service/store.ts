@@ -181,9 +181,14 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     return clone(job);
   }
 
-  function attachRemoteRun(runId: string, remoteRunId: string, remoteJobs: Array<{ slug: string; url?: string }>) {
+  function attachRemoteRun(
+    runId: string,
+    remoteRunId: string,
+    remoteJobs: Array<{ slug: string; url?: string }>,
+    source: ApplyRun["source"] = "recruit2-api",
+  ) {
     const run = requireRun(runId);
-    run.source = "recruit2-api";
+    run.source = source;
     run.remoteRunId = remoteRunId;
     for (const job of run.jobs) {
       const remote = remoteJobs.find((item) => item.url === job.job.applicationUrl || item.url === job.job.url) ?? remoteJobs.shift();
