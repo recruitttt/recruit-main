@@ -10,6 +10,7 @@ export type GraphNodeKind =
   | "company"
   | "school"
   | "skill"
+  | "link"
   | "publication"
   | "honor";
 
@@ -18,6 +19,7 @@ export type GraphEdgeKind =
   | "worked_at"
   | "studied_at"
   | "uses_skill"
+  | "links_to"
   | "wrote"
   | "received";
 
@@ -46,13 +48,14 @@ export interface GraphData {
 }
 
 export const NODE_COLORS: Record<GraphNodeKind, string> = {
-  person: "#fbbf24", // amber — you, central
-  project: "#34d399", // emerald
-  company: "#60a5fa", // blue
-  school: "#c084fc", // purple
-  skill: "#f472b6", // pink
-  publication: "#fb923c", // orange
-  honor: "#facc15", // yellow
+  person: "#D2A23A",
+  project: "#2F8F57",
+  company: "#4E7CBF",
+  school: "#8C6AC8",
+  skill: "#A45E83",
+  link: "#2E9C9A",
+  publication: "#C9783A",
+  honor: "#B89A2E",
 };
 
 export const EDGE_LABELS: Record<GraphEdgeKind, string> = {
@@ -60,6 +63,7 @@ export const EDGE_LABELS: Record<GraphEdgeKind, string> = {
   worked_at: "worked at",
   studied_at: "studied at",
   uses_skill: "uses",
+  links_to: "links to",
   wrote: "wrote",
   received: "received",
 };
@@ -69,6 +73,7 @@ export const NODE_SIZE: Record<GraphNodeKind, number> = {
   project: 6,
   company: 5.5,
   school: 5.5,
+  link: 4.8,
   publication: 5,
   honor: 4.5,
   skill: 4,

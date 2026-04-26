@@ -6,7 +6,7 @@
  *   - Renders a sticky Data / Graph toggle (tab list with aria roles).
  *   - Mounts <DataView> (7 SectionCards: header, identity, experience,
  *     education, projects, skills, extras, debug) when view=data (default).
- *   - Mounts <GraphView> (react-force-graph-2d on a <canvas>) when view=graph.
+ *   - Mounts <GraphView> (react-force-graph-2d on a bounded <canvas>) when view=graph.
  *   - Both subtrees remain mounted (display:none toggling), so subscriptions
  *     survive a tab flip.
  *
@@ -144,6 +144,49 @@ function stubConvexQueries(page: Page) {
   });
 }
 
+async function expectGraphCanvasReady(page: Page) {
+  const canvas = page.locator("canvas").first();
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+
+  await expect
+    .poll(
+      () =>
+        canvas.evaluate((element) => {
+          const graphCanvas = element as HTMLCanvasElement;
+          const rect = graphCanvas.getBoundingClientRect();
+          return rect.width >= 320 &&
+            rect.height >= 400 &&
+            graphCanvas.width > 0 &&
+            graphCanvas.height > 0
+            ? 1
+            : 0;
+        }),
+      { timeout: 10_000 },
+    )
+    .toBe(1);
+
+  await expect
+    .poll(
+      () =>
+        canvas.evaluate((element) => {
+          const graphCanvas = element as HTMLCanvasElement;
+          const ctx = graphCanvas.getContext("2d");
+          if (!ctx || graphCanvas.width === 0 || graphCanvas.height === 0) return 0;
+          const data = ctx.getImageData(0, 0, graphCanvas.width, graphCanvas.height).data;
+          let paintedPixels = 0;
+          for (let index = 0; index < data.length; index += 32) {
+            const alpha = data[index + 3];
+            const isNearWhite = data[index] > 248 && data[index + 1] > 248 && data[index + 2] > 248;
+            if (alpha > 0 && !isNearWhite) paintedPixels += 1;
+            if (paintedPixels > 40) break;
+          }
+          return paintedPixels;
+        }),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
+}
+
 // ---------------------------------------------------------------------------
 // Tests: /profile?view=data (default)
 // ---------------------------------------------------------------------------
@@ -228,6 +271,7 @@ test.describe("Profile page: graph view", () => {
 
     await expect(page).toHaveURL(/[?&]view=graph/);
     await expect(graphTab).toHaveAttribute("aria-selected", "true");
+    await expectGraphCanvasReady(page);
   });
 
   test("?view=graph mounts a canvas element for the force graph", async ({
@@ -240,10 +284,7 @@ test.describe("Profile page: graph view", () => {
       page.getByRole("tab", { name: /Graph view/i }),
     ).toHaveAttribute("aria-selected", "true");
 
-    // react-force-graph-2d renders a <canvas> element inside the container.
-    // We give it up to 10 s because the dynamic import for the graph engine
-    // may take a moment to load.
-    await expect(page.locator("canvas").first()).toBeVisible({ timeout: 10_000 });
+    await expectGraphCanvasReady(page);
   });
 
   test("toggling back to data view restores ?view=data URL and shows sections", async ({

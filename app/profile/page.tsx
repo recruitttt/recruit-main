@@ -1,5 +1,5 @@
 //
-// /profile — dual-mode (data | graph) profile dashboard.
+// /profile — tri-mode (data | timeline | graph) profile dashboard.
 //
 // Spec: docs/superpowers/specs/2026-04-25-recruit-merge-design.md §9
 //
@@ -8,19 +8,20 @@
 //   2. Redirects unauthenticated users to /sign-in. This route deliberately
 //      lives outside app/(app) so it is not hidden by the onboarding cookie
 //      gate after logout/re-login or cookie clearing.
-//   3. Renders a sticky toggle (?view=data default | ?view=graph) and mounts
-//      BOTH <DataView /> and <GraphView /> — the inactive one is hidden via
+//   3. Renders a sticky toggle (?view=data default | timeline | graph) and mounts
+//      each view — the inactive one is hidden via
 //      `display:none` so neither tears down its Convex subscriptions when
 //      the user flips back and forth.
 //
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Database, Network } from "lucide-react";
+import { Clock3, Database, Network } from "lucide-react";
 
 import { isAuthenticated } from "@/lib/auth-server";
 import { DataView } from "@/components/profile/DataView";
 import { GraphView } from "@/components/profile/GraphView";
+import { TimelineView } from "@/components/profile/TimelineView";
 
 import { cx, mistClasses } from "@/components/design-system";
 import { PageTransition } from "@/components/page-transition";
@@ -34,7 +35,7 @@ export const metadata = {
     "Dense data dashboard + interactive knowledge graph of everything Recruit knows about you.",
 };
 
-type ViewMode = "data" | "graph";
+type ViewMode = "data" | "timeline" | "graph";
 
 export default async function ProfilePage({
   searchParams,
@@ -56,11 +57,11 @@ export default async function ProfilePage({
   const view = parseView(params["view"]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
+    <div className={cx("flex min-h-screen flex-col", mistClasses.appSurface)}>
       <Topnav />
       <main className="flex-1">
         <PageTransition>
-          <div className={cx("min-h-screen pb-12", mistClasses.page)}>
+          <div className={cx(mistClasses.appSurface, "min-h-screen pb-12")}>
             <ViewToggle current={view} />
 
             {/* Both subtrees mounted so subscriptions survive a tab flip. */}
@@ -75,9 +76,13 @@ export default async function ProfilePage({
                 fallbackImage={sessionUser.image ?? undefined}
               />
             </div>
+            <div hidden={view !== "timeline"}>
+              <TimelineView userId={sessionUser.id} active={view === "timeline"} />
+            </div>
             <div hidden={view !== "graph"}>
-              {/* GraphView reads its own session via authClient — no props. */}
-              <GraphView />
+              <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 px-4 pb-16 pt-6 md:px-6">
+                <GraphView userId={sessionUser.id} active={view === "graph"} />
+              </div>
             </div>
           </div>
         </PageTransition>
@@ -88,6 +93,7 @@ export default async function ProfilePage({
 
 function parseView(raw: string | string[] | undefined): ViewMode {
   const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v === "timeline") return "timeline";
   return v === "graph" ? "graph" : "data";
 }
 
@@ -103,6 +109,7 @@ function ViewToggle({ current }: { current: ViewMode }): React.ReactElement {
         aria-label="Profile view mode"
       >
         <ToggleLink mode="data" current={current} icon={Database} label="Data view" />
+        <ToggleLink mode="timeline" current={current} icon={Clock3} label="Timeline" />
         <ToggleLink mode="graph" current={current} icon={Network} label="Graph view" />
       </div>
     </div>

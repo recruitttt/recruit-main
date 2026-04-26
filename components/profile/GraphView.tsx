@@ -16,14 +16,21 @@
 // a lightweight canvas, and keep the side drawer/filter interactions local.
 //
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
+import type {
+  ForceGraphMethods,
+  ForceGraphProps,
+  LinkObject,
+  NodeObject,
+} from "react-force-graph-2d";
 
 import { api } from "@/convex/_generated/api";
-import { authClient } from "@/lib/auth-client";
 import { cx } from "@/components/design-system";
 import type {
   Education,
+  ProfileLinks,
   UserProfile,
   WorkExperience,
 } from "@/lib/profile";
@@ -36,6 +43,7 @@ import {
   NODE_SIZE,
   type GraphData,
   type GraphEdge,
+  type GraphEdgeKind,
   type GraphFilter,
   type GraphNode,
   type GraphNodeKind,
@@ -67,25 +75,79 @@ interface ConvexRepoSummaryRow {
   generatedByModel?: string;
 }
 
-type PositionedGraphNode = GraphNode & {
-  x: number;
-  y: number;
-  radius: number;
+type ForceNode = GraphNode & {
+  id: string;
+  val: number;
+  x?: number;
+  y?: number;
+  fx?: number;
+  fy?: number;
 };
 
-type PositionedGraph = {
-  nodes: PositionedGraphNode[];
-  edges: GraphEdge[];
+type ForceLink = Omit<GraphEdge, "source" | "target"> & {
+  id: string;
+  source: string | ForceNode;
+  target: string | ForceNode;
 };
+
+type ForceGraphNode = NodeObject<ForceNode>;
+type ForceGraphLink = LinkObject<ForceNode, ForceLink>;
+type ForceGraphHandle = ForceGraphMethods<ForceGraphNode, ForceGraphLink>;
+
+type ForceGraphData = {
+  nodes: ForceNode[];
+  links: ForceLink[];
+};
+
+const CLUSTER_ANCHORS: Record<GraphNodeKind, { x: number; y: number }> = {
+  person: { x: 0, y: 0 },
+  project: { x: -118, y: 10 },
+  skill: { x: 136, y: 36 },
+  company: { x: -28, y: -128 },
+  school: { x: 112, y: -106 },
+  link: { x: -150, y: 118 },
+  publication: { x: 34, y: 142 },
+  honor: { x: 158, y: 112 },
+};
+
+const CLUSTER_SPREAD: Record<GraphNodeKind, number> = {
+  person: 0,
+  project: 68,
+  skill: 82,
+  company: 48,
+  school: 42,
+  link: 36,
+  publication: 42,
+  honor: 36,
+};
+
+type ForceGraphLoaderProps = ForceGraphProps<ForceGraphNode, ForceGraphLink> & {
+  graphRef: React.MutableRefObject<ForceGraphHandle | undefined>;
+};
+
+const ForceGraph2D = dynamic<ForceGraphLoaderProps>(
+  async () => {
+    const ForceGraph = (await import("react-force-graph-2d")).default;
+    return function ForceGraphWithRef({
+      graphRef,
+      ...props
+    }: ForceGraphLoaderProps): React.ReactElement {
+      return <ForceGraph {...props} ref={graphRef} />;
+    };
+  },
+  { ssr: false },
+);
+
+export interface GraphViewProps {
+  userId: string;
+  active: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function GraphView(): React.ReactElement {
-  const { data: session } = authClient.useSession();
-  const userId = session?.user?.id;
-
+export function GraphView({ userId, active }: GraphViewProps): React.ReactElement {
   const profileRow = useQuery(
     api.userProfiles.byUser,
     userId ? { userId } : "skip",
@@ -98,6 +160,7 @@ export function GraphView(): React.ReactElement {
 
   const [filter, setFilter] = useState<GraphFilter>("all");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<GraphEdge | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({
@@ -106,23 +169,39 @@ export function GraphView(): React.ReactElement {
   });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const graphRef = useRef<ForceGraphHandle | undefined>(undefined);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
 
   // Track container size so the canvas matches the viewport region.
   useEffect(() => {
     const node = containerRef.current;
-    if (!node) return;
+    if (!node || !active) return;
+    let frame = 0;
     const update = () => {
-      const rect = node.getBoundingClientRect();
-      setSize({
-        width: Math.max(0, Math.floor(rect.width)),
-        height: Math.max(0, Math.floor(rect.height)),
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const rect = node.getBoundingClientRect();
+        const nextSize = {
+          width: Math.max(0, Math.floor(rect.width)),
+          height: Math.max(0, Math.floor(rect.height)),
+        };
+        setSize((previous) =>
+          previous.width === nextSize.width && previous.height === nextSize.height
+            ? previous
+            : nextSize,
+        );
       });
     };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+    window.addEventListener("resize", update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [active]);
 
   // Build the full graph from profile + repo summaries — recomputed only
   // when those inputs actually change (Convex returns stable references
@@ -144,27 +223,51 @@ export function GraphView(): React.ReactElement {
     [filteredGraph.nodes],
   );
 
-  const positionedGraph = useMemo(
-    () => layoutGraph(filteredGraph, size.width, size.height),
-    [filteredGraph, size.height, size.width],
+  const forceGraphData = useMemo(
+    () => toForceGraphData(filteredGraph),
+    [filteredGraph],
   );
 
   const handleNodeClick = useCallback((node: GraphNode) => {
     setSelectedNode(node);
   }, []);
 
-  const handleEdgeHover = useCallback(
-    (edge: GraphEdge | null, position: { x: number; y: number } | null) => {
-      setHoveredEdge(edge);
-      setHoverPos(position);
-    },
-    [],
-  );
+  const handlePointerMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    pointerRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  }, []);
 
-  const handleResetZoom = useCallback(() => undefined, []);
+  const handleLinkHover = useCallback((link: ForceGraphLink | null) => {
+    if (!link) {
+      setHoveredEdge(null);
+      setHoverPos(null);
+      return;
+    }
+    setHoveredEdge(edgeFromForceLink(link));
+    setHoverPos(pointerRef.current);
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    graphRef.current?.zoomToFit(360, 48);
+  }, []);
+
+  useEffect(() => {
+    if (!active || size.width === 0 || size.height === 0 || forceGraphData.nodes.length === 0) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      graphRef.current?.zoomToFit(480, 56);
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [active, filter, forceGraphData, size.height, size.width]);
 
   const isLoading =
-    profileRow === undefined || repoRows === undefined || size.width === 0;
+    profileRow === undefined ||
+    repoRows === undefined ||
+    (active && (size.width === 0 || size.height === 0));
 
   return (
     <div className="flex h-full w-full flex-col gap-3">
@@ -180,26 +283,36 @@ export function GraphView(): React.ReactElement {
       <div
         ref={containerRef}
         className={cx(
-          "relative flex-1 overflow-hidden rounded-2xl border border-white/65 bg-gradient-to-br from-white/65 via-white/50 to-white/35",
-          "shadow-[0_22px_60px_rgba(15,23,42,0.10),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-2xl",
+          "relative overflow-hidden rounded-[28px] border border-white/70 bg-[#eef4eb]/70",
+          "shadow-[0_28px_80px_rgba(45,69,50,0.14),inset_0_1px_0_rgba(255,255,255,0.86)] backdrop-blur-2xl",
         )}
-        style={{ minHeight: 480 }}
+        style={{ height: "clamp(520px, 68vh, 820px)" }}
+        onMouseMove={handlePointerMove}
+        onMouseLeave={() => {
+          pointerRef.current = null;
+          handleLinkHover(null);
+        }}
       >
+        <ConstellationBackdrop />
         {isLoading ? (
-          <GraphPlaceholder text="Building knowledge graph…" />
+          <GraphPlaceholder text="Mapping profile constellation..." />
         ) : filteredGraph.nodes.length === 0 ? (
           <EmptyState
             hasAnyNodes={fullGraph.nodes.length > 0}
             onResetFilter={() => setFilter("all")}
           />
         ) : (
-          <CanvasGraph
-            graph={positionedGraph}
+          <ForceGraphCanvas
+            graphRef={graphRef}
+            graphData={forceGraphData}
             width={size.width}
             height={size.height}
+            selectedNodeId={selectedNode?.id ?? null}
+            hoveredNodeId={hoveredNodeId}
             hoveredEdge={hoveredEdge}
             onNodeClick={handleNodeClick}
-            onEdgeHover={handleEdgeHover}
+            onNodeHover={setHoveredNodeId}
+            onLinkHover={handleLinkHover}
           />
         )}
 
@@ -252,6 +365,19 @@ function buildGraph(
     },
   });
 
+  // ---- Source/profile links: make saved links visible as graph connections.
+  const linkIdByKey = new Map<keyof ProfileLinks, string>();
+  for (const link of profileLinkNodes(profile.links)) {
+    const id = ensureLinkNode(nodes, link);
+    linkIdByKey.set(link.key, id);
+    edges.push({
+      source: personId,
+      target: id,
+      kind: "links_to",
+      detail: link.platform,
+    });
+  }
+
   // Skills are deduped across profile.skills + per-repo keyTechnologies.
   // We resolve every skill name to a canonical node id once.
   const skillIdByName = new Map<string, string>();
@@ -274,7 +400,17 @@ function buildGraph(
     return id;
   };
 
-  for (const skill of profile.skills ?? []) ensureSkill(skill);
+  for (const skill of profile.skills ?? []) {
+    const skillId = ensureSkill(skill);
+    if (skillId) {
+      edges.push({
+        source: personId,
+        target: skillId,
+        kind: "uses_skill",
+        detail: "profile skill",
+      });
+    }
+  }
 
   // ---- Projects: prefer rich repo summaries; fall back to UserProfile.github.topRepos
   const repoIdByFullName = new Map<string, string>();
@@ -305,6 +441,10 @@ function buildGraph(
       },
     });
     edges.push({ source: personId, target: id, kind: "built" });
+    const githubLinkId = linkIdByKey.get("github");
+    if (githubLinkId) {
+      edges.push({ source: githubLinkId, target: id, kind: "links_to", detail: "repository" });
+    }
 
     for (const tech of summary.keyTechnologies ?? []) {
       const skillId = ensureSkill(tech);
@@ -335,6 +475,10 @@ function buildGraph(
       },
     });
     edges.push({ source: personId, target: id, kind: "built" });
+    const githubLinkId = linkIdByKey.get("github");
+    if (githubLinkId) {
+      edges.push({ source: githubLinkId, target: id, kind: "links_to", detail: "repository" });
+    }
     if (repo.language) {
       const skillId = ensureSkill(repo.language);
       if (skillId) edges.push({ source: id, target: skillId, kind: "uses_skill" });
@@ -435,7 +579,33 @@ function buildGraph(
     }
   }
 
-  return { nodes, edges };
+  return normalizeGraph(nodes, edges);
+}
+
+function normalizeGraph(
+  nodes: ReadonlyArray<GraphNode>,
+  edges: ReadonlyArray<GraphEdge>,
+): GraphData {
+  const nodesById = new Map<string, GraphNode>();
+  for (const node of nodes) {
+    if (!nodesById.has(node.id)) nodesById.set(node.id, node);
+  }
+
+  const validIds = new Set(nodesById.keys());
+  const seenEdges = new Set<string>();
+  const dedupedEdges: GraphEdge[] = [];
+  for (const edge of edges) {
+    if (!validIds.has(edge.source) || !validIds.has(edge.target)) continue;
+    const key = `${edge.source}->${edge.target}:${edge.kind}:${edge.detail ?? ""}`;
+    if (seenEdges.has(key)) continue;
+    seenEdges.add(key);
+    dedupedEdges.push(edge);
+  }
+
+  return {
+    nodes: [...nodesById.values()],
+    edges: dedupedEdges,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -558,226 +728,521 @@ function isRecent(node: GraphNode): boolean {
 // Canvas rendering
 // ---------------------------------------------------------------------------
 
-function layoutGraph(graph: GraphData, width: number, height: number): PositionedGraph {
-  if (width <= 0 || height <= 0 || graph.nodes.length === 0) {
-    return { nodes: [], edges: [] };
-  }
-
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const maxRadius = Math.max(90, Math.min(width, height) / 2 - 64);
-  const innerRadius = Math.max(78, maxRadius * 0.56);
-  const ringCount = graph.nodes.length > 26 ? 3 : graph.nodes.length > 12 ? 2 : 1;
-  const people = graph.nodes.filter((node) => node.kind === "person");
-  const others = graph.nodes
-    .filter((node) => node.kind !== "person")
-    .sort((left, right) => nodeSortKey(left).localeCompare(nodeSortKey(right)));
-
-  const nodes: PositionedGraphNode[] = people.map((node, index) => {
-    const offset = people.length === 1 ? 0 : index * 22 - ((people.length - 1) * 22) / 2;
-    return {
-      ...node,
-      x: centerX + offset,
-      y: centerY,
-      radius: Math.max(9, node.size * 1.6),
-    };
-  });
-
-  others.forEach((node, index) => {
-    const ring = ringCount === 1 ? 0 : index % ringCount;
-    const ringRadius = ringCount === 1
-      ? maxRadius * 0.78
-      : innerRadius + ((maxRadius - innerRadius) * ring) / Math.max(1, ringCount - 1);
-    const angle = -Math.PI / 2 + (index / Math.max(1, others.length)) * Math.PI * 2 + ring * 0.16;
-    nodes.push({
-      ...node,
-      x: centerX + Math.cos(angle) * ringRadius,
-      y: centerY + Math.sin(angle) * ringRadius,
-      radius: Math.max(5, node.size * 1.35),
-    });
-  });
-
-  return { nodes, edges: graph.edges };
-}
-
-function CanvasGraph({
-  graph,
+function ForceGraphCanvas({
+  graphRef,
+  graphData,
   width,
   height,
+  selectedNodeId,
+  hoveredNodeId,
   hoveredEdge,
   onNodeClick,
-  onEdgeHover,
+  onNodeHover,
+  onLinkHover,
 }: {
-  graph: PositionedGraph;
+  graphRef: React.MutableRefObject<ForceGraphHandle | undefined>;
+  graphData: ForceGraphData;
   width: number;
   height: number;
+  selectedNodeId: string | null;
+  hoveredNodeId: string | null;
   hoveredEdge: GraphEdge | null;
   onNodeClick: (node: GraphNode) => void;
-  onEdgeHover: (edge: GraphEdge | null, position: { x: number; y: number } | null) => void;
+  onNodeHover: (nodeId: string | null) => void;
+  onLinkHover: (link: ForceGraphLink | null) => void;
 }): React.ReactElement {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const nodeCount = graphData.nodes.length;
+  const activeNodeId = hoveredNodeId ?? selectedNodeId;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(width * pixelRatio));
-    canvas.height = Math.max(1, Math.floor(height * pixelRatio));
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+  const focusNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (activeNodeId) ids.add(activeNodeId);
+    if (hoveredEdge) {
+      ids.add(hoveredEdge.source);
+      ids.add(hoveredEdge.target);
+    }
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    drawGraph(ctx, graph, width, height, hoveredEdge);
-  }, [graph, height, hoveredEdge, width]);
+    for (const link of graphData.links) {
+      const [sourceId, targetId] = forceLinkEndpointIds(link);
+      if (activeNodeId && (sourceId === activeNodeId || targetId === activeNodeId)) {
+        ids.add(sourceId);
+        ids.add(targetId);
+      }
+    }
 
-  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const position = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
-    const node = findHitNode(graph, position.x, position.y);
-    const edge = node ? null : findNearestEdge(graph, position.x, position.y);
-    canvas.style.cursor = node ? "pointer" : "default";
-    onEdgeHover(edge, edge ? position : null);
-  }, [graph, onEdgeHover]);
+    return ids.size > 0 ? ids : null;
+  }, [activeNodeId, graphData.links, hoveredEdge]);
 
-  const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const node = findHitNode(
-      graph,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-    );
-    if (node) onNodeClick(node);
-  }, [graph, onNodeClick]);
+  const activeLinkIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!activeNodeId && !hoveredEdge) return ids;
+
+    for (const link of graphData.links) {
+      const [sourceId, targetId] = forceLinkEndpointIds(link);
+      if (activeNodeId && (sourceId === activeNodeId || targetId === activeNodeId)) {
+        ids.add(link.id);
+        continue;
+      }
+      if (hoveredEdge && sameEdge(edgeFromForceLink(link), hoveredEdge)) {
+        ids.add(link.id);
+      }
+    }
+
+    return ids;
+  }, [activeNodeId, graphData.links, hoveredEdge]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-label="Profile knowledge graph"
-      className="block h-full w-full"
+    <div
+      className="absolute inset-0 z-10"
       role="img"
-      onClick={handleClick}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => onEdgeHover(null, null)}
-    />
+      aria-label="Profile knowledge graph"
+    >
+      <ForceGraph2D
+        graphRef={graphRef}
+        graphData={graphData}
+        width={width}
+        height={height}
+        backgroundColor="rgba(255,255,255,0)"
+        nodeId="id"
+        nodeVal={(node) => node.val}
+        nodeRelSize={4}
+        nodeColor={(node) => node.color}
+        nodeLabel={(node) => nodeTooltip(node)}
+        nodeCanvasObjectMode={() => "replace"}
+        nodeCanvasObject={(node, ctx, globalScale) => {
+          const focused = focusNodeIds?.has(node.id) ?? false;
+          drawForceNode(node, ctx, globalScale, nodeCount, {
+            hovered: hoveredNodeId === node.id,
+            selected: selectedNodeId === node.id,
+            related: Boolean(focusNodeIds && focused && node.id !== activeNodeId),
+            dimmed: Boolean(focusNodeIds && !focused),
+          });
+        }}
+        nodePointerAreaPaint={paintNodePointerArea}
+        linkSource="source"
+        linkTarget="target"
+        linkColor={(link) => {
+          const isHovered = Boolean(hoveredEdge && sameEdge(edgeFromForceLink(link), hoveredEdge));
+          if (isHovered) return "rgba(47,122,86,0.62)";
+          if (activeLinkIds.has(link.id)) return "rgba(47,122,86,0.34)";
+          if (focusNodeIds) return "rgba(67,87,73,0.055)";
+          return "rgba(67,87,73,0.15)";
+        }}
+        linkWidth={(link) => {
+          if (hoveredEdge && sameEdge(edgeFromForceLink(link), hoveredEdge)) return 1.65;
+          if (activeLinkIds.has(link.id)) return 1.15;
+          return focusNodeIds ? 0.55 : 0.72;
+        }}
+        linkLabel={(link) => linkTooltip(link)}
+        linkHoverPrecision={6}
+        onNodeClick={(node) => onNodeClick(node)}
+        onNodeHover={(node) => onNodeHover(node?.id ?? null)}
+        onLinkHover={onLinkHover}
+        showPointerCursor={(object) => Boolean(object)}
+        enableNodeDrag
+        enablePanInteraction
+        enablePointerInteraction
+        enableZoomInteraction
+        minZoom={0.18}
+        maxZoom={3.2}
+        cooldownTicks={80}
+        d3AlphaDecay={0.035}
+        d3VelocityDecay={0.34}
+      />
+    </div>
   );
 }
 
-function drawGraph(
+function toForceGraphData(graph: GraphData): ForceGraphData {
+  const orderedNodes = [...graph.nodes].sort((left, right) =>
+    nodeSortKey(left).localeCompare(nodeSortKey(right)),
+  );
+  const kindCounts = countByKind(orderedNodes);
+  const kindIndices: Record<GraphNodeKind, number> = {
+    person: 0,
+    project: 0,
+    company: 0,
+    school: 0,
+    skill: 0,
+    link: 0,
+    publication: 0,
+    honor: 0,
+  };
+  const nodes = orderedNodes.map((node, index): ForceNode => {
+    const kindIndex = kindIndices[node.kind]++;
+    const position = initialNodePosition(node, kindIndex, kindCounts[node.kind], index);
+    return {
+      ...node,
+      val: forceNodeValue(node),
+      x: position.x,
+      y: position.y,
+      ...(node.kind === "person" ? { fx: 0, fy: 0 } : {}),
+    };
+  });
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const links = graph.edges
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+    .map((edge, index): ForceLink => ({
+      id: `${edge.source}->${edge.target}:${edge.kind}:${index}`,
+      source: edge.source,
+      target: edge.target,
+      kind: edge.kind,
+      detail: edge.detail,
+    }));
+
+  return { nodes, links };
+}
+
+function initialNodePosition(
+  node: GraphNode,
+  kindIndex: number,
+  kindTotal: number,
+  absoluteIndex: number,
+): { x: number; y: number } {
+  if (node.kind === "person") return { x: 0, y: 0 };
+
+  const anchor = CLUSTER_ANCHORS[node.kind];
+  const spread = CLUSTER_SPREAD[node.kind];
+  const total = Math.max(1, kindTotal);
+  const turn = total === 1 ? 0.18 : kindIndex / total;
+  const angle = -Math.PI / 2 + turn * Math.PI * 2;
+  const ring = 12 + (kindIndex % 3) * (node.kind === "skill" ? 14 : 10);
+  const jitter = stableJitter(`${node.id}:${absoluteIndex}`) * 10;
+
+  return {
+    x: anchor.x + Math.cos(angle) * (spread * 0.52 + ring + jitter),
+    y: anchor.y + Math.sin(angle) * (spread * 0.42 + ring - jitter * 0.4),
+  };
+}
+
+function stableJitter(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return (hash % 1000) / 1000 - 0.5;
+}
+
+function forceNodeValue(node: GraphNode): number {
+  if (node.kind === "person") return 6.2;
+  if (node.kind === "project") return 3.8;
+  if (node.kind === "company" || node.kind === "school") return 3.2;
+  if (node.kind === "publication" || node.kind === "honor") return 2.8;
+  if (node.kind === "link") return 2.6;
+  return 2.05;
+}
+
+function drawForceNode(
+  node: ForceGraphNode,
   ctx: CanvasRenderingContext2D,
-  graph: PositionedGraph,
+  globalScale: number,
+  nodeCount: number,
+  state: { hovered: boolean; selected: boolean; related: boolean; dimmed: boolean },
+): void {
+  const x = node.x ?? 0;
+  const y = node.y ?? 0;
+  const radius = nodeRadius(node);
+  const isActive = state.hovered || state.selected;
+  const isEmphasized = isActive || state.related;
+  const activeLabel = isEmphasized || shouldDrawForceLabel(node, nodeCount);
+  const nodeColor = normalizeHexColor(node.color);
+  const mark = nodeTypeMark(node.kind);
+
+  ctx.save();
+  ctx.globalAlpha = state.dimmed ? 0.28 : 1;
+
+  drawNodeShape(ctx, node, x, y, radius + (isActive ? 1.15 : 0), {
+    fill: colorWithAlpha(nodeColor, state.dimmed ? 0.54 : 0.86),
+    halo: colorWithAlpha(nodeColor, isActive ? 0.24 : state.related ? 0.16 : 0.095),
+    stroke: isActive ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.8)",
+    selected: state.selected,
+    elevated: isEmphasized,
+  });
+
+  if (mark) {
+    drawNodeMark(ctx, mark, x, y, radius, node.kind);
+  }
+
+  if (activeLabel && !state.dimmed) {
+    drawForceLabel(ctx, node, x, y + radius + (isActive ? 11 : 8), globalScale, isEmphasized);
+  }
+  ctx.restore();
+}
+
+function drawNodeShape(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+  x: number,
+  y: number,
+  radius: number,
+  paint: { fill: string; halo: string; stroke: string; selected: boolean; elevated: boolean },
+): void {
+  const shape = nodeShape(node.kind);
+  const nodeColor = normalizeHexColor(node.color);
+
+  ctx.save();
+  ctx.shadowColor = paint.halo;
+  ctx.shadowBlur = paint.elevated ? 18 : 9;
+  ctx.fillStyle = paint.halo;
+  drawShapePath(ctx, shape, x, y, radius + (paint.elevated ? 5 : 3));
+  ctx.fill();
+
+  if (node.kind === "person") {
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = colorWithAlpha(nodeColor, paint.elevated ? 0.28 : 0.18);
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 8.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const gradient = ctx.createRadialGradient(
+    x - radius * 0.35,
+    y - radius * 0.45,
+    radius * 0.2,
+    x,
+    y,
+    radius * 1.4,
+  );
+  gradient.addColorStop(0, "rgba(255,255,255,0.92)");
+  gradient.addColorStop(0.28, paint.fill);
+  gradient.addColorStop(1, colorWithAlpha(nodeColor, 0.68));
+
+  ctx.shadowBlur = 0;
+  drawShapePath(ctx, shape, x, y, radius);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.lineWidth = paint.selected ? 1.8 : 1.05;
+  ctx.strokeStyle = paint.stroke;
+  ctx.stroke();
+
+  ctx.globalAlpha = node.kind === "skill" ? 0.22 : 0.32;
+  ctx.beginPath();
+  ctx.ellipse(
+    x - radius * 0.25,
+    y - radius * 0.34,
+    radius * 0.42,
+    radius * 0.2,
+    -0.35,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawShapePath(
+  ctx: CanvasRenderingContext2D,
+  shape: "circle" | "squircle" | "diamond",
+  x: number,
+  y: number,
+  radius: number,
+): void {
+  if (shape === "circle") {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    return;
+  }
+
+  if (shape === "diamond") {
+    ctx.beginPath();
+    ctx.moveTo(x, y - radius * 1.08);
+    ctx.lineTo(x + radius * 1.08, y);
+    ctx.lineTo(x, y + radius * 1.08);
+    ctx.lineTo(x - radius * 1.08, y);
+    ctx.closePath();
+    return;
+  }
+
+  roundRect(
+    ctx,
+    x - radius * 1.05,
+    y - radius * 0.86,
+    radius * 2.1,
+    radius * 1.72,
+    radius * 0.45,
+  );
+}
+
+function drawNodeMark(
+  ctx: CanvasRenderingContext2D,
+  mark: string,
+  x: number,
+  y: number,
+  radius: number,
+  kind: GraphNodeKind,
+): void {
+  if (kind === "skill" || radius < 4.6) return;
+  ctx.save();
+  ctx.font = `700 ${kind === "person" ? radius * 0.82 : radius * 0.78}px Inter, system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.strokeStyle = "rgba(15,23,42,0.16)";
+  ctx.lineWidth = 1.5;
+  ctx.strokeText(mark, x, y + radius * 0.04);
+  ctx.fillText(mark, x, y + radius * 0.04);
+  ctx.restore();
+}
+
+function paintNodePointerArea(
+  node: ForceGraphNode,
+  paintColor: string,
+  ctx: CanvasRenderingContext2D,
+): void {
+  const x = node.x ?? 0;
+  const y = node.y ?? 0;
+  ctx.fillStyle = paintColor;
+  ctx.beginPath();
+  ctx.arc(x, y, nodeRadius(node) + 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawForceLabel(
+  ctx: CanvasRenderingContext2D,
+  node: ForceGraphNode,
+  x: number,
+  y: number,
+  globalScale: number,
+  active: boolean,
+): void {
+  const label = compactLabel(node.label, node.kind === "person" ? 28 : 18);
+  const fontSize = node.kind === "person" ? 11.5 : active ? 10.25 : 9.15;
+  const scaledFontSize = fontSize / Math.max(0.7, globalScale);
+  const paddingX = 4.5 / Math.max(0.8, globalScale);
+  const paddingY = 2.2 / Math.max(0.8, globalScale);
+
+  ctx.font = `600 ${scaledFontSize}px Inter, system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (node.kind === "person" || active) {
+    const width = ctx.measureText(label).width + paddingX * 2;
+    const height = scaledFontSize + paddingY * 2;
+    roundRect(ctx, x - width / 2, y - height / 2, width, height, 7 / globalScale);
+    ctx.fillStyle = active ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.76)";
+    ctx.fill();
+    ctx.lineWidth = 0.7 / Math.max(1, globalScale);
+    ctx.strokeStyle = "rgba(255,255,255,0.78)";
+    ctx.stroke();
+  } else {
+    ctx.lineWidth = 3 / Math.max(1, globalScale);
+    ctx.strokeStyle = "rgba(255,255,255,0.76)";
+    ctx.strokeText(label, x, y);
+  }
+
+  ctx.fillStyle = active ? "rgba(16,32,22,0.92)" : "rgba(67,87,73,0.82)";
+  ctx.fillText(label, x, y);
+}
+
+function shouldDrawForceLabel(node: ForceGraphNode, nodeCount: number): boolean {
+  if (node.kind === "person") return true;
+  if (node.kind === "project") return nodeCount <= 70;
+  if (node.kind === "company" || node.kind === "school") return nodeCount <= 46;
+  if (node.kind === "publication" || node.kind === "honor") return nodeCount <= 28;
+  if (node.kind === "link") return nodeCount <= 22;
+  return nodeCount <= 14;
+}
+
+function nodeRadius(node: GraphNode): number {
+  if (node.kind === "person") return 12.5;
+  if (node.kind === "skill") return Math.max(3.9, node.size * 0.9);
+  if (node.kind === "project") return Math.max(5.6, node.size * 1.04);
+  return Math.max(4.8, node.size);
+}
+
+function nodeShape(kind: GraphNodeKind): "circle" | "squircle" | "diamond" {
+  if (kind === "project" || kind === "company" || kind === "school" || kind === "link") {
+    return "squircle";
+  }
+  return "circle";
+}
+
+function nodeTypeMark(kind: GraphNodeKind): string {
+  if (kind === "person") return "ME";
+  if (kind === "project") return "{}";
+  if (kind === "company") return "CO";
+  if (kind === "school") return "ED";
+  if (kind === "link") return "LN";
+  if (kind === "publication") return "PB";
+  if (kind === "honor") return "*";
+  return "";
+}
+
+function normalizeHexColor(value: string): `#${string}` {
+  return value.startsWith("#") ? (value as `#${string}`) : "#64748b";
+}
+
+function colorWithAlpha(hex: string, alpha: number): string {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => `${char}${char}`).join("")
+    : normalized.padEnd(6, "0").slice(0, 6);
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
   width: number,
   height: number,
-  hoveredEdge: GraphEdge | null,
+  radius: number,
 ): void {
-  ctx.clearRect(0, 0, width, height);
-  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
-
-  for (const edge of graph.edges) {
-    const source = nodesById.get(edge.source);
-    const target = nodesById.get(edge.target);
-    if (!source || !target) continue;
-    const active = Boolean(hoveredEdge && sameEdge(edge, hoveredEdge));
-    ctx.beginPath();
-    ctx.moveTo(source.x, source.y);
-    ctx.lineTo(target.x, target.y);
-    ctx.lineWidth = active ? 2 : 1;
-    ctx.strokeStyle = active ? "rgba(15,23,42,0.52)" : "rgba(15,23,42,0.16)";
-    ctx.stroke();
-  }
-
-  for (const node of graph.nodes) {
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius + 3, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.78)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-    ctx.fillStyle = node.color;
-    ctx.fill();
-    ctx.lineWidth = node.kind === "person" ? 2 : 1.5;
-    ctx.strokeStyle = "rgba(255,255,255,0.92)";
-    ctx.stroke();
-
-    if (shouldDrawLabel(node, graph.nodes.length)) {
-      drawNodeLabel(ctx, node);
-    }
-  }
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
-function drawNodeLabel(ctx: CanvasRenderingContext2D, node: PositionedGraphNode): void {
-  ctx.font = "12px Inter, system-ui, -apple-system, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  const label = compactLabel(node.label, node.kind === "person" ? 28 : 18);
-  const y = node.y + node.radius + 7;
-
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "rgba(255,255,255,0.92)";
-  ctx.strokeText(label, node.x, y);
-
-  ctx.fillStyle = "rgba(15,23,42,0.84)";
-  ctx.fillText(label, node.x, y);
+function nodeTooltip(node: ForceGraphNode): string {
+  const subtitle = nodeSubtitle(node);
+  return subtitle ? `${node.label}\n${subtitle}` : node.label;
 }
 
-function shouldDrawLabel(node: PositionedGraphNode, nodeCount: number): boolean {
-  if (node.kind === "person") return true;
-  if (nodeCount <= 28) return true;
-  return node.kind !== "skill";
+function linkTooltip(link: ForceGraphLink): string {
+  const edge = edgeFromForceLink(link);
+  const label = EDGE_LABELS[edge.kind];
+  return edge.detail ? `${label}: ${edge.detail}` : label;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function findHitNode(graph: PositionedGraph, x: number, y: number): PositionedGraphNode | null {
-  for (let index = graph.nodes.length - 1; index >= 0; index -= 1) {
-    const node = graph.nodes[index];
-    const distance = Math.hypot(node.x - x, node.y - y);
-    if (distance <= node.radius + 6) return node;
-  }
-  return null;
+function edgeFromForceLink(link: {
+  source: string | ForceNode;
+  target: string | ForceNode;
+  kind: GraphEdgeKind;
+  detail?: string;
+}): GraphEdge {
+  return {
+    source: forceEndpointId(link.source),
+    target: forceEndpointId(link.target),
+    kind: link.kind,
+    detail: link.detail,
+  };
 }
 
-function findNearestEdge(graph: PositionedGraph, x: number, y: number): GraphEdge | null {
-  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
-  let nearest: { edge: GraphEdge; distance: number } | null = null;
-
-  for (const edge of graph.edges) {
-    const source = nodesById.get(edge.source);
-    const target = nodesById.get(edge.target);
-    if (!source || !target) continue;
-    const distance = pointToSegmentDistance(x, y, source.x, source.y, target.x, target.y);
-    if (distance <= 7 && (!nearest || distance < nearest.distance)) {
-      nearest = { edge, distance };
-    }
-  }
-
-  return nearest?.edge ?? null;
+function forceLinkEndpointIds(link: {
+  source: string | ForceNode;
+  target: string | ForceNode;
+}): [string, string] {
+  return [forceEndpointId(link.source), forceEndpointId(link.target)];
 }
 
-function pointToSegmentDistance(
-  px: number,
-  py: number,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-): number {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
-  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+function forceEndpointId(endpoint: ForceLink["source"]): string {
+  if (typeof endpoint === "string") return endpoint;
+  return endpoint.id;
 }
 
 function sameEdge(a: GraphEdge, b: GraphEdge): boolean {
@@ -790,8 +1255,9 @@ function nodeSortKey(node: GraphNode): string {
     skill: "2",
     company: "3",
     school: "4",
-    publication: "5",
-    honor: "6",
+    link: "5",
+    publication: "6",
+    honor: "7",
     person: "0",
   };
   return `${order[node.kind]}:${node.label.toLowerCase()}`;
@@ -803,6 +1269,31 @@ function compactLabel(value: string, maxLength: number): string {
   return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
+function nodeSubtitle(node: GraphNode): string {
+  if (node.kind === "person") {
+    return stringField(node.data, ["headline", "email", "location"]);
+  }
+  if (node.kind === "project") {
+    return stringField(node.data, ["repoFullName", "oneLineDescription", "description"]);
+  }
+  if (node.kind === "company") {
+    return stringField(node.data, ["title", "location"]);
+  }
+  if (node.kind === "school") {
+    return stringField(node.data, ["degree", "field"]);
+  }
+  if (node.kind === "link") {
+    return stringField(node.data, ["url", "host", "platform"]);
+  }
+  if (node.kind === "publication") {
+    return stringField(node.data, ["venue", "date"]);
+  }
+  if (node.kind === "honor") {
+    return stringField(node.data, ["issuer", "date"]);
+  }
+  return stringField(node.data, ["source", "name"]);
+}
+
 function countByKind(nodes: ReadonlyArray<GraphNode>): Record<GraphNodeKind, number> {
   const counts: Record<GraphNodeKind, number> = {
     person: 0,
@@ -810,6 +1301,7 @@ function countByKind(nodes: ReadonlyArray<GraphNode>): Record<GraphNodeKind, num
     company: 0,
     school: 0,
     skill: 0,
+    link: 0,
     publication: 0,
     honor: 0,
   };
@@ -861,6 +1353,84 @@ function educationDetail(edu: Education): string {
   const range = [edu.startDate, edu.endDate].filter(Boolean).join(" – ");
   const parts = [edu.degree, edu.field, range].filter(Boolean);
   return parts.join(" · ");
+}
+
+type LinkNodeData = {
+  key: keyof ProfileLinks;
+  label: string;
+  platform: string;
+  url: string;
+  host: string;
+  handle?: string;
+  source: "profile.links";
+};
+
+const LINK_ORDER: ReadonlyArray<keyof ProfileLinks> = [
+  "github",
+  "linkedin",
+  "website",
+  "devpost",
+  "twitter",
+];
+
+const LINK_LABELS: Record<keyof ProfileLinks, string> = {
+  github: "GitHub",
+  linkedin: "LinkedIn",
+  website: "Website",
+  devpost: "DevPost",
+  twitter: "X / Twitter",
+};
+
+function profileLinkNodes(links: ProfileLinks): LinkNodeData[] {
+  return LINK_ORDER.flatMap((key) => {
+    const url = normalizeGraphUrl(links[key]);
+    if (!url) return [];
+    return [{
+      key,
+      label: linkNodeLabel(key, url),
+      platform: LINK_LABELS[key],
+      url: url.toString(),
+      host: url.hostname.replace(/^www\./, ""),
+      handle: linkHandle(url),
+      source: "profile.links" as const,
+    }];
+  });
+}
+
+function ensureLinkNode(nodes: GraphNode[], link: LinkNodeData): string {
+  const id = `link:${link.key}`;
+  const existing = nodes.find((node) => node.id === id);
+  if (existing) return existing.id;
+  nodes.push({
+    id,
+    kind: "link",
+    label: link.label,
+    color: NODE_COLORS.link,
+    size: NODE_SIZE.link,
+    data: link,
+  });
+  return id;
+}
+
+function normalizeGraphUrl(raw: string | undefined): URL | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    return new URL(value.includes("://") ? value : `https://${value}`);
+  } catch {
+    return null;
+  }
+}
+
+function linkNodeLabel(key: keyof ProfileLinks, url: URL): string {
+  if (key === "website") return url.hostname.replace(/^www\./, "");
+  const handle = linkHandle(url);
+  return handle ? `${LINK_LABELS[key]} / ${handle}` : LINK_LABELS[key];
+}
+
+function linkHandle(url: URL): string | undefined {
+  const parts = url.pathname.split("/").filter(Boolean);
+  return parts.at(-1);
 }
 
 function ensurePublicationNode(
@@ -934,6 +1504,9 @@ function subtitleForNode(node: GraphNode): string | undefined {
   if (node.kind === "school") {
     return stringField(data, ["degree", "field"]) || undefined;
   }
+  if (node.kind === "link") {
+    return stringField(data, ["url", "host", "platform"]) || undefined;
+  }
   if (node.kind === "publication") {
     return stringField(data, ["venue", "date"]) || undefined;
   }
@@ -947,10 +1520,30 @@ function subtitleForNode(node: GraphNode): string | undefined {
 // Subviews
 // ---------------------------------------------------------------------------
 
+function ConstellationBackdrop(): React.ReactElement {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0">
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(238,246,235,0.64)_48%,rgba(213,224,208,0.58))]" />
+      <div
+        className="absolute inset-0 opacity-[0.55]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(67,87,73,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(67,87,73,0.07) 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+          maskImage: "linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.16))",
+          WebkitMaskImage: "linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.16))",
+        }}
+      />
+      <div className="absolute inset-x-0 top-0 h-px bg-white/85" />
+      <div className="absolute inset-x-10 bottom-8 h-px bg-[linear-gradient(90deg,transparent,rgba(67,87,73,0.18),transparent)]" />
+    </div>
+  );
+}
+
 function GraphPlaceholder({ text }: { text: string }): React.ReactElement {
   return (
-    <div className="flex h-full w-full items-center justify-center">
-      <span className="rounded-full border border-white/65 bg-white/55 px-4 py-1.5 text-[12px] font-medium text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+    <div className="relative z-20 flex h-full w-full items-center justify-center">
+      <span className="rounded-full border border-white/70 bg-white/62 px-4 py-1.5 text-[12px] font-medium text-[#435749] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl">
         {text}
       </span>
     </div>
@@ -965,8 +1558,8 @@ function EmptyState({
   onResetFilter: () => void;
 }): React.ReactElement {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <p className="max-w-sm text-sm text-slate-600">
+    <div className="relative z-20 flex h-full w-full flex-col items-center justify-center gap-3 p-8 text-center">
+      <p className="max-w-sm text-sm text-[#435749]">
         {hasAnyNodes
           ? "No nodes match the current filter."
           : "Sign in with GitHub or paste a LinkedIn URL during onboarding to populate your graph."}
@@ -975,7 +1568,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onResetFilter}
-          className="h-8 rounded-full border border-white/70 bg-white/65 px-3 text-[12px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] transition hover:bg-white/82"
+          className="h-8 rounded-full border border-white/70 bg-white/65 px-3 text-[12px] font-semibold text-[#435749] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] transition hover:bg-white/84 hover:text-[#102016]"
         >
           Show all nodes
         </button>
@@ -995,13 +1588,13 @@ function EdgeTooltip({
 }): React.ReactElement {
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-xs -translate-x-1/2 -translate-y-full rounded-lg border border-white/70 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 shadow-[0_10px_22px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl"
+      className="pointer-events-none absolute z-30 max-w-xs -translate-x-1/2 -translate-y-full rounded-2xl border border-white/70 bg-white/90 px-3 py-2 text-[11px] font-medium text-[#435749] shadow-[0_12px_24px_rgba(64,92,58,0.16),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl"
       style={{ left: x, top: y - 8 }}
     >
-      <span className="font-semibold capitalize text-slate-900">
+      <span className="font-semibold capitalize text-[#102016]">
         {EDGE_LABELS[edge.kind]}
       </span>
-      {edge.detail && <span className="ml-1 text-slate-500">{edge.detail}</span>}
+      {edge.detail && <span className="ml-1 text-[#738070]">{edge.detail}</span>}
     </div>
   );
 }

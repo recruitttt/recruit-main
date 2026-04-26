@@ -57,16 +57,16 @@ export function NodeDrawer({
         role="dialog"
         aria-label={`${kind} details: ${title}`}
         className={cx(
-          "relative ml-auto h-full w-full max-w-[420px] overflow-y-auto",
-          "border-l border-white/65 bg-white/82 px-5 py-6 text-slate-800",
-          "shadow-[0_22px_54px_rgba(15,23,42,0.18),inset_1px_0_0_rgba(255,255,255,0.85)]",
+          "relative ml-auto h-full w-full max-w-[440px] overflow-y-auto rounded-l-[28px]",
+          "border-l border-white/70 bg-[#f7fbf4]/86 px-5 py-6 text-[#102016]",
+          "shadow-[0_24px_64px_rgba(15,23,42,0.18),inset_1px_0_0_rgba(255,255,255,0.88)]",
           "backdrop-blur-2xl",
         )}
       >
         <header className="mb-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span
-              className="mb-2 inline-flex h-5 items-center gap-1.5 rounded-full border border-white/60 bg-white/55 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600"
+              className="mb-2 inline-flex h-5 items-center gap-1.5 rounded-full border border-white/70 bg-white/58 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#435749]"
               style={{ color }}
             >
               <span
@@ -75,17 +75,17 @@ export function NodeDrawer({
               />
               {kind}
             </span>
-            <h2 className="truncate text-lg font-semibold leading-tight text-slate-950">
+            <h2 className="truncate text-lg font-semibold leading-tight text-[#102016]">
               {title}
             </h2>
             {subtitle && (
-              <p className="mt-1 truncate text-xs text-slate-500">{subtitle}</p>
+              <p className="mt-1 truncate text-xs text-[#738070]">{subtitle}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/50 text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/72 hover:text-slate-800"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/58 text-[#738070] shadow-[inset_0_1px_0_rgba(255,255,255,0.76)] transition hover:bg-white/82 hover:text-[#102016]"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
@@ -93,7 +93,7 @@ export function NodeDrawer({
         </header>
 
         {rows.length === 0 ? (
-          <p className="rounded-xl border border-white/60 bg-white/50 p-4 text-xs text-slate-500">
+          <p className="rounded-2xl border border-white/65 bg-white/52 p-4 text-xs text-[#738070]">
             No additional data captured for this node yet.
           </p>
         ) : (
@@ -117,13 +117,13 @@ function DrawerRow({
 }): React.ReactElement {
   const isLong = value.length > 80;
   return (
-    <div className="rounded-xl border border-white/60 bg-white/55 px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-      <dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <div className="rounded-2xl border border-white/65 bg-white/54 px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.74)]">
+      <dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#738070]">
         {humanize(label)}
       </dt>
       <dd
         className={cx(
-          "text-[13px] leading-relaxed text-slate-800",
+          "text-[13px] leading-relaxed text-[#102016]",
           isLong ? "whitespace-pre-wrap" : "truncate",
         )}
       >

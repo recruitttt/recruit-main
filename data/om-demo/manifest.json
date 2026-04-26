@@ -7,6 +7,7 @@
     "dashboard-summary.json",
     "recommendations.json",
     "job-details.json",
+    "organizations.json",
     "pipeline-logs.json",
     "verification.json"
   ],

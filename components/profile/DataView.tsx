@@ -16,9 +16,9 @@
 // Real-time updates ride Convex `useQuery` subscriptions — no polling.
 //
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   BookOpen,
@@ -38,6 +38,8 @@ import {
   MapPin,
   Medal,
   Newspaper,
+  RefreshCw,
+  Save,
   Sparkles,
   Star,
   User2,
@@ -47,11 +49,15 @@ import {
 import { api } from "@/convex/_generated/api";
 import {
   cx,
+  ActionButton,
   StatusBadge,
   mistClasses,
 } from "@/components/design-system";
 import {
   EMPTY_PROFILE,
+  logProfileEvent,
+  mergeProfile,
+  type ProfileLinks,
   type ProvenanceSource,
   type UserProfile,
   type WorkExperience,
@@ -65,6 +71,8 @@ import { Markdown } from "./Markdown";
 import {
   getSourceConnectionStatus,
   isGithubConnected,
+  normalizeLinkedinProfileUrl,
+  isLinkedinProfileUrl,
   type SourceConnectionStatus,
 } from "@/lib/intake/shared/source-state";
 
@@ -252,6 +260,14 @@ export function DataView({
         fallbackName={fallbackName}
         fallbackEmail={fallbackEmail}
         fallbackImage={fallbackImage}
+      />
+
+      <EditableLinksSection
+        userId={userId}
+        profile={profile}
+        provenance={provenance}
+        runs={runs}
+        accountConnections={accountConnections}
       />
 
       <IdentitySection profile={profile} provenance={provenance} />
@@ -627,6 +643,415 @@ function LoadingBanner(): React.ReactElement {
       Loading profile from Convex…
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Editable source links
+// ---------------------------------------------------------------------------
+
+type EditableLinkKey = "github" | "linkedin" | "website" | "devpost" | "twitter";
+type LinkDraft = Record<EditableLinkKey, string>;
+type LinkFeedback = { kind: "success" | "error" | "info"; text: string };
+
+const EDITABLE_LINKS: Array<{
+  key: EditableLinkKey;
+  label: string;
+  placeholder: string;
+  rescrape: boolean;
+}> = [
+  { key: "github", label: "GitHub", placeholder: "github.com/handle", rescrape: true },
+  { key: "linkedin", label: "LinkedIn", placeholder: "linkedin.com/in/handle", rescrape: true },
+  { key: "website", label: "Website", placeholder: "portfolio.example", rescrape: true },
+  { key: "devpost", label: "DevPost", placeholder: "devpost.com/handle", rescrape: true },
+  { key: "twitter", label: "X / Twitter", placeholder: "x.com/handle", rescrape: false },
+];
+
+function EditableLinksSection({
+  userId,
+  profile,
+  provenance,
+  runs,
+  accountConnections,
+}: {
+  userId: string;
+  profile: NonNullable<UserProfileRow["profile"]>;
+  provenance: Record<string, ProvenanceSource>;
+  runs: Record<IntakeKind, IntakeRunRow | null | undefined>;
+  accountConnections: ConnectedAccountsRow | undefined;
+}): React.ReactElement {
+  const updateLinks = useMutation(api.userProfiles.updateLinks);
+  const runGithubIntake = useAction(api.intakeActions.runGithubIntake);
+  const runWebIntake = useAction(api.intakeActions.runWebIntake);
+  const githubConnected = isGithubConnected(accountConnections);
+  const profileDraft = useMemo(
+    () => draftFromProfileLinks(profile.links),
+    [profile.links],
+  );
+  const [draftEdits, setDraftEdits] = useState<Partial<LinkDraft>>({});
+  const draft = useMemo<LinkDraft>(
+    () => ({ ...profileDraft, ...draftEdits }),
+    [draftEdits, profileDraft],
+  );
+  const [busy, setBusy] = useState<"save" | "all" | EditableLinkKey | null>(null);
+  const [feedback, setFeedback] = useState<LinkFeedback | null>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => setFeedback(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  const changedKeys = useMemo(() => {
+    return EDITABLE_LINKS.map((item) => item.key).filter((key) => {
+      return (draft[key] ?? "").trim() !== (profile.links[key] ?? "").trim();
+    });
+  }, [draft, profile.links]);
+
+  const startRescrape = useCallback(
+    async (keys: EditableLinkKey[], links: LinkDraft) => {
+      const unique = Array.from(new Set(keys)).filter((key) => key !== "twitter");
+      for (const key of unique) {
+        const url = links[key]?.trim();
+        if (!url && !(key === "github" && githubConnected)) continue;
+
+        if (key === "linkedin") {
+          const profileUrl = normalizeLinkedinProfileUrl(url);
+          if (!isLinkedinProfileUrl(profileUrl)) {
+            throw new Error("LinkedIn link must look like linkedin.com/in/<handle>.");
+          }
+          const response = await fetch("/api/intake/linkedin", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ profileUrl }),
+          });
+          if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            throw new Error(`linkedin_rescrape_${response.status}: ${text || response.statusText}`);
+          }
+          void drainIntakeResponse(response).catch((error) => {
+            logProfileEvent("linkedin", "LinkedIn rescrape stream failed", "error", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          });
+          continue;
+        }
+
+        if (key === "github") {
+          if (githubConnected) {
+            void runGithubIntake({ userId, force: true }).catch((error) => {
+              logProfileEvent("github", "GitHub rescrape failed", "error", {
+                message: error instanceof Error ? error.message : String(error),
+              });
+            });
+          } else if (url) {
+            void runWebIntake({ userId, url, kind: "github" }).catch((error) => {
+              logProfileEvent("github", "Public GitHub scrape failed", "error", {
+                message: error instanceof Error ? error.message : String(error),
+              });
+            });
+          }
+          continue;
+        }
+
+        if (key === "website" || key === "devpost") {
+          void runWebIntake({ userId, url, kind: key }).catch((error) => {
+            logProfileEvent(key, `${key} rescrape failed`, "error", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          });
+        }
+      }
+    },
+    [githubConnected, runGithubIntake, runWebIntake, userId],
+  );
+
+  const saveLinks = useCallback(
+    async (rescrapeKeys?: EditableLinkKey[]) => {
+      if (busy) return;
+      const mode = rescrapeKeys ? (rescrapeKeys.length === 1 ? rescrapeKeys[0] : "all") : "save";
+      setBusy(mode);
+      setFeedback(null);
+      try {
+        const normalized = normalizeLinkDraft(draft);
+        const scrapeTargets = rescrapeKeys ?? changedKeys.filter((key) => key !== "twitter");
+
+        await updateLinks({ userId, links: normalized });
+        mergeProfile(
+          { links: normalized as ProfileLinks },
+          "manual",
+          scrapeTargets.length > 0 ? "Edited source links and queued rescrape" : "Edited source links",
+        );
+
+        if (scrapeTargets.length > 0) {
+          await startRescrape(scrapeTargets, normalized);
+        }
+        setDraftEdits({});
+
+        setFeedback({
+          kind: "success",
+          text:
+            scrapeTargets.length > 0
+              ? "Links saved. Rescrape started."
+              : "Links saved.",
+        });
+      } catch (error) {
+        setFeedback({
+          kind: "error",
+          text: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [busy, changedKeys, draft, startRescrape, updateLinks, userId],
+  );
+
+  return (
+    <SectionCard
+      kicker="Sources"
+      title="Links & rescrape"
+      description="Canonical source URLs for profile enrichment."
+      rawData={{ links: profile.links, provenance }}
+      meta={<StatusBadge tone="accent" variant="soft">editable</StatusBadge>}
+    >
+      <div className="grid gap-3 lg:grid-cols-2">
+        {EDITABLE_LINKS.map((item) => {
+          const status = sourceStatusForLink({
+            key: item.key,
+            profile,
+            runs,
+            githubConnected,
+            accountConnections,
+          });
+          const canRescrape = item.rescrape && Boolean(draft[item.key]?.trim() || (item.key === "github" && githubConnected));
+          const source = pickSource(provenance, `links.${item.key}`, pickSource(provenance, item.key, "manual"));
+
+          return (
+            <div key={item.key} className="rounded-2xl border border-white/55 bg-white/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Link2 className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" />
+                  <span className="truncate text-xs font-semibold text-slate-800">{item.label}</span>
+                  <ProvenancePill source={source} />
+                </div>
+                <SourceMiniStatus status={status} />
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                <input
+                  value={draft[item.key]}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraftEdits((current) => ({ ...current, [item.key]: value }));
+                  }}
+                  placeholder={item.placeholder}
+                  className="h-10 min-w-0 rounded-[14px] border border-white/60 bg-white/54 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)]"
+                />
+                {item.rescrape ? (
+                  <ActionButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canRescrape || Boolean(busy)}
+                    onClick={() => void saveLinks([item.key])}
+                    title={`Save and rescrape ${item.label}`}
+                  >
+                    <RefreshCw className={cx("h-3.5 w-3.5", busy === item.key && "animate-spin")} />
+                    Run
+                  </ActionButton>
+                ) : null}
+              </div>
+              {item.key === "github" && !githubConnected && draft.github.trim() ? (
+                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                  URL-only uses the public page. Connect GitHub for full repository intake.
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-h-5 text-sm leading-5">
+          {feedback ? (
+            <span
+              role="status"
+              className={cx(
+                "font-medium",
+                feedback.kind === "error" ? "text-red-600" : feedback.kind === "success" ? "text-emerald-700" : "text-slate-600",
+              )}
+            >
+              {feedback.text}
+            </span>
+          ) : (
+            <span className="text-slate-500">
+              {changedKeys.length > 0
+                ? `${changedKeys.length} unsaved ${changedKeys.length === 1 ? "change" : "changes"}`
+                : "No unsaved changes"}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ActionButton
+            type="button"
+            variant="secondary"
+            disabled={Boolean(busy) || changedKeys.length === 0}
+            onClick={() => void saveLinks()}
+          >
+            <Save className="h-4 w-4" />
+            Save
+          </ActionButton>
+          <ActionButton
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => void saveLinks(EDITABLE_LINKS.filter((item) => item.rescrape).map((item) => item.key))}
+          >
+            <RefreshCw className={cx("h-4 w-4", busy === "all" && "animate-spin")} />
+            Save & rescrape
+          </ActionButton>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function SourceMiniStatus({ status }: { status: SourceConnectionStatus }) {
+  const style = SOURCE_STATUS_STYLE[status];
+  const Icon = style.icon;
+  return (
+    <span
+      className={cx(
+        "inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2 font-mono text-[10px] uppercase tracking-[0.12em]",
+        style.className,
+      )}
+    >
+      <Icon className={cx("h-3 w-3", status === "loading" || status === "processing" ? "animate-spin" : "")} />
+      {style.label}
+    </span>
+  );
+}
+
+function sourceStatusForLink({
+  key,
+  profile,
+  runs,
+  githubConnected,
+  accountConnections,
+}: {
+  key: EditableLinkKey;
+  profile: NonNullable<UserProfileRow["profile"]>;
+  runs: Record<IntakeKind, IntakeRunRow | null | undefined>;
+  githubConnected: boolean;
+  accountConnections: ConnectedAccountsRow | undefined;
+}): SourceConnectionStatus {
+  if (key === "github") {
+    return getSourceConnectionStatus({
+      loading: accountConnections === undefined || runs.github === undefined,
+      connected: githubConnected,
+      saved: Boolean(profile.links.github?.trim()),
+      run: githubConnected ? runs.github : runs.web,
+    });
+  }
+  if (key === "linkedin") {
+    return getSourceConnectionStatus({
+      loading: runs.linkedin === undefined,
+      saved: Boolean(profile.links.linkedin?.trim()),
+      run: runs.linkedin,
+    });
+  }
+  if (key === "website" || key === "devpost") {
+    return getSourceConnectionStatus({
+      loading: runs.web === undefined,
+      saved: Boolean(profile.links[key]?.trim()),
+      run: runs.web,
+    });
+  }
+  return profile.links.twitter?.trim() ? "saved" : "not-connected";
+}
+
+function draftFromProfileLinks(links: ProfileLinks | undefined): LinkDraft {
+  return {
+    github: links?.github ?? "",
+    linkedin: links?.linkedin ?? "",
+    website: links?.website ?? "",
+    devpost: links?.devpost ?? "",
+    twitter: links?.twitter ?? "",
+  };
+}
+
+function normalizeLinkDraft(draft: LinkDraft): LinkDraft {
+  return {
+    github: normalizeSourceLink("github", draft.github),
+    linkedin: normalizeSourceLink("linkedin", draft.linkedin),
+    website: normalizeSourceLink("website", draft.website),
+    devpost: normalizeSourceLink("devpost", draft.devpost),
+    twitter: normalizeSourceLink("twitter", draft.twitter),
+  };
+}
+
+function normalizeSourceLink(key: EditableLinkKey, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (key === "linkedin") {
+    const normalized = normalizeLinkedinProfileUrl(expandSourceLinkInput(key, trimmed));
+    if (!isLinkedinProfileUrl(normalized)) {
+      throw new Error("LinkedIn link must look like linkedin.com/in/<handle>.");
+    }
+    return normalized;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(expandSourceLinkInput(key, trimmed));
+  } catch {
+    throw new Error(`Invalid ${linkLabel(key)} URL.`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Invalid ${linkLabel(key)} URL.`);
+  }
+  url.protocol = "https:";
+  url.hash = "";
+
+  const host = url.hostname.toLowerCase();
+  if (key === "github" && !hostMatchesSource(host, "github.com")) {
+    throw new Error("GitHub link must be on github.com.");
+  }
+  if (key === "devpost" && !hostMatchesSource(host, "devpost.com")) {
+    throw new Error("DevPost link must be on devpost.com.");
+  }
+  if (key === "twitter" && !hostMatchesSource(host, "x.com") && !hostMatchesSource(host, "twitter.com")) {
+    throw new Error("X / Twitter link must be on x.com or twitter.com.");
+  }
+  return url.toString();
+}
+
+function expandSourceLinkInput(key: EditableLinkKey, value: string): string {
+  if (/^https?:\/\//i.test(value)) return value;
+  const handle = value.replace(/^@+/, "");
+  if (key === "github" && !/[./]/.test(handle)) return `https://github.com/${handle}`;
+  if (key === "linkedin" && !/[./]/.test(handle)) return `https://www.linkedin.com/in/${handle}`;
+  if (key === "devpost" && !/[./]/.test(handle)) return `https://devpost.com/${handle}`;
+  if (key === "twitter" && !/[./]/.test(handle)) return `https://x.com/${handle}`;
+  return `https://${value}`;
+}
+
+function hostMatchesSource(hostname: string, root: string): boolean {
+  return hostname === root || hostname.endsWith(`.${root}`);
+}
+
+function linkLabel(key: EditableLinkKey): string {
+  return EDITABLE_LINKS.find((item) => item.key === key)?.label ?? key;
+}
+
+async function drainIntakeResponse(response: Response): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) return;
+  try {
+    while (!(await reader.read()).done) {
+      /* drain SSE */
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 // ---------------------------------------------------------------------------
