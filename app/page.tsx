@@ -90,16 +90,16 @@ export default function LandingPage() {
           <Link
             href="/"
             aria-label="Recruit"
-            className="flex h-10 items-center gap-2"
+            className="flex h-10 items-center gap-2 [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
           >
-            <Mark size="sm" className="text-sky-600" />
-            <span className="font-serif text-[19px] leading-none tracking-tight text-sky-700">
+            <Mark size="sm" className="text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.18)]" />
+            <span className="font-serif text-[19px] leading-none tracking-tight text-white">
               recruit
             </span>
           </Link>
 
-          <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-slate-500 md:flex">
-            <Link href="/dashboard" className="transition hover:text-slate-950">
+          <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-white/85 md:flex [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]">
+            <Link href="/dashboard" className="transition hover:text-white">
               Dashboard
             </Link>
           </nav>
@@ -109,7 +109,7 @@ export default function LandingPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full text-slate-600 hover:bg-white/45 hover:text-slate-950"
+                className="rounded-full text-white/90 hover:bg-white/15 hover:text-white [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
               >
                 Sign in
               </Button>
@@ -131,17 +131,17 @@ export default function LandingPage() {
           style={{
             backgroundImage: "url(/landing-hero.png)",
             backgroundSize: "cover",
-            backgroundPosition: "center 35%",
+            backgroundPosition: "center 85%",
             backgroundRepeat: "no-repeat",
           }}
         >
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.28),rgba(255,255,255,0.06)_22%,rgba(255,255,255,0)_55%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-[40%] bg-[linear-gradient(to_bottom,rgba(238,243,247,0)_0%,rgba(238,243,247,0.6)_60%,#EEF3F7_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_22%,rgba(255,255,255,0)_55%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[16%] bg-[linear-gradient(to_bottom,rgba(238,243,247,0)_0%,#EEF3F7_100%)]" />
         </div>
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
-            <h1 className="mx-auto max-w-5xl text-balance font-serif text-[clamp(40px,7.4vw,92px)] leading-[0.94] tracking-tight text-slate-950">
+            <h1 className="mx-auto max-w-4xl text-balance font-serif text-[clamp(32px,5.6vw,72px)] leading-[0.96] tracking-tight text-slate-950">
               {HERO_TITLE_WORDS.map((word, index) => (
                 <Fragment key={`${word}-${index}`}>
                   <span
@@ -163,7 +163,7 @@ export default function LandingPage() {
               ))}
             </h1>
             <p
-              className="mx-auto max-w-2xl text-balance text-[14px] leading-6 text-slate-600 sm:text-[16px]"
+              className="mx-auto max-w-xl text-balance text-[13px] leading-5 text-slate-600 sm:text-[14px]"
               style={{
                 animation: "hero-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1.35s both",
               }}
@@ -196,7 +196,7 @@ export default function LandingPage() {
           </div>
 
           <div
-            className="relative mx-auto mt-12 w-full max-w-6xl flex-1"
+            className="relative mx-auto mt-10 w-full max-w-4xl flex-1"
             style={{
               animation: "hero-rise 0.95s cubic-bezier(0.22, 1, 0.36, 1) 1.9s both",
             }}
