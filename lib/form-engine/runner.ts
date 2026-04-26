@@ -82,7 +82,7 @@ export async function runFormAutomation(args: RunFormAutomationArgs): Promise<Ru
   }
 
   if (provider !== "ashby") {
-    return unsupportedProviderResult(args.job, provider);
+    return genericFormFill(args, provider);
   }
 
   const llmMode = args.llmMode ?? args.job.llmMode;
@@ -110,6 +110,62 @@ export async function runFormAutomation(args: RunFormAutomationArgs): Promise<Ru
     submission,
     evidence: submission.evidence,
     rawResult,
+  };
+}
+
+async function genericFormFill(args: RunFormAutomationArgs, provider: string): Promise<RunFormAutomationResult> {
+  const page = args.page;
+  const targetUrl = args.job.targetUrl;
+  const notes: string[] = [];
+
+  try {
+    await page.setViewport?.({ width: 1365, height: 900 });
+  } catch {
+    // viewport may not be available
+  }
+  try {
+    await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 45_000 });
+  } catch (error) {
+    notes.push(`goto_networkidle_failed=${error instanceof Error ? error.message : String(error)}`);
+    try {
+      await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    } catch {
+      notes.push("goto_domcontentloaded_also_failed");
+    }
+  }
+
+  const currentUrl = page.url?.() ?? targetUrl;
+  const title = await page.evaluate((_: null) => document.title || "", null).catch(() => "");
+  notes.push(`navigated_to=${currentUrl}`);
+  if (title) notes.push(`page_title=${title}`);
+
+  const formIR: FormIR = {
+    provider: "generic",
+    targetUrl,
+    finalUrl: currentUrl,
+    questions: [],
+    controls: [],
+    networkHints: [],
+    evidence: notes,
+  };
+  const submission: SubmissionResult = {
+    status: "needs_human_review",
+    provider: "generic",
+    confidence: 0,
+    submitAttempted: false,
+    submitCompleted: false,
+    evidence: {
+      finalUrl: currentUrl,
+      notes,
+    },
+  };
+
+  return {
+    provider,
+    formIR,
+    submission,
+    evidence: submission.evidence,
+    rawResult: { targetUrl, finalUrl: currentUrl, notes, screenshots: [] },
   };
 }
 

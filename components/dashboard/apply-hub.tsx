@@ -520,8 +520,12 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
 
 function screenshotUrl(run: ApplyRun, job: LiveApplyJob): string {
   const base = `/api/applications/runs/${encodeURIComponent(run.id)}/jobs/${encodeURIComponent(job.id)}/screenshot`;
-  if (run.source !== "convex-application-actions" || !job.remoteSlug) return base;
-  return `${base}?convexJobId=${encodeURIComponent(job.remoteSlug)}`;
+  // Always pass remoteSlug as convexJobId when available — the route uses
+  // it to query Convex for the latest screenshot evidence. Don't gate on
+  // run.source because it may still be "mock" if the first poll ran before
+  // attachRemoteRun finished.
+  if (job.remoteSlug) return `${base}?convexJobId=${encodeURIComponent(job.remoteSlug)}`;
+  return base;
 }
 
 function ModeControl({ value, onChange }: { value: ApplyMode; onChange: (mode: ApplyMode) => void }) {

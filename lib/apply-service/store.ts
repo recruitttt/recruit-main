@@ -190,8 +190,15 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     const run = requireRun(runId);
     run.source = source;
     run.remoteRunId = remoteRunId;
+    const remaining = [...remoteJobs];
     for (const job of run.jobs) {
-      const remote = remoteJobs.find((item) => item.url === job.job.applicationUrl || item.url === job.job.url) ?? remoteJobs.shift();
+      const urlsToMatch = [job.job.applicationUrl, job.job.url].filter(Boolean);
+      const idx = remaining.findIndex((item) =>
+        item.url != null && urlsToMatch.some((u) =>
+          u != null && (u === item.url || normalizeUrlForMatch(u) === normalizeUrlForMatch(item.url!))
+        )
+      );
+      const remote = idx >= 0 ? remaining.splice(idx, 1)[0] : remaining.shift();
       if (remote) {
         job.remoteRunId = remoteRunId;
         job.remoteJobSlug = remote.slug;
@@ -274,6 +281,15 @@ function cloneRun(run: ApplyRun): ApplyRun {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function normalizeUrlForMatch(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname.toLowerCase().replace(/^www\./, "")}${parsed.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return url.toLowerCase().replace(/\/+$/, "");
+  }
 }
 
 function randomId(prefix: string): string {

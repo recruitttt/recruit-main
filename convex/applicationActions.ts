@@ -83,23 +83,6 @@ export const runApplicationJob = action({
       }
     }
 
-    if (provider !== "ashby" && provider !== "lever") {
-      const outcome: SubmissionResult = {
-        status: "needs_human_review",
-        provider,
-        confidence: 0,
-        submitAttempted: false,
-        submitCompleted: false,
-        failureCategory: "failed_unsupported_widget",
-        evidence: {
-          finalUrl: job.targetUrl,
-          notes: [`provider_not_supported=${provider}`],
-        },
-      };
-      await finalize(ctx, args.jobId, "failed_unsupported_widget", outcome);
-      return { jobId: args.jobId, status: "failed_unsupported_widget", provider };
-    }
-
     let normalizedUrl = job.targetUrl;
     let organizationSlug: string | undefined;
     let companySlug: string | undefined;
@@ -108,11 +91,12 @@ export const runApplicationJob = action({
         const normalized = validateDirectAshbyApplicationUrl(job.targetUrl);
         normalizedUrl = normalized.normalizedUrl;
         organizationSlug = normalized.organizationSlug;
-      } else {
+      } else if (provider === "lever") {
         const normalized = validateDirectLeverApplicationUrl(job.targetUrl);
         normalizedUrl = normalized.normalizedUrl;
         companySlug = normalized.companySlug;
       }
+      // generic / other providers: use targetUrl as-is
     } catch (error) {
       const status = "failed_unsupported_widget";
       await finalize(ctx, args.jobId, status, undefined, safeMessage(error));
@@ -207,8 +191,17 @@ export const runApplicationJob = action({
         browserbaseEnabled: isBrowserbaseConfigured(),
         browserbaseCaptchaSolving: isBrowserbaseCaptchaSolvingEnabled(),
       });
-
-      await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30_000 }).catch(() => {});
+      // Navigate and capture the initial page screenshot before form fill.
+      try {
+        await page.setViewport?.({ width: 1365, height: 900 });
+      } catch { /* viewport may not be available */ }
+      try {
+        await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30_000 });
+      } catch {
+        try {
+          await page.goto(normalizedUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+        } catch { /* form runner will retry navigation */ }
+      }
       await captureAndStoreScreenshot(ctx, page, args.jobId, "page_loaded");
 
       await checkpoint(ctx, args.jobId, "fill_started", "fill_in_progress", {
@@ -328,18 +321,33 @@ async function captureAndStoreScreenshot(
   jobId: string,
   label: string
 ): Promise<void> {
-  if (!page?.screenshot) return;
+  if (!page?.screenshot) {
+    console.warn(`[screenshot] page.screenshot unavailable for ${label}`);
+    return;
+  }
   try {
-    const raw = await page.screenshot(LIVE_SCREENSHOT_OPTIONS);
-    const base64 = typeof raw === "string" ? raw : Buffer.from(raw).toString("base64");
-    if (!base64) return;
+    let raw: unknown;
+    try {
+      raw = await page.screenshot(LIVE_SCREENSHOT_OPTIONS);
+    } catch {
+      raw = await page.screenshot({ encoding: "base64" });
+    }
+    const base64 = typeof raw === "string"
+      ? raw
+      : raw instanceof Uint8Array || Buffer.isBuffer(raw)
+        ? Buffer.from(raw as Buffer).toString("base64")
+        : null;
+    if (!base64) {
+      console.warn(`[screenshot] empty result for ${label}`);
+      return;
+    }
     await ctx.runMutation(anyApi.applicationJobs.recordApplicationEvidence, {
       jobId,
       kind: "live_screenshot",
-      payload: { label, pngBase64: base64, fullPage: false },
+      payload: { label, pngBase64: base64 },
     });
-  } catch {
-    // Screenshot capture is best-effort — never block the fill flow.
+  } catch (err) {
+    console.error(`[screenshot] ${label}:`, err instanceof Error ? err.message : err);
   }
 }
 
