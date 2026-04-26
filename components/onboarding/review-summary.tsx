@@ -34,14 +34,14 @@ export function ReviewSummary({
         <div
           key={row.label}
           className={cx(
-            "border border-white/55 bg-white/30 px-3 py-2",
+            "border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-3 py-2",
             mistRadii.nested,
           )}
         >
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
             {row.label}
           </div>
-          <div className="mt-1 break-words text-sm leading-5 text-slate-800">
+          <div className="mt-1 break-words text-sm leading-5 text-[var(--color-fg-muted)]">
             {row.value}
           </div>
         </div>

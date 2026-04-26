@@ -82,6 +82,7 @@ export function useAnimatedNumber(value: number, options: AnimatedNumberOptions 
   const initialValue = from ?? targetValue;
   const frameRef = useRef<number | null>(null);
   const displayValueRef = useRef(initialValue);
+  const hasAnimatedRef = useRef(false);
   const [displayValue, setDisplayValue] = useState(initialValue);
   const shouldSnap = shouldReduceMotion || durationMs <= 0;
 
@@ -92,11 +93,16 @@ export function useAnimatedNumber(value: number, options: AnimatedNumberOptions 
     }
 
     if (shouldSnap) {
+      displayValueRef.current = targetValue;
+      hasAnimatedRef.current = true;
       return;
     }
 
-    const startValue = from ?? displayValueRef.current;
+    const startValue = !hasAnimatedRef.current && from !== undefined
+      ? from
+      : displayValueRef.current;
     const startTime = window.performance.now();
+    hasAnimatedRef.current = true;
 
     function tick(now: number) {
       const elapsed = now - startTime;

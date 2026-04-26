@@ -70,7 +70,7 @@ export function RecruitBrandLink({
     <Link
       href={href}
       className={cx(
-        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-2 text-slate-900 transition sm:pr-3 !no-underline",
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-2 text-[var(--color-fg)] transition sm:pr-3 !no-underline",
         hero
           ? "border-white/24 bg-black/10 text-white shadow-[0_1px_2px_rgba(15,23,42,0.18)] backdrop-blur-sm hover:bg-white/15"
           : "app-nav-control",

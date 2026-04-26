@@ -640,6 +640,7 @@ export default defineSchema({
       v.literal("resume"),
       v.literal("web"),
       v.literal("chat"),
+      v.literal("voice"),
       v.literal("ai-report")
     ),
     status: v.union(

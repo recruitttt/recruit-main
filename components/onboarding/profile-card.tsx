@@ -95,9 +95,9 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={cx("border border-dashed border-white/60 bg-white/28 px-4 py-8 text-center", mistRadii.nested)}
+          className={cx("border border-dashed border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-4 py-8 text-center", mistRadii.nested)}
         >
-          <p className="text-[12px] leading-relaxed text-slate-500">
+          <p className="text-[12px] leading-relaxed text-[var(--color-fg-subtle)]">
             As you chat, your profile fills in here.
             <br />
             The squad will read this when they apply.
@@ -183,7 +183,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
           {profile.summary && (
             <Section key="summary" title="Bio">
               <RevealHalo isNew={fields.summary?.isNew} source={profile.provenance.summary}>
-                <p className="line-clamp-4 text-[12px] leading-relaxed text-slate-600">
+                <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--color-fg-muted)]">
                   {profile.summary}
                 </p>
               </RevealHalo>
@@ -193,7 +193,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
           {hasResume && profile.resume && (
             <Section key="resume" title="Resume">
               <RevealHalo isNew={fields.resume?.isNew} source="resume">
-                <div className="flex items-center gap-2 text-[12px] text-slate-600">
+                <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
                   <FileText className="h-3.5 w-3.5" style={{ color: SOURCE_HUE.resume }} />
                   <span className="truncate">{profile.resume.filename}</span>
                 </div>
@@ -214,7 +214,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
                   />
                 ))}
                 {profile.skills.length > 18 && (
-                  <span className="self-center font-mono text-[11px] text-slate-500">
+                  <span className="self-center font-mono text-[11px] text-[var(--color-fg-subtle)]">
                     +{profile.skills.length - 18}
                   </span>
                 )}
@@ -225,7 +225,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
           {profile.github?.topRepos && profile.github.topRepos.length > 0 && (
             <Section key="github-repos" title="GitHub">
               {profile.github.bio && (
-                <p className="mb-1.5 text-[12px] leading-relaxed text-slate-600">
+                <p className="mb-1.5 text-[12px] leading-relaxed text-[var(--color-fg-muted)]">
                   {profile.github.bio}
                 </p>
               )}
@@ -254,7 +254,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
                   />
                 ))}
                 {profile.experience.length > 3 && (
-                  <div className="pl-5 font-mono text-[10px] text-slate-500">
+                  <div className="pl-5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
                     +{profile.experience.length - 3} more
                   </div>
                 )}
@@ -271,17 +271,17 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
                     isNew={fields[`education.${i}`]?.isNew}
                     source={fields[`education.${i}`]?.source ?? "resume"}
                     className={cx(
-                      "flex items-start gap-2 bg-white/30 px-2.5 py-1.5",
+                      "flex items-start gap-2 bg-[var(--theme-compat-bg-soft)] px-2.5 py-1.5",
                       mistRadii.nested,
                     )}
                   >
-                    <GraduationCap className="mt-1 h-3 w-3 shrink-0 text-slate-500" />
+                    <GraduationCap className="mt-1 h-3 w-3 shrink-0 text-[var(--color-fg-subtle)]" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px] text-slate-900">
+                      <div className="truncate text-[12px] text-[var(--color-fg)]">
                         {e.school}
                       </div>
                       {(e.degree || e.field) && (
-                        <div className="truncate font-mono text-[11px] text-slate-500">
+                        <div className="truncate font-mono text-[11px] text-[var(--color-fg-subtle)]">
                           {[e.degree, e.field].filter(Boolean).join(" · ")}
                         </div>
                       )}
@@ -305,7 +305,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
                 ))}
               </div>
               {profile.prefs.locations.length > 0 && (
-                <div className="mt-1.5 font-mono text-[11px] text-slate-500">
+                <div className="mt-1.5 font-mono text-[11px] text-[var(--color-fg-subtle)]">
                   {profile.prefs.locations.join(", ")}
                   {profile.prefs.workAuth && ` · ${profile.prefs.workAuth}`}
                 </div>
@@ -316,7 +316,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
       </div>
 
       {profile.log.length > 0 && (
-        <div className="mt-5 border-t border-white/45 pt-3">
+        <div className="mt-5 border-t border-[var(--glass-border)] pt-3">
           <div className={cx("mb-1.5", mistClasses.sectionLabel)}>
             Activity
           </div>
@@ -331,7 +331,7 @@ function ProfileCardView({ profile, fields, hasLiveSource }: ProfileCardViewProp
                 style={{ color: SOURCE_HUE[entry.source] }}
               >
                 <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                <span className="truncate text-slate-600">
+                <span className="truncate text-[var(--color-fg-muted)]">
                   {entry.label}
                 </span>
               </motion.div>
@@ -441,7 +441,7 @@ function FieldRow({
         <span
           className={[
             "min-w-0 truncate",
-            small ? "text-[11px] text-slate-600" : "text-[13px] text-slate-900",
+            small ? "text-[11px] text-[var(--color-fg-muted)]" : "text-[13px] text-[var(--color-fg)]",
             italic ? "italic" : "",
             mono ? "font-mono text-[12px]" : "",
           ].filter(Boolean).join(" ")}
@@ -490,7 +490,7 @@ function SkillChip({
         delay: reduce ? 0 : Math.min(index, 12) * 0.03,
         duration: reduce ? 0 : isNew ? 0.9 : 0.25,
       }}
-      className="rounded-full border border-white/55 bg-white/32 px-2 py-0.5 text-[11px] text-slate-600"
+      className="rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
     >
       {skill}
     </motion.span>
@@ -510,22 +510,22 @@ function RepoRow({
     <RevealHalo
       isNew={isNew}
       source="github"
-      className={cx("bg-white/30 px-2.5 py-1.5", mistRadii.nested)}
+      className={cx("bg-[var(--theme-compat-bg-soft)] px-2.5 py-1.5", mistRadii.nested)}
     >
       <RepoRowAnim index={index}>
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[12px] text-slate-900">{repo.name}</span>
+          <span className="font-mono text-[12px] text-[var(--color-fg)]">{repo.name}</span>
           {repo.language && (
-            <span className="rounded-full border border-white/55 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+            <span className="rounded-full border border-[var(--glass-border)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
               {repo.language}
             </span>
           )}
           {repo.stars != null && repo.stars > 0 && (
-            <span className="ml-auto font-mono text-[10px] text-slate-500">★ {repo.stars}</span>
+            <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-subtle)]">★ {repo.stars}</span>
           )}
         </div>
         {repo.description && (
-          <div className="mt-0.5 truncate text-[11px] text-slate-500">{repo.description}</div>
+          <div className="mt-0.5 truncate text-[11px] text-[var(--color-fg-subtle)]">{repo.description}</div>
         )}
       </RepoRowAnim>
     </RevealHalo>
@@ -565,7 +565,7 @@ function ExperienceRow({
     <RevealHalo
       isNew={isNew}
       source="resume"
-      className={cx("bg-white/30 px-2.5 py-1.5", mistRadii.nested)}
+      className={cx("bg-[var(--theme-compat-bg-soft)] px-2.5 py-1.5", mistRadii.nested)}
     >
       <motion.div
         initial={reduce ? false : { opacity: 0, x: -4 }}
@@ -573,16 +573,16 @@ function ExperienceRow({
         transition={{ delay: reduce ? 0 : index * 0.05, duration: reduce ? 0 : 0.25 }}
         className="flex items-start gap-2"
       >
-        <Briefcase className="mt-1 h-3 w-3 shrink-0 text-slate-500" />
+        <Briefcase className="mt-1 h-3 w-3 shrink-0 text-[var(--color-fg-subtle)]" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] text-slate-900">{item.title}</div>
-          <div className="truncate font-mono text-[11px] text-slate-500">
+          <div className="truncate text-[12px] text-[var(--color-fg)]">{item.title}</div>
+          <div className="truncate font-mono text-[11px] text-[var(--color-fg-subtle)]">
             {item.company}
             {item.startDate &&
               ` · ${item.startDate}${item.endDate ? ` – ${item.endDate}` : ""}`}
           </div>
           {item.description && (
-            <div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+            <div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-[var(--color-fg-subtle)]">
               {item.description}
             </div>
           )}
@@ -642,7 +642,7 @@ function PulseDot({ active, live }: { active: boolean; live: boolean }) {
     >
       {active && (
         <span
-          className="absolute inset-0 rounded-full bg-emerald-500/50"
+          className="absolute inset-0 rounded-full bg-[var(--color-success)] opacity-50"
           style={{ animation: "pulse-soft 1.6s ease-in-out infinite" }}
         />
       )}

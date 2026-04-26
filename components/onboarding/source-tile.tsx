@@ -59,7 +59,7 @@ export function SourceTile({
     <motion.div
       layout
       className={cx(
-        "relative flex flex-col gap-3 border bg-white/30 px-4 py-3 backdrop-blur-xl transition-colors",
+        "relative flex flex-col gap-3 border bg-[var(--theme-compat-bg-soft)] px-4 py-3 backdrop-blur-xl transition-colors",
         mistRadii.nested,
         tone.border,
       )}
@@ -77,7 +77,7 @@ export function SourceTile({
         </motion.div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <div className="text-[14px] font-semibold tracking-tight text-slate-900">
+            <div className="text-[14px] font-semibold tracking-tight text-[var(--color-fg)]">
               {title}
             </div>
             <span
@@ -88,14 +88,14 @@ export function SourceTile({
             </span>
           </div>
           {subtitle && (
-            <p className="mt-0.5 text-[12px] leading-5 text-slate-500">
+            <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-fg-subtle)]">
               {subtitle}
             </p>
           )}
         </div>
         <StatusPill status={status} />
       </div>
-      <div className="border-t border-white/55 pt-3">{children}</div>
+      <div className="border-t border-[var(--glass-border)] pt-3">{children}</div>
     </motion.div>
   );
 }
@@ -104,13 +104,13 @@ const TONE: Record<
   Status,
   { border: string; shadow?: (hue: string) => string }
 > = {
-  idle: { border: "border-white/55" },
+  idle: { border: "border-[var(--glass-border)]" },
   running: {
-    border: "border-sky-300/55",
-    shadow: () => "0 0 0 1px rgba(56,189,248,0.18)",
+    border: "border-[var(--color-accent-glow)]",
+    shadow: () => `0 0 0 1px var(--color-accent-glow)`,
   },
   done: {
-    border: "border-emerald-300/55",
+    border: "border-[var(--color-success-border)]",
     shadow: (hue) => `0 0 0 1px ${hue}33`,
   },
   failed: {
@@ -124,10 +124,10 @@ function StatusPill({ status }: { status: Status }) {
     status === "failed"
       ? "border-rose-300/55 bg-rose-50/70 text-rose-700"
       : status === "done"
-        ? "border-emerald-300/55 bg-emerald-50/70 text-emerald-700"
+        ? "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]"
         : status === "running"
-          ? "border-sky-300/55 bg-sky-50/70 text-sky-700"
-          : "border-slate-300/55 bg-white/50 text-slate-500";
+          ? "border-[var(--color-accent-glow)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+          : "border-[var(--color-border)] bg-[var(--theme-compat-bg)] text-[var(--color-fg-subtle)]";
   const label =
     status === "failed"
       ? "Failed"

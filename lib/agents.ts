@@ -19,6 +19,8 @@ export type Agent = {
   /** Distinct personality color, used for the character's body & features. */
   hue: string;
   ownsSource: SourceOwnership;
+  /** ElevenLabs voice id — each agent gets a distinct voice. */
+  voiceId: string;
 };
 
 /**
@@ -37,6 +39,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     tagline: "Your lead agent. She speaks for the squad.",
     hue: "#3F7A56",
     ownsSource: "conductor",
+    voiceId: "tnSpp4vdxKPjI9w0GnoV", // user-provided library voice
   },
   mimi: {
     id: "mimi",
@@ -45,6 +48,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     tagline: "Reads your resume and grounds every application in real history.",
     hue: "#DB2777", // pink-600
     ownsSource: "resume",
+    voiceId: "dXtC3XhB9GtPusIpNtQx", // user-provided library voice
   },
   pip: {
     id: "pip",
@@ -53,6 +57,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     tagline: "Pulls your repos, languages, and signal projects.",
     hue: "#7C3AED", // violet-600
     ownsSource: "github",
+    voiceId: "IKne3meq5aSn9XLyUdCD", // TODO: replace with user-picked library voice
   },
   juno: {
     id: "juno",
@@ -61,6 +66,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     tagline: "Reads your LinkedIn for roles, dates, and recruiter signal.",
     hue: "#D97706", // amber-600
     ownsSource: "linkedin",
+    voiceId: "SAz9YHcvj6GT2YYXdXww", // TODO: replace with user-picked library voice
   },
   bodhi: {
     id: "bodhi",
@@ -69,6 +75,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     tagline: "Crawls your personal site and devpost for the rest of the story.",
     hue: "#059669", // emerald-600
     ownsSource: "web",
+    voiceId: "JBFqnCBsd6RMkjVDRZzb", // TODO: replace with user-picked library voice
   },
 };
 

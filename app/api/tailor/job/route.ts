@@ -10,7 +10,7 @@ import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, toBase64 } from "@/lib/pdf";
 import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
 import { computeTailoringScore } from "@/lib/tailor/score";
-import { tailorResume } from "@/lib/tailor/tailor";
+import { hasTailorCredentials, tailorResume } from "@/lib/tailor/tailor";
 import type { Job, JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
 export const runtime = "nodejs";
@@ -45,12 +45,11 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, reason: "profile_incomplete" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!hasTailorCredentials()) {
     return Response.json({ ok: false, reason: "no_api_key" }, { status: 503 });
   }
 
-  const tailored = await tailorResume(profile, research, apiKey);
+  const tailored = await tailorResume(profile, research);
   if (!tailored.ok) {
     return Response.json({ ok: false, reason: tailored.reason }, { status: 502 });
   }

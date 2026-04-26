@@ -11,16 +11,26 @@
 // completed see that work is still happening in the background.
 //
 
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/convex/_generated/api";
+import { isGithubConnected } from "@/lib/intake/shared/source-state";
 
 type IntakeKind = "github" | "linkedin" | "resume" | "web" | "chat" | "ai-report";
 
 interface IntakeRunRow {
   status?: "queued" | "running" | "completed" | "failed";
   kind?: IntakeKind;
+}
+
+interface ProfileRow {
+  profile?: {
+    links?: {
+      github?: string;
+      linkedin?: string;
+    };
+  };
 }
 
 const KIND_LABEL: Record<IntakeKind, string> = {
@@ -53,12 +63,61 @@ export function IntakeProgressBanner() {
     | IntakeRunRow
     | null
     | undefined;
+  const accountConnections = useQuery(
+    api.auth.connectedAccounts,
+    args === "skip" ? args : { userId: args.userId },
+  );
+  const profileRow = useQuery(
+    api.userProfiles.byUser,
+    args === "skip" ? args : { userId: args.userId },
+  ) as ProfileRow | null | undefined;
+  const githubSnapshot = useQuery(
+    api.githubSnapshots.latest,
+    args === "skip" ? args : { userId: args.userId },
+  ) as unknown | null | undefined;
 
   const inFlight: string[] = [];
   if (isInFlight(ghRun)) inFlight.push(KIND_LABEL.github);
   if (isInFlight(liRun)) inFlight.push(KIND_LABEL.linkedin);
   if (isInFlight(reRun)) inFlight.push(KIND_LABEL.resume);
   if (isInFlight(webRun)) inFlight.push(KIND_LABEL.web);
+
+  const links = profileRow?.profile?.links ?? {};
+  const sourceStateLoading = Boolean(userId) &&
+    (accountConnections === undefined || profileRow === undefined || githubSnapshot === undefined);
+  const hasGithubSignal =
+    isGithubConnected(accountConnections) ||
+    Boolean(githubSnapshot) ||
+    Boolean(links.github?.trim()) ||
+    isInFlight(ghRun) ||
+    ghRun?.status === "completed";
+  const hasLinkedinSignal =
+    Boolean(links.linkedin?.trim()) ||
+    isInFlight(liRun) ||
+    liRun?.status === "completed";
+
+  if (userId && !sourceStateLoading && inFlight.length === 0 && !hasGithubSignal && !hasLinkedinSignal) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex flex-col gap-3 rounded-2xl border border-[var(--color-warn-border)] bg-[var(--color-warn-soft)] px-3 py-3 text-[12px] leading-5 text-[var(--dashboard-panel-muted)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[var(--color-warn)]" />
+          <span className="min-w-0">
+            Connect GitHub or LinkedIn before running a search. Recruit needs at least one core profile source for meaningful matches.
+          </span>
+        </div>
+        <a
+          href="/onboarding?step=3"
+          className="inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-warn-border)] bg-[var(--dashboard-control-bg)] px-3 text-xs font-semibold text-[var(--dashboard-panel-fg)] transition hover:bg-[var(--dashboard-control-hover)]"
+        >
+          Connect source
+        </a>
+      </div>
+    );
+  }
 
   if (inFlight.length === 0) return null;
 

@@ -190,16 +190,16 @@ export function EnrichmentChat({
 
   return (
     <GlassCard density="spacious">
-      <div className="mb-4 flex items-start gap-3 border-b border-white/45 pb-4">
+      <div className="mb-4 flex items-start gap-3 border-b border-[var(--glass-border)] pb-4">
         <AgentCharacter id="scout" awake size={44} />
         <div className="min-w-0 flex-1">
           <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
             Scout enrichment
           </div>
-          <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-slate-950">
+          <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--color-fg)]">
             A few quick questions while we wait.
           </h2>
-          <p className="mt-1 text-[13px] leading-5 text-slate-600">
+          <p className="mt-1 text-[13px] leading-5 text-[var(--color-fg-muted)]">
             Each answer sharpens the ranker. {finished ? "You're all set." : `~${remaining + 1} left.`}
           </p>
         </div>
@@ -220,10 +220,10 @@ export function EnrichmentChat({
       </div>
 
       {!finished && (
-        <div className={cx("mt-4 space-y-2 border-t border-white/45 pt-4")}>
+        <div className={cx("mt-4 space-y-2 border-t border-[var(--glass-border)] pt-4")}>
           <div
             className={cx(
-              "flex flex-wrap items-end gap-2 border border-white/55 bg-white/30 p-2",
+              "flex flex-wrap items-end gap-2 border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-2",
               mistRadii.nested,
             )}
           >
@@ -252,12 +252,12 @@ export function EnrichmentChat({
             </ActionButton>
           </div>
           {currentQuestion?.hint && (
-            <p className="pl-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+            <p className="pl-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
               {currentQuestion.hint}
             </p>
           )}
           {error && (
-            <p className="pl-1 text-xs leading-5 text-rose-600">{error}</p>
+            <p className="pl-1 text-xs leading-5 text-[var(--color-danger)]">{error}</p>
           )}
         </div>
       )}
@@ -269,7 +269,7 @@ export function EnrichmentChat({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
             className={cx(
-              "mt-4 flex items-center gap-2 border border-emerald-200/60 bg-emerald-50/50 px-3 py-2 text-emerald-700",
+              "mt-4 flex items-center gap-2 border border-[var(--color-success-border)] bg-[var(--color-success-soft)] px-3 py-2 text-[var(--color-success)]",
               mistRadii.nested,
             )}
           >
@@ -301,7 +301,7 @@ function ScoutLine({
         <div className="mb-1 text-[13px] font-medium tracking-tight text-[var(--color-accent)]">
           Scout
         </div>
-        <div className="text-[15px] leading-snug text-slate-950">
+        <div className="text-[15px] leading-snug text-[var(--color-fg)]">
           {children}
         </div>
       </div>

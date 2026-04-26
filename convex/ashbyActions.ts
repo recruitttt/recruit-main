@@ -29,9 +29,9 @@ import {
   type NormalizedAtsJob,
 } from "./atsIngestion";
 import { textToPdf, toBase64 } from "../lib/tailor/simple-pdf";
-import { researchJob } from "../lib/tailor/research";
+import { hasResearchCredentials, researchJob } from "../lib/tailor/research";
 import { computeTailoringScore } from "../lib/tailor/score";
-import { tailorResume } from "../lib/tailor/tailor";
+import { hasTailorCredentials, tailorResume } from "../lib/tailor/tailor";
 import type { Job, TailoredResume } from "../lib/tailor/types";
 import { getPuppeteerBrowser } from "../lib/pdf";
 import { runAshbyFormFillOnPage } from "../lib/ashby-fill/browser";
@@ -1142,7 +1142,7 @@ async function tailorJobForOnboarding(
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const startedAt = Date.now();
   const profile = profileForTailoring(inputProfile);
-  const apiKey = process.env.OPENAI_API_KEY;
+  const researchApiKey = process.env.OPENAI_API_KEY;
 
   const detail = await ctx.runQuery(anyApi.ashby.jobDetail, {
     demoUserId,
@@ -1170,19 +1170,23 @@ async function tailorJobForOnboarding(
     pdfReady: false,
   });
 
-  if (!apiKey) {
-    await failTailoring(ctx, demoUserId, jobId, job, "no_api_key");
-    return { ok: false, reason: "no_api_key" };
+  if (!hasResearchCredentials(researchApiKey)) {
+    await failTailoring(ctx, demoUserId, jobId, job, "no_research_api_key");
+    return { ok: false, reason: "no_research_api_key" };
+  }
+  if (!hasTailorCredentials(researchApiKey)) {
+    await failTailoring(ctx, demoUserId, jobId, job, "no_tailor_api_key");
+    return { ok: false, reason: "no_tailor_api_key" };
   }
 
   try {
-    const researched = await withAbortTimeout(45_000, (signal) => researchJob(job, apiKey, signal));
+    const researched = await withAbortTimeout(45_000, (signal) => researchJob(job, researchApiKey, signal));
     if (!researched.ok) {
       await failTailoring(ctx, demoUserId, jobId, job, researched.reason);
       return { ok: false, reason: researched.reason };
     }
 
-    const tailored = await withAbortTimeout(60_000, (signal) => tailorResume(profile, researched.research, apiKey, signal));
+    const tailored = await withAbortTimeout(60_000, (signal) => tailorResume(profile, researched.research, researchApiKey, signal));
     if (!tailored.ok) {
       await failTailoring(ctx, demoUserId, jobId, job, tailored.reason);
       return { ok: false, reason: tailored.reason };
@@ -1265,6 +1269,7 @@ function resumeFallbackText(resume: TailoredResume): string {
   return [
     "Tailored Resume",
     "",
+    resume.headline,
     resume.summary,
     "",
     resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : undefined,

@@ -6,9 +6,9 @@ import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, textToPdf, toBase64 } from "@/lib/pdf";
 import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
 import { resumeFallbackText } from "@/lib/tailor/resume-fallback-text";
-import { researchJob } from "@/lib/tailor/research";
+import { hasResearchCredentials, researchJob } from "@/lib/tailor/research";
 import { computeTailoringScore } from "@/lib/tailor/score";
-import { tailorResume } from "@/lib/tailor/tailor";
+import { hasTailorCredentials, tailorResume } from "@/lib/tailor/tailor";
 import type { Job, TailoredApplication } from "@/lib/tailor/types";
 
 export type PersistedTailorResult =
@@ -55,9 +55,12 @@ export async function tailorPersistedJob({
     });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return { ok: false, reason: "no_api_key", status: 503 };
+  const researchApiKey = process.env.OPENAI_API_KEY;
+  if (!hasResearchCredentials(researchApiKey)) {
+    return { ok: false, reason: "no_research_api_key", status: 503 };
+  }
+  if (!hasTailorCredentials(researchApiKey)) {
+    return { ok: false, reason: "no_tailor_api_key", status: 503 };
   }
 
   const detail = await client.query(api.ashby.jobDetail, {
@@ -87,13 +90,13 @@ export async function tailorPersistedJob({
   });
 
   try {
-    const researched = await researchJob(job, apiKey);
+    const researched = await researchJob(job, researchApiKey);
     if (!researched.ok) {
       await markFailed(client, jobId, job, researched.reason, demoUserId);
       return { ok: false, reason: researched.reason, status: 502 };
     }
 
-    const tailored = await tailorResume(profile, researched.research, apiKey);
+    const tailored = await tailorResume(profile, researched.research, researchApiKey);
     if (!tailored.ok) {
       await markFailed(client, jobId, job, tailored.reason, demoUserId);
       return { ok: false, reason: tailored.reason, status: 502 };

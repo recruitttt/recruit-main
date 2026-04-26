@@ -12,6 +12,7 @@ export type ProvenanceSource =
   | "linkedin"
   | "website"
   | "devpost"
+  | "voice"
   | "manual";
 
 export type WorkExperience = {
@@ -386,6 +387,7 @@ export const SOURCE_HUE: Record<ProvenanceSource, string> = {
   linkedin: "#059669",
   website: "#D97706",
   devpost: "#7C3AED",
+  voice: "#0EA5E9",
   manual: "#585861",
 };
 
@@ -396,5 +398,6 @@ export const SOURCE_LABEL: Record<ProvenanceSource, string> = {
   linkedin: "From your LinkedIn",
   website: "From your website",
   devpost: "From your DevPost",
+  voice: "From your voice intake",
   manual: "Edited manually",
 };

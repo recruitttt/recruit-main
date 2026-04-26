@@ -39,6 +39,7 @@ const VALID_SOURCES: ReadonlySet<ProvenanceSource> = new Set([
   "linkedin",
   "website",
   "devpost",
+  "voice",
   "manual",
 ]);
 

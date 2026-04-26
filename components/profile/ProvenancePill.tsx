@@ -49,6 +49,12 @@ const PALETTE: Record<ProvenanceSource, { label: string; className: string; empt
       "border-fuchsia-500/30 bg-fuchsia-500/12 text-fuchsia-700",
     emptyHint: "Link a DevPost profile to import",
   },
+  voice: {
+    label: "voice",
+    className:
+      "border-sky-500/30 bg-sky-500/12 text-sky-700",
+    emptyHint: "Record a short voice intake to fill",
+  },
 };
 
 export interface ProvenancePillProps {
@@ -107,6 +113,7 @@ export function ProvenanceLegend({ className = "" }: ProvenanceLegendProps): Rea
     "linkedin",
     "resume",
     "chat",
+    "voice",
     "website",
     "devpost",
     "manual",

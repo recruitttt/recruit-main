@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion, type Transition, type Variants } from "motion/react";
 import { track } from "@vercel/analytics";
 import {
   BarChart3,
@@ -67,6 +67,25 @@ const FAST_INTERVAL_MS = 2500;
 const SLOW_INTERVAL_MS = 8000;
 const AUTO_SCORE_SORT_DELAY_MS = 2800;
 const DASHBOARD_COMMAND_TIMEOUT_MS = 30000;
+
+const panelStaggerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.075,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const panelItemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+  },
+};
 
 type DashboardCommandApiResponse =
   | {
@@ -339,7 +358,7 @@ function ConnectedRecruitDashboard() {
 
     try {
       setRunError(undefined);
-      setRunMessage("Preparing Ashby sources...");
+      setRunMessage("Starting pipeline run...");
       setRunState("syncing");
 
       setRunMessage("Fetching jobs from the first 3 Ashby sources...");
@@ -693,16 +712,32 @@ function ConnectedRecruitDashboard() {
 
         <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:items-start">
           <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-            <JobList
-              rows={animatedDisplayRows}
-              selectedJobId={selection.selectedJobId}
-              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-              reduceMotion={Boolean(reduceMotion)}
-              sorting={listSorting || listSettling}
-              commandLabel={commandPatch ? commandResultTitle(commandPatch) : undefined}
-              highlightedJobIds={highlightedJobIds}
-              onSelect={selectRecommendation}
-            />
+            <AnimatePresence initial={false}>
+              {boardRows.length > 0 ? (
+                <motion.div
+                  key="job-list"
+                  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 1.2, ease: [0.22, 1, 0.36, 1] }
+                  }
+                >
+                  <JobList
+                    rows={animatedDisplayRows}
+                    selectedJobId={selection.selectedJobId}
+                    loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+                    reduceMotion={Boolean(reduceMotion)}
+                    sorting={listSorting || listSettling}
+                    commandLabel={commandPatch ? commandResultTitle(commandPatch) : undefined}
+                    highlightedJobIds={highlightedJobIds}
+                    onSelect={selectRecommendation}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
 
           <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
@@ -715,6 +750,7 @@ function ConnectedRecruitDashboard() {
                   detailError={detailError}
                   tailorState={tailorState}
                   pdf={pdfState}
+                  reduceMotion={Boolean(reduceMotion)}
                   transition={calmTransition}
                   onTailor={() => {
                     track("tailor_job_clicked", {
@@ -747,6 +783,7 @@ function ConnectedRecruitDashboard() {
                   topScore={topScore}
                   topCompanies={topCompanies}
                   logs={latestLogs}
+                  reduceMotion={Boolean(reduceMotion)}
                   transition={calmTransition}
                 />
               )}
@@ -837,6 +874,26 @@ function JobList({
   highlightedJobIds: Set<string>;
   onSelect: (recommendation: LiveRecommendation) => void;
 }) {
+  const previousRowStateRef = useRef<Map<string, string> | null>(null);
+  const [updatedJobIds, setUpdatedJobIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const previous = previousRowStateRef.current;
+    const next = new Map(rows.map((row) => [row.jobId, `${row.score}:${row.statusLabel}:${row.rank}`]));
+    previousRowStateRef.current = next;
+
+    if (!previous || reduceMotion || sorting) return undefined;
+
+    const updated = rows
+      .filter((row) => previous.has(row.jobId) && previous.get(row.jobId) !== next.get(row.jobId))
+      .map((row) => row.jobId);
+    if (updated.length === 0) return undefined;
+
+    setUpdatedJobIds(new Set(updated));
+    const timer = window.setTimeout(() => setUpdatedJobIds(new Set()), 1250);
+    return () => window.clearTimeout(timer);
+  }, [reduceMotion, rows, sorting]);
+
   return (
     <motion.section
       initial={reduceMotion ? false : { opacity: 0, y: 14 }}
@@ -875,6 +932,7 @@ function JobList({
               active={selectedJobId === row.jobId}
               loading={loadingJobId === row.jobId}
               highlighted={highlightedJobIds.has(row.jobId)}
+              updated={updatedJobIds.has(row.jobId)}
               index={index}
               reduceMotion={reduceMotion}
               sorting={sorting}
@@ -892,6 +950,7 @@ function JobListRow({
   active,
   loading,
   highlighted,
+  updated,
   index,
   reduceMotion,
   sorting,
@@ -901,6 +960,7 @@ function JobListRow({
   active: boolean;
   loading: boolean;
   highlighted: boolean;
+  updated: boolean;
   index: number;
   reduceMotion: boolean;
   sorting: boolean;
@@ -952,6 +1012,23 @@ function JobListRow({
         ruledOut && "text-[var(--dashboard-panel-subtle)]",
       )}
     >
+      {active ? (
+        <motion.span
+          layoutId="dashboard-active-row-edge"
+          className="pointer-events-none absolute inset-y-2 left-0 w-1 rounded-full bg-[var(--dashboard-score-fg)] shadow-[0_0_18px_var(--color-accent-glow)]"
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+          aria-hidden="true"
+        />
+      ) : null}
+      {updated && !reduceMotion ? (
+        <motion.span
+          className="pointer-events-none absolute inset-0 bg-[var(--dashboard-row-highlight)]"
+          initial={{ opacity: 0.56 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
+          aria-hidden="true"
+        />
+      ) : null}
       {ruledOut ? (
         <span className="pointer-events-none absolute inset-x-3 top-1/2 h-px bg-[var(--dashboard-panel-divider)]" aria-hidden="true" />
       ) : null}
@@ -983,7 +1060,14 @@ function JobListRow({
       </div>
 
       <div className="flex min-h-11 flex-col items-end justify-between">
-        <span className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[var(--dashboard-panel-subtle)]" : "text-[var(--dashboard-score-fg)]")}>{row.score}</span>
+        <span className={cn("text-base font-semibold tabular-nums", ruledOut ? "text-[var(--dashboard-panel-subtle)]" : "text-[var(--dashboard-score-fg)]")}>
+          <AnimatedNumber
+            value={row.score}
+            from={Math.max(0, row.score - 18)}
+            format={(next) => String(Math.round(next))}
+            durationMs={520}
+          />
+        </span>
         <span className={cn("text-[11px] font-semibold", statusClasses(row.statusTone, active))}>
           {loading ? "Loading" : row.statusLabel}
         </span>
@@ -1000,6 +1084,7 @@ function OverviewPanel({
   topScore,
   topCompanies,
   logs,
+  reduceMotion,
   transition,
 }: {
   run: LiveRunSummary | null | undefined;
@@ -1009,6 +1094,7 @@ function OverviewPanel({
   topScore: number;
   topCompanies: CompanySummary[];
   logs: LivePipelineLog[];
+  reduceMotion: boolean;
   transition: Transition;
 }) {
   const scanned = run?.rawJobCount ?? 0;
@@ -1035,15 +1121,20 @@ function OverviewPanel({
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
-        <div className="grid grid-cols-2 gap-x-5 gap-y-1">
+      <motion.div
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        variants={panelStaggerVariants}
+        className="space-y-4 p-4"
+      >
+        <motion.div variants={panelItemVariants} className="grid grid-cols-2 gap-x-5 gap-y-1">
           <StatTile icon={BriefcaseBusiness} label="Jobs scanned" value={<CountUpValue value={scanned} />} detail={`${run?.fetchedCount ?? 0}/${run?.sourceCount ?? 0} sources`} />
           <StatTile icon={Target} label="Matches" value={<CountUpValue value={ranked} />} detail={`${topScore} top score`} />
           <StatTile icon={Gauge} label="Average fit" value={<CountUpValue value={Math.round(averageScore)} />} detail="Across ranked roles" />
           <StatTile icon={CheckCircle2} label="Tailored" value={<CountUpValue value={tailored} />} detail={`${readyCount} ready now`} />
-        </div>
+        </motion.div>
 
-        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+        <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Company mix</h3>
             <span className="text-sm font-semibold text-[var(--dashboard-score-fg)]">{topCompanies.length} companies</span>
@@ -1063,28 +1154,39 @@ function OverviewPanel({
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
 
-        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+        <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-[var(--color-accent)]" />
             <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Recent run signals</h3>
           </div>
           <div className="space-y-2.5">
             {logs.slice(-5).reverse().map((log) => (
-              <div key={log._id ?? `${log.createdAt}-${log.message}`} className="grid grid-cols-[8px_minmax(0,1fr)] gap-3">
-                <span className={cn("mt-2 h-2 w-2 rounded-full", logDotClass(log.level))} />
+              <motion.div
+                key={log._id ?? `${log.createdAt}-${log.message}`}
+                layout
+                initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="grid grid-cols-[8px_minmax(0,1fr)] gap-3"
+              >
+                <motion.span
+                  className={cn("mt-2 h-2 w-2 rounded-full", logDotClass(log.level))}
+                  animate={reduceMotion ? undefined : { scale: [1, 1.55, 1], opacity: [0.72, 1, 0.9] }}
+                  transition={reduceMotion ? undefined : { duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-[var(--dashboard-panel-fg)]">{log.message}</div>
                   <div className="mt-0.5 text-xs uppercase tracking-[0.12em] text-[var(--dashboard-panel-subtle)]">
                     {log.stage} / {formatTime(Date.parse(log.createdAt))}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </section>
-      </div>
+        </motion.section>
+      </motion.div>
     </motion.div>
   );
 }
@@ -1095,6 +1197,7 @@ function JobStatsPanel({
   detailError,
   tailorState,
   pdf,
+  reduceMotion,
   transition,
   onTailor,
   onOpenPdf,
@@ -1106,6 +1209,7 @@ function JobStatsPanel({
   detailError?: string;
   tailorState: TailorState;
   pdf: { canView: boolean; canDownload: boolean; filename?: string; sizeKb?: number; ready: boolean };
+  reduceMotion: boolean;
   transition: Transition;
   onTailor: () => void;
   onOpenPdf: () => void;
@@ -1162,19 +1266,24 @@ function JobStatsPanel({
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <motion.div
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        variants={panelStaggerVariants}
+        className="space-y-4 p-4"
+      >
         {detailError ? (
-          <div className="rounded-lg border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
+          <motion.div variants={panelItemVariants} className="rounded-lg border border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
             {detailError}
-          </div>
+          </motion.div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-1">
+        <motion.div variants={panelItemVariants} className="grid grid-cols-2 gap-x-5 gap-y-1">
           <StatTile icon={Gauge} label="Fit" value={<CountUpValue value={Math.round(fitScore)} />} detail={score?.scoringMode ?? "ranked"} />
           <StatTile icon={Sparkles} label="Model score" value={<CountUpValue value={Math.round(llmScore)} />} detail="Fit read" />
           <StatTile icon={Target} label="Tailoring" value={tailoringScore ? <CountUpValue value={Math.round(tailoringScore)} /> : "Ready"} detail={tailored?.status ?? "open"} />
           <StatTile icon={CheckCircle2} label="Keywords" value={keywordCoverage ? <><CountUpValue value={Math.round(keywordCoverage)} />%</> : "n/a"} detail={pdf.ready ? "PDF-ready metadata" : "Awaiting PDF"} />
-        </div>
+        </motion.div>
 
         <RankingMethodPanel
           scoringMode={score?.scoringMode ?? selected.scoringMode}
@@ -1182,7 +1291,7 @@ function JobStatsPanel({
           mlScore={llmScore}
         />
 
-        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+        <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 grid gap-3 sm:grid-cols-2">
             <Fact label="Location" value={resolvedLocation} />
             <Fact label="Compensation" value={job?.compensationSummary ?? selected.compensationSummary} />
@@ -1196,9 +1305,9 @@ function JobStatsPanel({
             {tailoringScore ? <ScoreLine label="Tailoring score" value={tailoringScore} /> : null}
             {keywordCoverage ? <ScoreLine label="Keyword coverage" value={keywordCoverage} /> : null}
           </div>
-        </section>
+        </motion.section>
 
-        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+        <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Fit read</h3>
           <p className="mt-3 text-sm leading-7 text-[var(--dashboard-panel-muted)]">
             {score?.rationale ?? selected.rationale ?? "No rationale captured yet."}
@@ -1207,10 +1316,10 @@ function JobStatsPanel({
             <SignalList title="Strengths" items={strengths} tone="good" />
             <SignalList title="Risks" items={risks} tone="warn" />
           </div>
-        </section>
+        </motion.section>
 
         {research ? (
-          <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+          <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
             <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">Research notes</h3>
             <p className="mt-3 text-sm leading-7 text-[var(--dashboard-panel-muted)]">{research.jdSummary}</p>
             <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5">
@@ -1220,10 +1329,10 @@ function JobStatsPanel({
                 </span>
               ))}
             </div>
-          </section>
+          </motion.section>
         ) : null}
 
-        <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+        <motion.section variants={panelItemVariants} className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <ThinAction onClick={onTailor} disabled={loading || tailorState.running}>
               {tailorState.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -1244,6 +1353,21 @@ function JobStatsPanel({
               <ExternalLink className="h-3.5 w-3.5" />
             </ThinAction>
           </div>
+          <AnimatePresence initial={false}>
+            {pdf.ready && !tailorState.running && !tailorState.error ? (
+              <motion.div
+                key="pdf-ready"
+                initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--color-success)]"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                PDF ready
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
           <div
             className={cn(
               "mt-4 rounded-lg px-4 py-3 text-sm leading-6",
@@ -1260,8 +1384,8 @@ function JobStatsPanel({
               </div>
             ) : null}
           </div>
-        </section>
-      </div>
+        </motion.section>
+      </motion.div>
     </motion.div>
   );
 }
@@ -1434,7 +1558,13 @@ function StatTile({
 }
 
 function CountUpValue({ value }: { value: number }) {
-  return <AnimatedNumber value={value} format={(next) => formatCount(Math.round(next))} />;
+  return (
+    <AnimatedNumber
+      value={value}
+      from={0}
+      format={(next) => formatCount(Math.round(next))}
+    />
+  );
 }
 
 function ScoreLine({ label, value }: { label: string; value: number }) {
@@ -1453,6 +1583,8 @@ function Meter({ value }: { value: number }) {
   return (
     <AnimatedProgressBar
       value={value}
+      from={0}
+      durationMs={900}
       trackClassName="bg-[var(--dashboard-card-bg)]"
       fillClassName="bg-[var(--color-accent)]"
     />

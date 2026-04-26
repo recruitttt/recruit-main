@@ -112,6 +112,12 @@ function css(pageSize: PageSize): string {
   .contact span { display: inline; }
   .contact-sep { color: #94a3b8; padding: 0 4px; }
   section { margin-top: 10px; }
+  .summary {
+    color: #1e293b;
+    font-size: 9.2pt;
+    line-height: 1.42;
+  }
+  .summary p { margin: 0; }
   h2 {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -188,6 +194,12 @@ function experienceSection(r: TailoredResume): string {
   return `<section class="experience"><h2>Experience</h2>${items}</section>`;
 }
 
+function summarySection(r: TailoredResume): string {
+  const summary = cleanText(r.summary);
+  if (!summary) return "";
+  return `<section class="summary"><h2>Summary</h2><p>${escapeHtml(summary)}</p></section>`;
+}
+
 function educationSection(r: TailoredResume): string {
   if (r.education.length === 0) return "";
   const items = r.education
@@ -252,6 +264,7 @@ export function renderResumeHtml(resume: TailoredResume, pageSize: PageSize = "l
     `</head><body>`,
     `<div class="resume">`,
     headerSection(resume),
+    summarySection(resume),
     experienceSection(resume),
     educationSection(resume),
     skillsSection(resume),

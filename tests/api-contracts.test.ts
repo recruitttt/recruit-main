@@ -33,22 +33,32 @@ await assertJsonResponse(
   400,
   { ok: false, reason: "missing_job_url" }
 );
-await withEnvAsync({ OPENAI_API_KEY: undefined }, async () => {
-  await assertJsonResponse(
-    await postResearchJob(
-      jsonRequest({
-        job: {
-          id: "job_1",
-          company: "Acme",
-          role: "Engineer",
-          jobUrl: "https://jobs.example/acme/1",
-        },
-      })
-    ),
-    503,
-    { ok: false, reason: "no_api_key" }
-  );
-});
+await withEnvAsync(
+  {
+    OPENAI_API_KEY: undefined,
+    AI_GATEWAY_API_KEY: undefined,
+    GEMINI_API_KEY: undefined,
+    RESEARCH_PROVIDER: undefined,
+    RESEARCH_MODEL: undefined,
+    GEMMA_RESEARCH_MODEL: undefined,
+  },
+  async () => {
+    await assertJsonResponse(
+      await postResearchJob(
+        jsonRequest({
+          job: {
+            id: "job_1",
+            company: "Acme",
+            role: "Engineer",
+            jobUrl: "https://jobs.example/acme/1",
+          },
+        })
+      ),
+      503,
+      { ok: false, reason: "no_api_key" }
+    );
+  }
+);
 
 await assertJsonResponse(await postTailorJob(badJsonRequest()), 400, {
   ok: false,
@@ -99,22 +109,32 @@ await assertJsonResponse(
   400,
   { ok: false, reason: "profile_incomplete" }
 );
-await withEnvAsync({ OPENAI_API_KEY: undefined }, async () => {
-  await assertJsonResponse(
-    await postTailorJob(
-      jsonRequest({
-        profile: {
-          ...incompleteProfile,
-          experience: [{ company: "Acme", title: "Engineer" }],
-        },
-        research,
-        job,
-      })
-    ),
-    503,
-    { ok: false, reason: "no_api_key" }
-  );
-});
+await withEnvAsync(
+  {
+    OPENAI_API_KEY: undefined,
+    AI_GATEWAY_API_KEY: undefined,
+    GEMINI_API_KEY: undefined,
+    TAILOR_PROVIDER: undefined,
+    TAILOR_MODEL: undefined,
+    GEMMA_TAILOR_MODEL: undefined,
+  },
+  async () => {
+    await assertJsonResponse(
+      await postTailorJob(
+        jsonRequest({
+          profile: {
+            ...incompleteProfile,
+            experience: [{ company: "Acme", title: "Engineer" }],
+          },
+          research,
+          job,
+        })
+      ),
+      503,
+      { ok: false, reason: "no_api_key" }
+    );
+  }
+);
 
 await assertJsonResponse(await postParseResume(badJsonRequest()), 400, {
   ok: false,

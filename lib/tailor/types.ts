@@ -28,7 +28,7 @@ export type JobResearch = {
   companyProducts: string[];
   cultureSignals: string[];
   recentNews?: string[];
-  source: "ingested-description" | "deep-research" | "firecrawl-fallback" | "title-only";
+  source: "ingested-description" | "deep-research" | "k2-reasoning" | "firecrawl-fallback" | "title-only";
   modelDurationMs: number;
 };
 

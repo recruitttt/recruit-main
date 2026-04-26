@@ -2,11 +2,11 @@
 // Body: { job: Job }
 // Response: { ok: true, research: JobResearch } | { ok: false, reason: string }
 //
-// Calls OpenAI's deep-research-capable model (configured via RESEARCH_MODEL).
-// Falls back to Firecrawl + structured extraction if deep research returns
-// thin content. Last resort: title-only research using just the company + role.
+// Calls OpenAI's deep-research-capable model when configured, or Gemini/Gemma
+// for structured extraction. Falls back to Firecrawl + structured extraction
+// if deep research returns thin content. Last resort: title-only research.
 
-import { researchJob } from "@/lib/tailor/research";
+import { hasResearchCredentials, researchJob } from "@/lib/tailor/research";
 import type { Job } from "@/lib/tailor/types";
 
 export const runtime = "nodejs";
@@ -28,12 +28,11 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, reason: "missing_job_fields" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!hasResearchCredentials()) {
     return Response.json({ ok: false, reason: "no_api_key" }, { status: 503 });
   }
 
-  const result = await researchJob(job, apiKey);
+  const result = await researchJob(job);
   if (!result.ok) {
     return Response.json({ ok: false, reason: result.reason }, { status: 502 });
   }

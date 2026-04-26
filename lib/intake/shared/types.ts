@@ -21,6 +21,7 @@ export type ProvenanceSource =
   | "linkedin"
   | "website"
   | "devpost"
+  | "voice"
   | "manual";
 
 export type IntakeAdapterName =
@@ -28,7 +29,8 @@ export type IntakeAdapterName =
   | "linkedin"
   | "resume"
   | "web"
-  | "chat";
+  | "chat"
+  | "voice";
 
 export type IntakeRunKind = IntakeAdapterName | "ai-report";
 

@@ -50,6 +50,7 @@ import {
 } from "@/lib/intake/shared/client-stream";
 import { trimLinks } from "@/lib/intake/shared/url-utils";
 import { playActivate, playReceive, playSend } from "@/lib/sounds";
+import { speak } from "@/lib/speech";
 import { logProfileEvent, mergeProfile } from "@/lib/profile";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -101,6 +102,21 @@ export function OnboardingClient() {
     [],
   );
   const githubAutoStartRef = useRef<string | null>(null);
+  const lastSpokenRef = useRef<string | null>(null);
+
+  // Speak each new agent message via ElevenLabs TTS. Tracks the last-spoken
+  // id so re-renders don't replay, and so back-stepping (which trims older
+  // agent entries) doesn't cause the prior message to speak again.
+  useEffect(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.kind !== "agent") continue;
+      if (lastSpokenRef.current === m.id) return;
+      lastSpokenRef.current = m.id;
+      void speak(m.text);
+      return;
+    }
+  }, [messages]);
 
   const stepIndex = STEP_INDEX[step];
   const totalSteps = STEP_ORDER.length;

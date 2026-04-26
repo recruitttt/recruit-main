@@ -166,7 +166,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
               >
                 <Box className="h-3.5 w-3.5" />
                 <span>Try 3D</span>
-                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-slate-400">
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
                   beta
                 </span>
               </Link>
@@ -174,7 +174,7 @@ export function MobileNav({ isOpen, onClose, pathname, isPending = false, user, 
 
             <div className="app-nav-track mt-auto rounded-2xl p-2">
               {isPending ? (
-                <div className="h-10 animate-pulse rounded-xl bg-white/45" aria-hidden="true" />
+                <div className="h-10 animate-pulse rounded-xl bg-[var(--theme-compat-bg)]" aria-hidden="true" />
               ) : user ? (
                 <div className="space-y-2">
                   <div className="px-2 py-1">

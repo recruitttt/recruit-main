@@ -18,7 +18,13 @@ import { ThemeParticleFall } from "@/components/visual/theme-particle-fall";
 import { cn } from "@/lib/utils";
 import type { LiveDashboardPayload } from "./dashboard-types";
 
-const MINIMUM_LOADING_MS = 5400;
+const MINIMUM_LOADING_MS = 9500;
+const FINAL_PROGRESS_HOLD_MS = 1200;
+const STAGE_ADVANCE_MS = 2800;
+const PROGRESS_TICK_MS = 140;
+const PROGRESS_SMOOTHING_MS = 1400;
+const INITIAL_PROGRESS = 8;
+const PEAK_PROGRESS = 95;
 
 const STAGES = [
   {
@@ -54,7 +60,7 @@ export function DashboardLoadingPage({ preview = false }: DashboardLoadingPagePr
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [stageIndex, setStageIndex] = useState(0);
-  const [progress, setProgress] = useState(8);
+  const [progress, setProgress] = useState(INITIAL_PROGRESS);
   const [payload, setPayload] = useState<LiveDashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const stage = STAGES[stageIndex] ?? STAGES[0];
@@ -65,17 +71,28 @@ export function DashboardLoadingPage({ preview = false }: DashboardLoadingPagePr
       setStageIndex((current) => preview
         ? (current + 1) % STAGES.length
         : Math.min(current + 1, STAGES.length - 1));
-    }, 2100);
+    }, STAGE_ADVANCE_MS);
     return () => window.clearInterval(id);
   }, [preview, reduceMotion]);
 
   useEffect(() => {
     if (reduceMotion) return;
+    const startedAt = Date.now();
     const id = window.setInterval(() => {
-      setProgress((current) => Math.min(current + 2, stage.progress));
-    }, 260);
+      const elapsed = Date.now() - startedAt;
+      if (preview) {
+        const cycleT = (elapsed % MINIMUM_LOADING_MS) / MINIMUM_LOADING_MS;
+        const eased = 1 - Math.pow(1 - cycleT, 3);
+        setProgress(INITIAL_PROGRESS + eased * (88 - INITIAL_PROGRESS));
+        return;
+      }
+      const t = Math.min(elapsed / MINIMUM_LOADING_MS, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const target = INITIAL_PROGRESS + eased * (PEAK_PROGRESS - INITIAL_PROGRESS);
+      setProgress((current) => Math.max(current, target));
+    }, PROGRESS_TICK_MS);
     return () => window.clearInterval(id);
-  }, [preview, reduceMotion, stage.progress]);
+  }, [preview, reduceMotion]);
 
   useEffect(() => {
     if (preview) return;
@@ -91,19 +108,20 @@ export function DashboardLoadingPage({ preview = false }: DashboardLoadingPagePr
         const nextPayload = (await response.json()) as LiveDashboardPayload;
         if (cancelled) return;
         setPayload(nextPayload);
-        setProgress(96);
       } catch (nextError) {
         if (cancelled) return;
         setError(nextError instanceof Error ? nextError.message : String(nextError));
-        setProgress(92);
       } finally {
         const elapsed = Date.now() - startedAt;
-        const remaining = Math.max(1200, MINIMUM_LOADING_MS - elapsed);
+        const remaining = Math.max(1600, MINIMUM_LOADING_MS - elapsed);
         timeout = window.setTimeout(() => {
           if (cancelled) return;
           setProgress(100);
-          markDashboardLoadingSeen();
-          router.replace("/dashboard");
+          timeout = window.setTimeout(() => {
+            if (cancelled) return;
+            markDashboardLoadingSeen();
+            router.replace("/dashboard");
+          }, FINAL_PROGRESS_HOLD_MS);
         }, remaining);
       }
     }
@@ -187,10 +205,18 @@ export function DashboardLoadingPage({ preview = false }: DashboardLoadingPagePr
                 </p>
               </div>
               <div className="text-2xl font-semibold tabular-nums text-[var(--dashboard-panel-fg)]">
-                <AnimatedNumber value={progress} format={(value) => `${Math.round(value)}%`} />
+                <AnimatedNumber
+                  value={progress}
+                  durationMs={PROGRESS_SMOOTHING_MS}
+                  format={(value) => `${Math.round(value)}%`}
+                />
               </div>
             </div>
-            <AnimatedProgressBar value={progress} className="mt-4" />
+            <AnimatedProgressBar
+              value={progress}
+              durationMs={PROGRESS_SMOOTHING_MS}
+              className="mt-4"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-2">

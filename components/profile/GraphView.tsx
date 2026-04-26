@@ -285,7 +285,7 @@ export function GraphView({ userId, active }: GraphViewProps): React.ReactElemen
         ref={containerRef}
         className={cx(
           "relative overflow-hidden rounded-[28px] border border-[var(--glass-border)] bg-[var(--profile-graph-bg)]",
-          "shadow-[0_28px_80px_rgba(45,69,50,0.14),inset_0_1px_0_rgba(255,255,255,0.86)] backdrop-blur-2xl",
+          "shadow-[var(--theme-panel-shadow)] backdrop-blur-2xl",
         )}
         style={{ height: "clamp(520px, 68vh, 820px)" }}
         onMouseMove={handlePointerMove}
@@ -1530,14 +1530,14 @@ function ConstellationBackdrop(): React.ReactElement {
         className="absolute inset-0 opacity-[0.55]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(67,87,73,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(67,87,73,0.07) 1px, transparent 1px)",
+            "linear-gradient(color-mix(in srgb, var(--color-fg-subtle) 8%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-fg-subtle) 7%, transparent) 1px, transparent 1px)",
           backgroundSize: "44px 44px",
           maskImage: "linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.16))",
           WebkitMaskImage: "linear-gradient(180deg, rgba(0,0,0,0.58), rgba(0,0,0,0.16))",
         }}
       />
-      <div className="absolute inset-x-0 top-0 h-px bg-white/85" />
-      <div className="absolute inset-x-10 bottom-8 h-px bg-[linear-gradient(90deg,transparent,rgba(67,87,73,0.18),transparent)]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-[var(--theme-compat-bg-strong)]" />
+      <div className="absolute inset-x-10 bottom-8 h-px bg-[linear-gradient(90deg,transparent,var(--color-accent-soft),transparent)]" />
     </div>
   );
 }
@@ -1545,7 +1545,7 @@ function ConstellationBackdrop(): React.ReactElement {
 function GraphPlaceholder({ text }: { text: string }): React.ReactElement {
   return (
     <div className="relative z-20 flex h-full w-full items-center justify-center">
-      <span className="rounded-full border border-white/70 bg-white/62 px-4 py-1.5 text-[12px] font-medium text-[#435749] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl">
+      <span className="rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-4 py-1.5 text-[12px] font-medium text-[var(--color-fg-muted)] shadow-[var(--theme-card-inset-shadow)] backdrop-blur-xl">
         {text}
       </span>
     </div>
@@ -1561,7 +1561,7 @@ function EmptyState({
 }): React.ReactElement {
   return (
     <div className="relative z-20 flex h-full w-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <p className="max-w-sm text-sm text-[#435749]">
+      <p className="max-w-sm text-sm text-[var(--color-fg-muted)]">
         {hasAnyNodes
           ? "No nodes match the current filter."
           : "Sign in with GitHub or paste a LinkedIn URL during onboarding to populate your graph."}
@@ -1570,7 +1570,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onResetFilter}
-          className="h-8 rounded-full border border-white/70 bg-white/65 px-3 text-[12px] font-semibold text-[#435749] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] transition hover:bg-white/84 hover:text-[#102016]"
+          className="h-8 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-3 text-[12px] font-semibold text-[var(--color-fg-muted)] shadow-[var(--theme-card-inset-shadow)] transition hover:bg-[var(--glass-control-hover)] hover:text-[var(--color-fg)]"
         >
           Show all nodes
         </button>
@@ -1590,13 +1590,13 @@ function EdgeTooltip({
 }): React.ReactElement {
   return (
     <div
-      className="pointer-events-none absolute z-30 max-w-xs -translate-x-1/2 -translate-y-full rounded-2xl border border-white/70 bg-white/90 px-3 py-2 text-[11px] font-medium text-[#435749] shadow-[0_12px_24px_rgba(64,92,58,0.16),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl"
+      className="pointer-events-none absolute z-30 max-w-xs -translate-x-1/2 -translate-y-full rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-strong)] px-3 py-2 text-[11px] font-medium text-[var(--color-fg-muted)] shadow-[var(--theme-panel-shadow)] backdrop-blur-xl"
       style={{ left: x, top: y - 8 }}
     >
-      <span className="font-semibold capitalize text-[#102016]">
+      <span className="font-semibold capitalize text-[var(--color-fg)]">
         {EDGE_LABELS[edge.kind]}
       </span>
-      {edge.detail && <span className="ml-1 text-[#738070]">{edge.detail}</span>}
+      {edge.detail && <span className="ml-1 text-[var(--color-fg-subtle)]">{edge.detail}</span>}
     </div>
   );
 }

@@ -58,11 +58,11 @@ export function SectionCard({
           {kicker ? (
             <div className={mistClasses.sectionLabel}>{kicker}</div>
           ) : null}
-          <h2 className="mt-1 truncate font-serif text-[22px] leading-tight tracking-tight text-slate-900">
+          <h2 className="mt-1 truncate font-serif text-[22px] leading-tight tracking-tight text-[var(--color-fg)]">
             {title}
           </h2>
           {description ? (
-            <p className="mt-1 max-w-2xl text-[13px] leading-snug text-slate-600">
+            <p className="mt-1 max-w-2xl text-[13px] leading-snug text-[var(--color-fg-muted)]">
               {description}
             </p>
           ) : null}
@@ -89,11 +89,11 @@ export function SectionCard({
 
 function EmptyBody({ title, hint }: { title: string; hint: ReactNode }): React.ReactElement {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300/55 bg-white/35 p-4 text-center">
-      <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
+    <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--theme-compat-bg-soft)] p-4 text-center">
+      <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
         {title}
       </div>
-      <div className="mt-1 text-[13px] leading-snug text-slate-600">{hint}</div>
+      <div className="mt-1 text-[13px] leading-snug text-[var(--color-fg-muted)]">{hint}</div>
     </div>
   );
 }
@@ -104,10 +104,10 @@ function RawDrawer({ label, data }: { label: string; data: unknown }): React.Rea
 
   return (
     <details
-      className="mt-4 rounded-2xl border border-white/55 bg-white/22 p-2"
+      className="mt-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-2"
       onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-600 transition hover:bg-white/40">
+      <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--color-fg-muted)] transition hover:bg-[var(--glass-control-hover)]">
         <ChevronRight
           className={cx(
             "h-3 w-3 transition-transform",
@@ -117,7 +117,7 @@ function RawDrawer({ label, data }: { label: string; data: unknown }): React.Rea
         <Database className="h-3 w-3" />
         {label}
       </summary>
-      <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-slate-900/8 bg-slate-950/85 p-3 font-mono text-[11px] leading-snug text-slate-100/95">
+      <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 font-mono text-[11px] leading-snug text-[var(--color-fg)]">
         {json}
       </pre>
     </details>

@@ -138,7 +138,7 @@ Useful optional environment variables:
 | Convex app data | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_DEPLOYMENT` |
 | Better Auth | `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, `ADDITIONAL_TRUSTED_ORIGINS` |
 | GitHub intake | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_OWNER` |
-| AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAILOR_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL`, `RESEARCH_MODEL` |
+| AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `TAILOR_PROVIDER`, `TAILOR_MODEL`, `GEMMA_TAILOR_MODEL`, `RESEARCH_PROVIDER`, `RESEARCH_MODEL`, `GEMMA_RESEARCH_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL` |
 | LinkedIn/browser intake | `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `COOKIE_ENCRYPTION_KEY` |
 | Scraping fallbacks | `FIRECRAWL_API_KEY`, `PROXYCURL_API_KEY` |
 | Checkout | `STRIPE_SECRET_KEY`, `STRIPE_CHECKOUT_MOCK`, `NEXT_PUBLIC_APP_URL` |
@@ -146,6 +146,13 @@ Useful optional environment variables:
 
 Do not commit `.env*`, local auth files, API keys, browser profiles, or generated
 production evidence.
+
+Resume tailoring defaults to OpenAI. To use Gemma 4 for the tailoring step, set
+`TAILOR_PROVIDER=gemini`, `GEMINI_API_KEY`, and optionally
+`TAILOR_MODEL=gemma-4-26b-a4b-it` or `TAILOR_MODEL=gemma-4-31b-it`.
+When OpenAI is not configured, job-research extraction can also use Gemma from
+the ingested or scraped job description; OpenAI remains the deep web-research
+path.
 
 ## Validation
 

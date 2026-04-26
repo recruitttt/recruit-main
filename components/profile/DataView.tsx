@@ -349,14 +349,14 @@ function HeaderCard({
 
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
-            <h1 className="truncate font-serif text-[34px] leading-[1.05] tracking-tight text-slate-950">
+            <h1 className="truncate font-serif text-[34px] leading-[1.05] tracking-tight text-[var(--color-fg)]">
               {name}
             </h1>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-slate-700">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-[var(--color-fg-muted)]">
               {headline ? (
                 <span className="truncate">{headline}</span>
               ) : (
-                <span className="italic text-slate-500">no headline yet</span>
+                <span className="italic text-[var(--color-fg-subtle)]">no headline yet</span>
               )}
               {headline ? (
                 <ProvenancePill
@@ -367,21 +367,21 @@ function HeaderCard({
                 <ProvenancePill source="linkedin" empty />
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-slate-600">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--color-fg-muted)]">
               {location ? (
                 <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                  <MapPin className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
                   {location}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 italic text-slate-500">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                <span className="inline-flex items-center gap-1 italic text-[var(--color-fg-subtle)]">
+                  <MapPin className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
                   no location
                 </span>
               )}
               {email ? (
                 <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3.5 w-3.5 text-slate-500" />
+                  <Mail className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
                   <a className="hover:underline" href={`mailto:${email}`}>
                     {email}
                   </a>
@@ -423,7 +423,7 @@ function Avatar({
 
   return (
     <div
-      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-[20px] border border-white/65 bg-slate-950 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_18px_40px_rgba(15,23,42,0.18)]"
+      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-[20px] border border-[var(--glass-border)] bg-[var(--color-fg)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_18px_40px_var(--theme-panel-shadow)]"
       style={{ width: dim, height: dim }}
     >
       {src ? (
@@ -456,7 +456,7 @@ function SyncStrip({
 
   return (
     <div className="space-y-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
         source connections
       </span>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -517,22 +517,22 @@ const SOURCE_STATUS_STYLE: Record<
 > = {
   loading: {
     label: "Still loading",
-    className: "border-slate-300/65 bg-white/35 text-slate-600",
+    className: "border-[var(--color-border)] bg-[var(--theme-compat-bg-soft)] text-[var(--color-fg-muted)]",
     icon: Loader2,
   },
   "not-connected": {
     label: "Not connected",
-    className: "border-dashed border-slate-300/65 bg-white/30 text-slate-500",
+    className: "border-dashed border-[var(--color-border)] bg-[var(--theme-compat-bg-soft)] text-[var(--color-fg-subtle)]",
     icon: Link2,
   },
   saved: {
     label: "Saved",
-    className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700",
+    className: "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
     icon: CheckCircle2,
   },
   connected: {
     label: "Connected",
-    className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700",
+    className: "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
     icon: CheckCircle2,
   },
   processing: {
@@ -542,12 +542,12 @@ const SOURCE_STATUS_STYLE: Record<
   },
   done: {
     label: "Done",
-    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+    className: "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
     icon: CheckCircle2,
   },
   failed: {
     label: "Failed",
-    className: "border-red-500/35 bg-red-500/10 text-red-700",
+    className: "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
     icon: AlertTriangle,
   },
 };
@@ -635,7 +635,7 @@ function LoadingBanner(): React.ReactElement {
   return (
     <div
       className={cx(
-        "flex items-center gap-2 border px-4 py-3 text-[12px] text-slate-600",
+        "flex items-center gap-2 border px-4 py-3 text-[12px] text-[var(--color-fg-muted)]",
         mistClasses.card,
       )}
     >
@@ -827,11 +827,11 @@ function EditableLinksSection({
           const source = pickSource(provenance, `links.${item.key}`, pickSource(provenance, item.key, "manual"));
 
           return (
-            <div key={item.key} className="rounded-2xl border border-white/55 bg-white/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+            <div key={item.key} className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3 shadow-[inset_0_1px_0_var(--theme-card-inset-shadow)]">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <Link2 className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" />
-                  <span className="truncate text-xs font-semibold text-slate-800">{item.label}</span>
+                  <span className="truncate text-xs font-semibold text-[var(--color-fg-muted)]">{item.label}</span>
                   <ProvenancePill source={source} />
                 </div>
                 <SourceMiniStatus status={status} />
@@ -844,7 +844,7 @@ function EditableLinksSection({
                     setDraftEdits((current) => ({ ...current, [item.key]: value }));
                   }}
                   placeholder={item.placeholder}
-                  className="h-10 min-w-0 rounded-[14px] border border-white/60 bg-white/54 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)]"
+                  className="h-10 min-w-0 rounded-[14px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-3 text-sm text-[var(--color-fg)] outline-none transition placeholder:text-[var(--color-fg-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)]"
                 />
                 {item.rescrape ? (
                   <ActionButton
@@ -861,7 +861,7 @@ function EditableLinksSection({
                 ) : null}
               </div>
               {item.key === "github" && !githubConnected && draft.github.trim() ? (
-                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                <p className="mt-2 text-[11px] leading-5 text-[var(--color-fg-subtle)]">
                   URL-only uses the public page. Connect GitHub for full repository intake.
                 </p>
               ) : null}
@@ -870,20 +870,20 @@ function EditableLinksSection({
         })}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-white/45 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t border-[var(--glass-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-h-5 text-sm leading-5">
           {feedback ? (
             <span
               role="status"
               className={cx(
                 "font-medium",
-                feedback.kind === "error" ? "text-red-600" : feedback.kind === "success" ? "text-emerald-700" : "text-slate-600",
+                feedback.kind === "error" ? "text-[var(--color-danger)]" : feedback.kind === "success" ? "text-[var(--color-success)]" : "text-[var(--color-fg-muted)]",
               )}
             >
               {feedback.text}
             </span>
           ) : (
-            <span className="text-slate-500">
+            <span className="text-[var(--color-fg-subtle)]">
               {changedKeys.length > 0
                 ? `${changedKeys.length} unsaved ${changedKeys.length === 1 ? "change" : "changes"}`
                 : "No unsaved changes"}
@@ -1105,7 +1105,7 @@ function IdentitySection({
       </div>
 
       {profile.summary ? (
-        <div className="rounded-2xl border border-white/55 bg-white/35 p-4">
+        <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-4">
           <div className="mb-2 flex items-center gap-2">
             <span className={mistClasses.sectionLabel}>summary</span>
             <ProvenancePill source={pickSource(provenance, "summary", "linkedin")} />
@@ -1127,20 +1127,20 @@ function IdentitySection({
                 href={url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/65 bg-white/45 px-3 py-1 text-[12px] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition hover:bg-white/65"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-3 py-1 text-[12px] text-[var(--color-fg-muted)] shadow-[inset_0_1px_0_var(--theme-card-inset-shadow)] transition hover:bg-[var(--theme-compat-bg-strong)]"
               >
                 <Link2 className="h-3 w-3" />
                 <span className="font-medium">{key}</span>
-                <span className="max-w-[180px] truncate text-slate-500">
+                <span className="max-w-[180px] truncate text-[var(--color-fg-subtle)]">
                   {prettyUrl(url)}
                 </span>
-                <ExternalLink className="h-3 w-3 text-slate-500" />
+                <ExternalLink className="h-3 w-3 text-[var(--color-fg-subtle)]" />
               </a>
             ))}
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300/55 bg-white/35 p-3 text-[12px] text-slate-500">
+        <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--theme-compat-bg-soft)] p-3 text-[12px] text-[var(--color-fg-subtle)]">
           No links yet. <ProvenancePill source="github" empty className="ml-1" />
           <ProvenancePill source="linkedin" empty className="ml-1" />
         </div>
@@ -1166,15 +1166,15 @@ function FieldRow({
 }): React.ReactElement {
   const empty = !value || value.trim().length === 0;
   return (
-    <div className="rounded-2xl border border-white/55 bg-white/30 p-3">
-      <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-500">
+    <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
+      <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
         <Icon className="h-3 w-3" />
         {label}
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
-        <div className="min-w-0 truncate text-[14px] text-slate-900">
+        <div className="min-w-0 truncate text-[14px] text-[var(--color-fg)]">
           {empty ? (
-            <span className="italic text-slate-500">no data</span>
+            <span className="italic text-[var(--color-fg-subtle)]">no data</span>
           ) : href ? (
             <a className="hover:underline" href={href}>
               {value}
@@ -1244,7 +1244,7 @@ function ExperienceSection({
           : undefined
       }
     >
-      <ol className="relative ml-2 space-y-4 border-l border-slate-300/55 pl-5">
+      <ol className="relative ml-2 space-y-4 border-l border-[var(--color-border)] pl-5">
         {sorted.map((role, idx) => (
           <ExperienceItemRow
             key={`${role.company}::${role.title}::${idx}`}
@@ -1259,13 +1259,13 @@ function ExperienceSection({
       </ol>
 
       {ghRun && ghRun.status === "completed" ? (
-        <div className="rounded-2xl border border-white/55 bg-white/30 p-3">
-          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-500">
+        <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
+          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             <GitCommit className="h-3 w-3" />
             github commit timeline
             <ProvenancePill source="github" />
           </div>
-          <div className="mt-1 text-[12px] text-slate-600">
+          <div className="mt-1 text-[12px] text-[var(--color-fg-muted)]">
             {ghCommits}
             <RelativeTime iso={ghRun.completedAt ?? ghRun.startedAt} />
             {" "}— see Projects below for per-repo activity.
@@ -1286,18 +1286,18 @@ function ExperienceItemRow({
   return (
     <li className="relative">
       <span className="absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-[var(--color-accent)] shadow-[0_0_0_3px_var(--color-accent-glow)]" />
-      <div className="rounded-2xl border border-white/55 bg-white/35 p-3">
+      <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-slate-900">
-              <Briefcase className="h-3.5 w-3.5 text-slate-500" />
+            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-fg)]">
+              <Briefcase className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
               <span className="truncate">{role.title || "(no title)"}</span>
-              <span className="text-slate-400">·</span>
-              <span className="truncate text-slate-700">
+              <span className="text-[var(--color-fg-subtle)]">·</span>
+              <span className="truncate text-[var(--color-fg-muted)]">
                 {role.company || "(no company)"}
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-slate-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-[var(--color-fg-subtle)]">
               {role.startDate || role.endDate ? (
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -1315,7 +1315,7 @@ function ExperienceItemRow({
           <ProvenancePill source={source} />
         </div>
         {role.description ? (
-          <p className="mt-2 text-[13px] leading-snug text-slate-600">
+          <p className="mt-2 text-[13px] leading-snug text-[var(--color-fg-muted)]">
             {role.description}
           </p>
         ) : null}
@@ -1361,24 +1361,24 @@ function EducationSection({
         {items.map((edu, idx) => (
           <div
             key={`${edu.school}::${edu.degree}::${idx}`}
-            className="rounded-2xl border border-white/55 bg-white/35 p-3"
+            className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-slate-900">
-                <GraduationCap className="h-3.5 w-3.5 text-slate-500" />
+              <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-[var(--color-fg)]">
+                <GraduationCap className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
                 <span className="truncate">{edu.school}</span>
               </div>
               <ProvenancePill
                 source={pickSource(provenance, `education[${edu.school}]`, "linkedin")}
               />
             </div>
-            <div className="mt-0.5 text-[13px] text-slate-700">
+            <div className="mt-0.5 text-[13px] text-[var(--color-fg-muted)]">
               {[edu.degree, edu.field].filter(Boolean).join(" · ") || (
-                <span className="italic text-slate-500">no degree info</span>
+                <span className="italic text-[var(--color-fg-subtle)]">no degree info</span>
               )}
             </div>
             {edu.startDate || edu.endDate ? (
-              <div className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500">
+              <div className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-[var(--color-fg-subtle)]">
                 <Calendar className="h-3 w-3" />
                 {edu.startDate ?? "?"} → {edu.endDate ?? "?"}
               </div>
@@ -1438,7 +1438,7 @@ function ProjectsSection({
       meta={
         <>
           <ProvenancePill source="github" empty={total === 0} />
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             {total} {total === 1 ? "project" : "projects"}
           </span>
         </>
@@ -1460,7 +1460,7 @@ function ProjectsSection({
       }
     >
       {repoSummariesLoading ? (
-        <div className="flex items-center gap-2 text-[12px] text-slate-500">
+        <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-subtle)]">
           <Loader2 className="h-3 w-3 animate-spin" />
           loading rich summaries…
         </div>
@@ -1488,20 +1488,20 @@ function ProjectsSection({
                 href={r.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between gap-2 rounded-2xl border border-white/55 bg-white/30 p-3 transition hover:bg-white/45"
+                className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3 transition hover:bg-[var(--theme-compat-bg)]"
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-900">
-                    <GitBranch className="h-3.5 w-3.5 text-slate-500" />
+                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-fg)]">
+                    <GitBranch className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
                     <span className="truncate">{r.name}</span>
                   </div>
                   {r.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-[12px] text-slate-600">
+                    <p className="mt-0.5 line-clamp-2 text-[12px] text-[var(--color-fg-muted)]">
                       {r.description}
                     </p>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-slate-500">
+                <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-[var(--color-fg-subtle)]">
                   {typeof r.stars === "number" ? (
                     <span className="inline-flex items-center gap-1">
                       <Star className="h-3 w-3" />
@@ -1535,14 +1535,14 @@ function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 text-[14px] font-semibold text-slate-900 hover:underline"
+            className="flex items-center gap-1.5 text-[14px] font-semibold text-[var(--color-fg)] hover:underline"
           >
-            <GitBranch className="h-3.5 w-3.5 text-slate-500" />
+            <GitBranch className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
             <span className="truncate">{row.repoFullName}</span>
-            <ExternalLink className="h-3 w-3 shrink-0 text-slate-500" />
+            <ExternalLink className="h-3 w-3 shrink-0 text-[var(--color-fg-subtle)]" />
           </a>
           {s.oneLineDescription ? (
-            <p className="mt-1 line-clamp-2 text-[12.5px] text-slate-600">
+            <p className="mt-1 line-clamp-2 text-[12.5px] text-[var(--color-fg-muted)]">
               {s.oneLineDescription}
             </p>
           ) : null}
@@ -1558,34 +1558,34 @@ function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
       </header>
 
       {s.whatItDoes ? (
-        <div className="rounded-xl border border-white/55 bg-white/35 p-3">
-          <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+        <div className="rounded-xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
+          <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             <Sparkles className="h-3 w-3" />
             what it does
           </div>
-          <p className="text-[13px] leading-relaxed text-slate-700">
+          <p className="text-[13px] leading-relaxed text-[var(--color-fg-muted)]">
             {s.whatItDoes}
           </p>
         </div>
       ) : null}
 
       {s.metadataSummary ? (
-        <div className="rounded-xl border border-white/55 bg-white/22 p-3">
-          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+        <div className="rounded-xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
+          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             metadata recap
           </div>
-          <p className="text-[12.5px] leading-snug text-slate-600">
+          <p className="text-[12.5px] leading-snug text-[var(--color-fg-muted)]">
             {s.metadataSummary}
           </p>
         </div>
       ) : null}
 
       {s.notableImplementationDetails && s.notableImplementationDetails.length > 0 ? (
-        <div className="rounded-xl border border-white/55 bg-white/22 p-3">
-          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+        <div className="rounded-xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             notable implementation
           </div>
-          <ul className="list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-slate-700">
+          <ul className="list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-[var(--color-fg-muted)]">
             {s.notableImplementationDetails.map((b, i) => (
               <li key={i}>{b}</li>
             ))}
@@ -1598,7 +1598,7 @@ function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
           {s.keyTechnologies.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center gap-1 rounded-full border border-white/65 bg-white/45 px-2 py-0.5 font-mono text-[10px] text-slate-700"
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-fg-muted)]"
             >
               <Wrench className="h-2.5 w-2.5" />
               {t}
@@ -1607,7 +1607,7 @@ function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
         </div>
       ) : null}
 
-      <footer className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px] text-slate-500">
+      <footer className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px] text-[var(--color-fg-subtle)]">
         <span className="truncate">model: {row.generatedByModel || "—"}</span>
         <RelativeTime iso={row.generatedAt} />
       </footer>
@@ -1687,7 +1687,7 @@ function SkillsSection({
               <div className="mb-1.5 flex items-center gap-2">
                 <span className={mistClasses.sectionLabel}>{g.title}</span>
                 <ProvenancePill source={g.source} />
-                <span className="font-mono text-[10px] text-slate-500">
+                <span className="font-mono text-[10px] text-[var(--color-fg-subtle)]">
                   {g.items.length}
                 </span>
               </div>
@@ -1695,7 +1695,7 @@ function SkillsSection({
                 {g.items.map((s) => (
                   <span
                     key={s}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/65 bg-white/45 px-2.5 py-0.5 text-[12px] text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-2.5 py-0.5 text-[12px] text-[var(--color-fg-muted)]"
                   >
                     {s}
                   </span>
@@ -1857,26 +1857,26 @@ function ExtrasCard({
   emptyHint: string;
 }): React.ReactElement {
   return (
-    <div className="rounded-2xl border border-white/55 bg-white/30 p-3">
+    <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-900">
-          <Icon className="h-3.5 w-3.5 text-slate-500" />
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--color-fg)]">
+          <Icon className="h-3.5 w-3.5 text-[var(--color-fg-subtle)]" />
           {title}
         </div>
         <ProvenancePill source={source} empty={empty} />
       </div>
       {empty ? (
-        <p className="text-[12px] italic text-slate-500">{emptyHint}</p>
+        <p className="text-[12px] italic text-[var(--color-fg-subtle)]">{emptyHint}</p>
       ) : (
         <ul className="space-y-1.5">
           {items.map((item) => (
             <li
               key={item.id}
-              className="rounded-lg border border-white/55 bg-white/35 p-2 text-[12.5px] text-slate-700"
+              className="rounded-lg border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-2 text-[12.5px] text-[var(--color-fg-muted)]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate font-medium text-slate-900">
+                  <div className="truncate font-medium text-[var(--color-fg)]">
                     {item.href ? (
                       <a
                         href={item.href}
@@ -1891,18 +1891,18 @@ function ExtrasCard({
                     )}
                   </div>
                   {item.secondary ? (
-                    <div className="truncate text-[11px] text-slate-500">
+                    <div className="truncate text-[11px] text-[var(--color-fg-subtle)]">
                       {item.secondary}
                     </div>
                   ) : null}
                   {item.tertiary ? (
-                    <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">
+                    <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-fg-subtle)]">
                       {item.tertiary}
                     </div>
                   ) : null}
                 </div>
                 {item.href ? (
-                  <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
+                  <ExternalLink className="h-3 w-3 shrink-0 text-[var(--color-fg-subtle)]" />
                 ) : null}
               </div>
             </li>
@@ -1932,24 +1932,24 @@ function DebugFooter({
       rawData={profileRow ?? null}
       meta={
         <>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             updated
           </span>
           <RelativeTime
             iso={profileRow?.updatedAt}
-            className="font-mono text-[10px] text-slate-600"
+            className="font-mono text-[10px] text-[var(--color-fg-muted)]"
             empty="never"
           />
           <Link
             href="/settings"
-            className="ml-2 rounded-full border border-white/65 bg-white/45 px-2.5 py-0.5 font-mono text-[10px] text-slate-700 hover:bg-white/65"
+            className="ml-2 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-2.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-muted)] hover:bg-[var(--theme-compat-bg-strong)]"
           >
             settings
           </Link>
         </>
       }
     >
-      <div className="text-[12px] text-slate-600">
+      <div className="text-[12px] text-[var(--color-fg-muted)]">
         Subscriptions live: <span className="font-mono">userProfiles</span>,{" "}
         <span className="font-mono">intakeRuns × 6</span>,{" "}
         <span className="font-mono">repoSummaries</span> ({repoSummaryCount}).

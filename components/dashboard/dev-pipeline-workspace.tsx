@@ -255,9 +255,9 @@ function JobDetailDrawer({
     return (
       <GlassCard className="flex min-h-[420px] items-center justify-center text-center">
         <div>
-          <FileText className="mx-auto h-8 w-8 text-slate-400" />
-          <div className="mt-3 text-sm font-semibold text-slate-950">No job selected</div>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
+          <FileText className="mx-auto h-8 w-8 text-[var(--color-fg-subtle)]" />
+          <div className="mt-3 text-sm font-semibold text-[var(--color-fg)]">No job selected</div>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-fg-muted)]">
             Run the first 3 Ashby sources, then click a ranked recommendation to inspect the captured job description and artifacts.
           </p>
         </div>
@@ -272,21 +272,21 @@ function JobDetailDrawer({
 
   return (
     <GlassCard className="min-h-[420px] p-0">
-      <div className="flex items-start justify-between gap-4 border-b border-white/45 px-5 py-4">
+      <div className="flex items-start justify-between gap-4 border-b border-[var(--glass-border)] px-5 py-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="active">selected job</Pill>
             {detail?.score && <Pill tone="success">score {Math.round(detail.score.totalScore)}</Pill>}
           </div>
-          <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">
+          <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-[var(--color-fg)]">
             {job?.title ?? selected.title}
           </h3>
-          <p className="mt-1 text-sm text-slate-600">{job?.company ?? selected.company}</p>
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{job?.company ?? selected.company}</p>
           <a
             href={job?.jobUrl ?? selected.jobUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-[var(--color-accent)]"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-[var(--color-fg-subtle)] hover:text-[var(--color-accent)]"
           >
             original job <ExternalLink className="h-3 w-3" />
           </a>
@@ -294,7 +294,7 @@ function JobDetailDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-white/60 bg-white/50 p-2 text-slate-600 hover:text-slate-950"
+          className="rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
           aria-label="Close job detail"
         >
           <X className="h-4 w-4" />
@@ -318,9 +318,9 @@ function JobDetailDrawer({
           )}
         </div>
 
-        <div className="rounded-[18px] border border-white/45 bg-white/28 px-4 py-3 text-sm text-slate-600">
+        <div className="rounded-[18px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-4 py-3 text-sm text-[var(--color-fg-muted)]">
           {tailorState.error ? (
-            <span className="inline-flex items-center gap-2 text-red-700">
+            <span className="inline-flex items-center gap-2 text-[var(--color-danger)]">
               <AlertTriangle className="h-4 w-4" />
               {tailorState.error}
             </span>
@@ -330,7 +330,7 @@ function JobDetailDrawer({
         </div>
 
         {loading ? (
-          <div className="rounded-[18px] border border-white/45 bg-white/24 p-4 text-sm text-slate-500">
+          <div className="rounded-[18px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-4 text-sm text-[var(--color-fg-subtle)]">
             Loading job artifacts...
           </div>
         ) : (
@@ -339,9 +339,9 @@ function JobDetailDrawer({
               <ArtifactText text={job?.descriptionPlain ?? "No captured description for this job yet."} />
             </TimelineItem>
             <TimelineItem title="Ranking and recommendation" complete={Boolean(detail?.score)}>
-              <p className="text-sm leading-6 text-slate-600">{detail?.score?.rationale ?? selected.rationale ?? "No ranking rationale recorded."}</p>
+              <p className="text-sm leading-6 text-[var(--color-fg-muted)]">{detail?.score?.rationale ?? selected.rationale ?? "No ranking rationale recorded."}</p>
               {detail?.score && (
-                <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                <div className="mt-3 grid gap-2 text-xs text-[var(--color-fg-muted)] sm:grid-cols-3">
                   <Metric label="Total" value={Math.round(detail.score.totalScore)} />
                   <Metric label="LLM" value={detail.score.llmScore ?? "n/a"} />
                   <Metric label="Mode" value={detail.score.scoringMode} />
@@ -355,7 +355,7 @@ function JobDetailDrawer({
               <ArtifactText text={resumeText(tailored?.tailoredResume ?? artifactOf(artifacts, "tailored_resume")?.payload)} />
             </TimelineItem>
             <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)}>
-              <p className="text-sm leading-6 text-slate-600">
+              <p className="text-sm leading-6 text-[var(--color-fg-muted)]">
                 {tailored?.pdfReady
                   ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
                   : "Run tailoring to generate a downloadable PDF for this session."}
@@ -378,10 +378,10 @@ function TimelineItem({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[18px] border border-white/45 bg-white/24 p-4">
+    <div className="rounded-[18px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-4">
       <div className="mb-3 flex items-center gap-2">
-        <CheckCircle2 className={complete ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-slate-400"} />
-        <div className="text-sm font-semibold text-slate-950">{title}</div>
+        <CheckCircle2 className={complete ? "h-4 w-4 text-[var(--color-success)]" : "h-4 w-4 text-[var(--color-fg-subtle)]"} />
+        <div className="text-sm font-semibold text-[var(--color-fg)]">{title}</div>
       </div>
       {children}
     </div>
@@ -390,16 +390,16 @@ function TimelineItem({
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-[12px] border border-white/45 bg-white/30 px-3 py-2">
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <div className="mt-1 font-semibold text-slate-950">{value}</div>
+    <div className="rounded-[12px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-3 py-2">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">{label}</div>
+      <div className="mt-1 font-semibold text-[var(--color-fg)]">{value}</div>
     </div>
   );
 }
 
 function ArtifactText({ text }: { text: string }) {
   return (
-    <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-[14px] border border-white/45 bg-white/35 p-3 text-xs leading-5 text-slate-700">
+    <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-[14px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] p-3 text-xs leading-5 text-[var(--color-fg-muted)]">
       {text}
     </pre>
   );

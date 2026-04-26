@@ -15,6 +15,7 @@ let _ctx: AudioContext | null = null;
 let _master: GainNode | null = null;
 let _muted = false;
 let _hydrated = false;
+const _muteListeners = new Set<(muted: boolean) => void>();
 
 function ensureContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -50,10 +51,35 @@ export function isMuted(): boolean {
 }
 
 export function setMuted(muted: boolean) {
+  if (_muted === muted) {
+    // No-op transitions don't need to fire listeners. Prevents redundant
+    // cancelSpeech() calls when multiple toggles re-affirm the same state.
+    return;
+  }
   _muted = muted;
   try {
     localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
   } catch {}
+  for (const fn of _muteListeners) {
+    try {
+      fn(muted);
+    } catch {
+      // Listener errors must not break the others.
+    }
+  }
+}
+
+/**
+ * Subscribe to mute state changes. Returns an unsubscribe function.
+ *
+ * Use in components that render the mute icon, or in modules that own
+ * audio output (so they can cancel in-flight playback when muted=true).
+ */
+export function subscribeMuted(listener: (muted: boolean) => void): () => void {
+  _muteListeners.add(listener);
+  return () => {
+    _muteListeners.delete(listener);
+  };
 }
 
 /** Short crisp pluck — user sends a message. */

@@ -7,6 +7,7 @@ import {
   TextField,
 } from "@/components/design-system";
 import { ChatCard } from "@/components/onboarding/chat-card";
+import { VoiceRecorder } from "@/components/intake/voice-recorder";
 import {
   AUTH_OPTIONS,
   ROLE_OPTIONS,
@@ -81,6 +82,15 @@ export function PrefsStepCard({
           <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500">
             Stored locally and in your profile
           </span>
+        </div>
+
+        <div>
+          <div className="mb-2 block text-xs font-semibold text-slate-500">
+            Or describe what you&apos;re looking for in your own words
+          </div>
+          <VoiceRecorder
+            extractTargets={["headline", "summary", "skills", "prefs"]}
+          />
         </div>
 
         <div className="flex justify-end">

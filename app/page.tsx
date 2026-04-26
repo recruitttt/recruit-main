@@ -231,7 +231,7 @@ export default function LandingPage() {
             {pricingPlans.map((plan) => (
               <TiltCard
                 key={plan.name}
-                className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
+                className={`min-w-0 rounded-[22px] border p-4 shadow-[var(--landing-tilt-shadow)] ${
                   plan.featured
                     ? "border-[var(--color-accent)] bg-[var(--glass-card-bg)]"
                     : "border-[var(--glass-border)] bg-[var(--glass-card-bg)]"
@@ -296,32 +296,32 @@ export default function LandingPage() {
 function ProductMockup() {
   return (
     <div className="relative">
-      <div className="absolute left-1/2 top-8 h-[86%] w-[88%] -translate-x-1/2 rounded-[42px] bg-slate-950/10 blur-3xl" />
+      <div className="absolute left-1/2 top-8 h-[86%] w-[88%] -translate-x-1/2 rounded-[42px] bg-[var(--landing-mockup-blur-bg)] blur-3xl" />
 
-      <div className="relative overflow-hidden rounded-[34px] border border-white/70 bg-white/66 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_32px_90px_rgba(15,23,42,0.16)] backdrop-blur-2xl">
-        <div className="flex items-center gap-2 border-b border-white/55 bg-white/55 px-4 py-3">
+      <div className="relative overflow-hidden rounded-[34px] border border-[var(--landing-mockup-border)] bg-[var(--landing-mockup-bg)] shadow-[var(--landing-mockup-shadow)] backdrop-blur-2xl">
+        <div className="flex items-center gap-2 border-b border-[var(--landing-mockup-bar-border)] bg-[var(--landing-mockup-bar-bg)] px-4 py-3">
           <div className="flex gap-1.5">
             <span className="h-3 w-3 rounded-full bg-[#FF5F57]" />
             <span className="h-3 w-3 rounded-full bg-[#FFBD2E]" />
             <span className="h-3 w-3 rounded-full bg-[#28C840]" />
           </div>
-          <div className="mx-auto hidden h-8 w-[360px] items-center gap-2 rounded-full border border-white/80 bg-white/70 px-3 text-[12px] text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] md:flex">
+          <div className="mx-auto hidden h-8 w-[360px] items-center gap-2 rounded-full border border-[var(--landing-mockup-url-border)] bg-[var(--landing-mockup-url-bg)] px-3 text-[12px] text-[var(--landing-mockup-fg-muted)] shadow-[var(--landing-mockup-url-shadow)] md:flex">
             <Lock className="h-3.5 w-3.5" />
             recruit.app/dashboard/live-run
           </div>
-          <div className="flex h-8 items-center gap-1.5 rounded-full border border-white/75 bg-white/65 px-3 text-[12px] font-semibold text-emerald-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] px-3 text-[12px] font-semibold text-[var(--landing-mockup-fg-success)]">
+            <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
             live
           </div>
         </div>
 
-        <div className="grid min-h-[520px] gap-px bg-white/45 md:grid-cols-[220px_1fr_330px]">
-          <aside className="hidden bg-white/45 p-4 md:block">
-            <div className="flex items-center gap-2 rounded-2xl border border-white/70 bg-white/65 p-2">
+        <div className="grid min-h-[520px] gap-px bg-[var(--landing-mockup-grid-bg)] md:grid-cols-[220px_1fr_330px]">
+          <aside className="hidden bg-[var(--landing-mockup-sidebar-bg)] p-4 md:block">
+            <div className="flex items-center gap-2 rounded-2xl border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] p-2">
               <Mark size="sm" className="text-[var(--color-accent)]" />
               <div>
-                <div className="text-[13px] font-semibold text-slate-950">Recruit</div>
-                <div className="text-[11px] text-slate-500">command center</div>
+                <div className="text-[13px] font-semibold text-[var(--color-fg)]">Recruit</div>
+                <div className="text-[11px] text-[var(--landing-mockup-fg-muted)]">command center</div>
               </div>
             </div>
             <div className="mt-5 space-y-2 text-[13px]">
@@ -330,8 +330,8 @@ function ProductMockup() {
                   key={item}
                   className={`flex items-center justify-between rounded-2xl px-3 py-2.5 ${
                     index === 0
-                      ? "border border-white/80 bg-white/76 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)]"
-                      : "text-slate-500"
+                      ? "border border-[var(--landing-mockup-sidebar-active-border)] bg-[var(--landing-mockup-sidebar-active-bg)] text-[var(--color-fg)] shadow-[var(--landing-mockup-sidebar-active-shadow)]"
+                      : "text-[var(--landing-mockup-fg-muted)]"
                   }`}
                 >
                   <span>{item}</span>
@@ -341,13 +341,13 @@ function ProductMockup() {
             </div>
           </aside>
 
-          <section className="bg-white/35 p-4 sm:p-5">
+          <section className="bg-[var(--landing-mockup-main-bg)] p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--landing-mockup-fg-muted)]">
                   Live run
                 </div>
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--color-fg)]">
                   5 agents applying for Mo
                 </h2>
               </div>
@@ -359,40 +359,40 @@ function ProductMockup() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {proof.map(([value, label]) => (
-                <div key={label} className="rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                  <div className="font-mono text-3xl text-slate-950">{value}</div>
-                  <div className="mt-1 text-[12px] text-slate-500">{label}</div>
+                <div key={label} className="rounded-[22px] border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] p-4 shadow-[var(--landing-mockup-inset-shadow)]">
+                  <div className="font-mono text-3xl text-[var(--color-fg)]">{value}</div>
+                  <div className="mt-1 text-[12px] text-[var(--landing-mockup-fg-muted)]">{label}</div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-[26px] border border-white/70 bg-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]">
-              <div className="flex items-center justify-between border-b border-white/65 px-4 py-3">
-                <div className="text-[13px] font-semibold text-slate-950">Application pipeline</div>
-                <div className="flex items-center gap-2 text-[12px] text-slate-500">
+            <div className="mt-4 overflow-hidden rounded-[26px] border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-pipe-bg)] shadow-[var(--landing-mockup-inset-shadow)]">
+              <div className="flex items-center justify-between border-b border-[var(--landing-mockup-divider)] px-4 py-3">
+                <div className="text-[13px] font-semibold text-[var(--color-fg)]">Application pipeline</div>
+                <div className="flex items-center gap-2 text-[12px] text-[var(--landing-mockup-fg-muted)]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-accent)]" />
                   syncing
                 </div>
               </div>
-              <div className="divide-y divide-white/65">
+              <div className="divide-y divide-[var(--landing-mockup-divider)]">
                 {liveRuns.map((run) => (
                   <div key={run.company} className="grid grid-cols-[1fr_auto] gap-3 px-4 py-4 sm:grid-cols-[1fr_130px_70px] sm:items-center">
                     <div className="min-w-0">
-                      <div className="truncate text-[14px] font-semibold text-slate-950">{run.company}</div>
-                      <div className="mt-1 truncate text-[12px] text-slate-500">{run.role}</div>
+                      <div className="truncate text-[14px] font-semibold text-[var(--color-fg)]">{run.company}</div>
+                      <div className="mt-1 truncate text-[12px] text-[var(--landing-mockup-fg-muted)]">{run.role}</div>
                     </div>
-                    <div className="hidden rounded-full border border-white/75 bg-white/64 px-3 py-1 text-center text-[12px] font-semibold text-[var(--color-accent)] sm:block">
+                    <div className="hidden rounded-full border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] px-3 py-1 text-center text-[12px] font-semibold text-[var(--color-accent)] sm:block">
                       {run.state}
                     </div>
-                    <div className="font-mono text-[18px] text-slate-950">{run.score}</div>
+                    <div className="font-mono text-[18px] text-[var(--color-fg)]">{run.score}</div>
                   </div>
                 ))}
               </div>
             </div>
           </section>
 
-          <aside className="bg-white/48 p-4 sm:p-5">
-            <div className="rounded-[26px] border border-white/75 bg-[#102016] p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
+          <aside className="bg-[var(--landing-mockup-right-bg)] p-4 sm:p-5">
+            <div className="rounded-[26px] border border-white/10 bg-[#102016] p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
               <div className="flex items-center justify-between">
                 <div className="text-[13px] font-semibold">Scout</div>
                 <div className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70">
@@ -419,12 +419,12 @@ function ProductMockup() {
               <MiniArtifact icon={Download} title="Artifact saved" detail="Ranking proof attached" />
             </div>
 
-            <div className="mt-4 rounded-[24px] border border-white/70 bg-white/64 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]">
-              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+            <div className="mt-4 rounded-[24px] border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] p-4 shadow-[var(--landing-mockup-inset-shadow)]">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--landing-mockup-fg-muted)]">
                 <Zap className="h-3.5 w-3.5 text-amber-500" />
                 Next action
               </div>
-              <div className="mt-2 text-[14px] font-semibold text-slate-950">
+              <div className="mt-2 text-[14px] font-semibold text-[var(--color-fg)]">
                 Approve one answer, then Scout submits.
               </div>
             </div>
@@ -445,13 +445,13 @@ function MiniArtifact({
   detail: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white/64 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+    <div className="flex items-center gap-3 rounded-[22px] border border-[var(--landing-mockup-panel-border)] bg-[var(--landing-mockup-panel-bg)] p-3 shadow-[var(--landing-mockup-inset-shadow)]">
       <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <div className="truncate text-[13px] font-semibold text-slate-950">{title}</div>
-        <div className="mt-0.5 truncate text-[12px] text-slate-500">{detail}</div>
+        <div className="truncate text-[13px] font-semibold text-[var(--color-fg)]">{title}</div>
+        <div className="mt-0.5 truncate text-[12px] text-[var(--landing-mockup-fg-muted)]">{detail}</div>
       </div>
     </div>
   );
@@ -464,10 +464,11 @@ function TiltCard({ children, className }: { children: ReactNode; className?: st
   function applyTilt(rotX: number, rotY: number, hover: boolean) {
     const el = ref.current;
     if (!el) return;
+    const styles = getComputedStyle(el);
     el.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(0)`;
     el.style.boxShadow = hover
-      ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 28px 60px -18px rgba(15,23,42,0.18)"
-      : "inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 36px rgba(15,23,42,0.05)";
+      ? styles.getPropertyValue("--landing-tilt-shadow-hover")
+      : styles.getPropertyValue("--landing-tilt-shadow");
   }
 
   function handleMove(event: React.MouseEvent<HTMLDivElement>) {

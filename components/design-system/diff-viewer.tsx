@@ -7,10 +7,10 @@ function DiffPane({ title, items, tone }: { title: string; items: string[]; tone
 
   return (
     <GlassCard density="compact" variant="muted" className="rounded-[20px]">
-      <div className="mb-3 text-xs font-semibold text-slate-500">{title}</div>
+      <div className="mb-3 text-xs font-semibold text-[var(--color-fg-subtle)]">{title}</div>
       <div className="space-y-2">
         {items.map((item) => (
-          <p key={item} className="rounded-[12px] border px-3 py-1.5 text-xs leading-5 text-slate-700" style={{ borderColor: `${color}22`, backgroundColor: `${color}0A` }}>
+          <p key={item} className="rounded-[12px] border px-3 py-1.5 text-xs leading-5 text-[var(--color-fg-muted)]" style={{ borderColor: `${color}22`, backgroundColor: `${color}0A` }}>
             {item}
           </p>
         ))}
@@ -40,14 +40,14 @@ export function DiffViewer({
         <GlassCard>
           {rationale && (
             <>
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-950"><Sparkles className="h-4 w-4 text-slate-500" /> Why these edits</div>
-              <div className="space-y-2">{rationale.map((item) => <div key={item} className="text-sm leading-6 text-slate-600">{item}</div>)}</div>
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><Sparkles className="h-4 w-4 text-[var(--color-fg-subtle)]" /> Why these edits</div>
+              <div className="space-y-2">{rationale.map((item) => <div key={item} className="text-sm leading-6 text-[var(--color-fg-muted)]">{item}</div>)}</div>
             </>
           )}
           {locked && (
             <div className="mt-4 flex flex-wrap gap-2">
               {locked.map((item) => (
-                <span key={item} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/70 bg-white/38 px-3 text-xs font-semibold text-slate-600"><Lock className="h-3 w-3" /> {item}</span>
+                <span key={item} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] px-3 text-xs font-semibold text-[var(--color-fg-muted)]"><Lock className="h-3 w-3" /> {item}</span>
               ))}
             </div>
           )}

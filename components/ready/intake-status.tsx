@@ -133,7 +133,7 @@ export function IntakeStatusPanel({
     <GlassCard density="spacious">
       <div className="mb-4 flex items-center justify-between">
         <span className={mistClasses.sectionLabel}>Intake status</span>
-        <span className="font-mono text-[11px] text-slate-500">
+        <span className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
           {ready} / {counted} ready
         </span>
       </div>
@@ -183,22 +183,22 @@ function SourceCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
       className={cx(
-        "flex items-start gap-3 border border-white/55 bg-white/30 px-3 py-3",
+        "flex items-start gap-3 border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-3 py-3",
         mistRadii.nested,
       )}
     >
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/45">
-        <Icon className="h-4 w-4 text-slate-600" />
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)]">
+        <Icon className="h-4 w-4 text-[var(--color-fg-muted)]" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-semibold text-slate-800">
+          <span className="text-[13px] font-semibold text-[var(--color-fg-muted)]">
             {meta.name}
           </span>
           <StatusPill status={entry.status} />
         </div>
         <p
-          className="mt-1 truncate font-mono text-[11px] leading-5 text-slate-500"
+          className="mt-1 truncate font-mono text-[11px] leading-5 text-[var(--color-fg-subtle)]"
           title={entry.caption}
         >
           {entry.caption}
@@ -280,7 +280,7 @@ const STATUS_STYLE: Record<
 > = {
   pending: {
     label: "Pending",
-    className: "border-slate-300/65 bg-white/40 text-slate-600",
+    className: "border-[var(--color-border)] bg-[var(--theme-compat-bg)] text-[var(--color-fg-muted)]",
     icon: Loader2,
   },
   running: {
@@ -292,18 +292,18 @@ const STATUS_STYLE: Record<
   },
   complete: {
     label: "Complete",
-    className: "border-emerald-500/35 bg-emerald-100/55 text-emerald-700",
+    className: "border-[var(--color-success-border)] bg-[var(--color-success-soft)] text-[var(--color-success)]",
     icon: CheckCircle2,
   },
   failed: {
     label: "Failed",
-    className: "border-rose-500/35 bg-rose-100/55 text-rose-700",
+    className: "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
     icon: AlertTriangle,
   },
   skipped: {
     label: "Skipped",
     className:
-      "border-dashed border-slate-300/55 bg-white/22 text-slate-400",
+      "border-dashed border-[var(--color-border)] bg-[var(--theme-compat-bg-soft)] text-[var(--color-fg-subtle)]",
     icon: Loader2,
   },
 };

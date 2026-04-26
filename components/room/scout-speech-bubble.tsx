@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import { AnimatePresence, motion } from "motion/react";
 import { FRONT_STAGE } from "@/lib/room/app-agent-map";
+import { AGENTS } from "@/lib/agents";
+import { speak } from "@/lib/speech";
 import { useRoomStore } from "./room-store";
 
 const REVEAL_MS_PER_CHAR = 22;
@@ -18,6 +20,18 @@ export function ScoutSpeechBubble() {
   const latest = [...messages].reverse().find((m) => m.role === "assistant");
   const text = latest?.content ?? "";
   const showThinking = pending && !text;
+
+  // Speak each new Scout line aloud via ElevenLabs in Scout's voice.
+  // Tracks the last-spoken text so re-renders / state churn don't replay
+  // the same line. Honors the global mute flag inside `speak()`.
+  const lastSpokenRef = useRef<string>("");
+  useEffect(() => {
+    if (!visible) return;
+    if (!text) return;
+    if (lastSpokenRef.current === text) return;
+    lastSpokenRef.current = text;
+    void speak(text, { voiceId: AGENTS.scout.voiceId });
+  }, [text, visible]);
 
   return (
     <Html

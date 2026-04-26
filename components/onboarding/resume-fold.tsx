@@ -51,7 +51,7 @@ export function ResumeFold({ filename }: ResumeFoldProps) {
   return (
     <div
       className={cx(
-        "relative flex min-h-[140px] items-center gap-4 overflow-hidden border border-white/55 bg-white/34 px-4 py-4",
+        "relative flex min-h-[140px] items-center gap-4 overflow-hidden border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] px-4 py-4",
         mistRadii.nested,
       )}
       role="status"
@@ -80,7 +80,7 @@ export function ResumeFold({ filename }: ResumeFoldProps) {
           }
           transition={{ duration: reduce ? 0 : 0.48, ease: [0.22, 1, 0.36, 1] }}
           style={{ transformStyle: "preserve-3d" }}
-          className="relative flex h-14 w-12 items-center justify-center rounded-md border border-[var(--color-border)] bg-white/70 shadow-[0_8px_22px_rgba(15,23,42,0.10)]"
+          className="relative flex h-14 w-12 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--theme-compat-bg-strong)] shadow-[var(--theme-control-shadow)]"
         >
           <FileText className="h-6 w-6" style={{ color: mimi }} />
         </motion.div>
@@ -96,13 +96,13 @@ export function ResumeFold({ filename }: ResumeFoldProps) {
       </div>
 
       <div className="relative min-w-0 flex-1">
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
           Mimi · reading
         </div>
-        <div className="mt-0.5 truncate text-[14px] font-semibold text-slate-900">
+        <div className="mt-0.5 truncate text-[14px] font-semibold text-[var(--color-fg)]">
           {filename ?? "Your resume"}
         </div>
-        <p className="mt-1 text-[12px] leading-5 text-slate-600">
+        <p className="mt-1 text-[12px] leading-5 text-[var(--color-fg-muted)]">
           Pulling identity, experience, education, and skills.
         </p>
 

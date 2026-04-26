@@ -147,7 +147,7 @@ export function StartSearchCta({
             <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
               Ready when you are
             </div>
-            <p className="mt-1 text-sm leading-6 text-slate-700">
+            <p className="mt-1 text-sm leading-6 text-[var(--color-fg-muted)]">
               {ready
                 ? "Every source is in. The first round of jobs goes out as soon as you hit start."
                 : pending.length > 0
@@ -155,13 +155,13 @@ export function StartSearchCta({
                   : "Some sources didn't sync. You can start now and retry later from your profile."}
             </p>
             {failed.length > 0 && (
-              <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-rose-700">
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-[var(--color-danger)]">
                 <AlertCircle className="h-3.5 w-3.5" />
                 {failed.map((s) => s.name).join(", ")} failed — retry from the cards above.
               </p>
             )}
             {error && (
-              <p className="mt-2 max-w-md text-xs leading-5 text-rose-600">
+              <p className="mt-2 max-w-md text-xs leading-5 text-[var(--color-danger)]">
                 {error}
               </p>
             )}
@@ -243,7 +243,7 @@ function ConfirmModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] px-4 py-6 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ready-confirm-title"
@@ -254,16 +254,16 @@ function ConfirmModal({
         exit={{ y: 12, opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className={cx(
-          "relative w-full max-w-md border bg-white/85 p-5 backdrop-blur-2xl",
+          "relative w-full max-w-md border bg-[var(--theme-compat-bg-strong)] p-5 backdrop-blur-2xl",
           mistRadii.panel,
-          "border-white/65 shadow-[0_22px_60px_rgba(15,23,42,0.18)]",
+          "border-[var(--glass-border)] shadow-[var(--theme-panel-shadow)]",
         )}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/55 bg-white/55 text-slate-500 transition hover:bg-white/75 hover:text-slate-800"
+          className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg)] text-[var(--color-fg-subtle)] transition hover:bg-[var(--theme-compat-bg-strong)] hover:text-[var(--color-fg-muted)]"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -276,11 +276,11 @@ function ConfirmModal({
         </div>
         <h3
           id="ready-confirm-title"
-          className="text-lg font-semibold tracking-tight text-slate-950"
+          className="text-lg font-semibold tracking-tight text-[var(--color-fg)]"
         >
           Some sources are still pulling.
         </h3>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
+        <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">
           {inFlightNames ? (
             <>
               Your <strong className="font-semibold">{inFlightNames}</strong>{" "}
@@ -292,7 +292,7 @@ function ConfirmModal({
           )}
         </p>
         {failedNames && (
-          <p className="mt-2 text-xs leading-5 text-rose-700">
+          <p className="mt-2 text-xs leading-5 text-[var(--color-danger)]">
             {failedNames} also failed earlier — you can retry from the cards above.
           </p>
         )}

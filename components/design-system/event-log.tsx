@@ -34,13 +34,13 @@ export function EventLog({ events, compact = false }: { events: EventLogItem[]; 
 
         return (
           <div key={`${event.time}-${event.title}`} className={cx("grid gap-3", compact ? "grid-cols-[44px_24px_1fr]" : "grid-cols-[56px_30px_1fr]")}>
-            <div className="font-mono text-xs text-slate-500">{event.time}</div>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-white/30" style={{ color }}>
+            <div className="font-mono text-xs text-[var(--color-fg-subtle)]">{event.time}</div>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)]" style={{ color }}>
               <Icon className="h-3 w-3" />
             </span>
             <div>
-              <div className="text-sm font-semibold text-slate-900">{event.title}</div>
-              {!compact && <div className="mt-1 text-xs leading-5 text-slate-500">{event.detail}</div>}
+              <div className="text-sm font-semibold text-[var(--color-fg)]">{event.title}</div>
+              {!compact && <div className="mt-1 text-xs leading-5 text-[var(--color-fg-subtle)]">{event.detail}</div>}
             </div>
           </div>
         );

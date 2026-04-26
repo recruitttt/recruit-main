@@ -148,10 +148,10 @@ export function TimelineView({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <div className={mistClasses.sectionLabel}>Profile timeline</div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#102016] md:text-4xl">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--color-fg)] md:text-4xl">
               Chronological profile
             </h1>
-            <p className="mt-2 text-sm leading-6 text-[#526854]">
+            <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">
               Roles, education, projects, credentials, intake runs, and profile changes in one ordered view.
             </p>
           </div>
@@ -159,7 +159,7 @@ export function TimelineView({
         </div>
       </header>
 
-      <div className="overflow-hidden rounded-[24px] border border-white/45 bg-white/24 shadow-[inset_0_1px_0_rgba(255,255,255,0.46)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-[24px] border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)] shadow-[var(--theme-card-inset-shadow)] backdrop-blur-xl">
         {loading ? (
           <TimelineEmpty title="Loading timeline" detail="Reading profile, repos, and intake runs." />
         ) : grouped.length === 0 ? (
@@ -167,20 +167,20 @@ export function TimelineView({
         ) : (
           <div className="relative px-4 py-5 md:px-6 md:py-6">
             <div
-              className="pointer-events-none absolute bottom-6 left-[112px] top-6 hidden w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(63,122,86,0.24),rgba(255,255,255,0))] md:block"
+              className="pointer-events-none absolute bottom-6 left-[112px] top-6 hidden w-px bg-[linear-gradient(180deg,transparent,var(--color-accent-soft),transparent)] md:block"
               aria-hidden="true"
             />
             {grouped.map((group) => (
               <section key={group.year} className="grid gap-3 py-2 md:grid-cols-[92px_minmax(0,1fr)] md:gap-5">
                 <div className="md:sticky md:top-[132px] md:self-start">
-                  <div className="font-serif text-4xl leading-none text-[#234B32] md:text-5xl">
+                  <div className="font-serif text-4xl leading-none text-[var(--color-accent)] md:text-5xl">
                     {group.year}
                   </div>
-                  <div className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#738070]">
+                  <div className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
                     {group.items.length} events
                   </div>
                 </div>
-                <ol className="relative space-y-1 border-l border-white/65 pl-4 md:border-l-0 md:pl-0">
+                <ol className="relative space-y-1 border-l border-[var(--glass-border)] pl-4 md:border-l-0 md:pl-0">
                   {group.items.map((item, index) => (
                     <TimelineRow key={item.id} item={item} index={index} reduceMotion={Boolean(reduceMotion)} />
                   ))}
@@ -209,16 +209,16 @@ function TimelineMetrics({
   ];
 
   return (
-    <div className="grid min-w-[min(100%,390px)] grid-cols-4 overflow-hidden rounded-lg border border-white/45 bg-white/24">
+    <div className="grid min-w-[min(100%,390px)] grid-cols-4 overflow-hidden rounded-lg border border-[var(--glass-border)] bg-[var(--theme-compat-bg-soft)]">
       {metrics.map((metric, index) => (
         <div
           key={metric.label}
-          className={cx("px-3 py-2.5", index > 0 && "border-l border-white/42")}
+          className={cx("px-3 py-2.5", index > 0 && "border-l border-[var(--glass-border)]")}
         >
-          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#738070]">
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
             {metric.label}
           </div>
-          <div className="mt-1 text-xl font-semibold tabular-nums text-[#102016]">
+          <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--color-fg)]">
             {metric.value}
           </div>
         </div>
@@ -247,35 +247,35 @@ function TimelineRow({
       className="relative"
     >
       <span
-        className={cx("absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full border border-white md:-left-[29px]", tone.dot)}
+        className={cx("absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full border border-[var(--color-surface)] md:-left-[29px]", tone.dot)}
         aria-hidden="true"
       />
       <motion.article
         whileHover={reduceMotion ? undefined : { x: 3 }}
         transition={{ duration: 0.28, ease: "easeOut" }}
-        className="grid gap-3 rounded-lg px-2 py-3 transition-colors duration-300 hover:bg-white/28 md:grid-cols-[86px_minmax(0,1fr)]"
+        className="grid gap-3 rounded-lg px-2 py-3 transition-colors duration-300 hover:bg-[var(--theme-compat-bg-soft)] md:grid-cols-[86px_minmax(0,1fr)]"
       >
-        <div className="pt-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[#738070]">
+        <div className="pt-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
           {item.dateLabel}
         </div>
         <div className="min-w-0">
           <div className="flex min-w-0 items-start gap-2.5">
-            <span className={cx("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-white/60", tone.icon)}>
+            <span className={cx("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-[var(--glass-border)]", tone.icon)}>
               <Icon className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <h2 className="truncate text-[15px] font-semibold text-[#102016]">{item.title}</h2>
+                <h2 className="truncate text-[15px] font-semibold text-[var(--color-fg)]">{item.title}</h2>
                 {item.source ? (
                   <span className={cx("font-mono text-[10px] font-semibold uppercase tracking-[0.14em]", tone.source)}>
                     {item.source}
                   </span>
                 ) : null}
               </div>
-              {item.subtitle ? <p className="mt-0.5 text-sm text-[#526854]">{item.subtitle}</p> : null}
-              {item.detail ? <p className="mt-2 text-sm leading-6 text-[#435749]">{item.detail}</p> : null}
+              {item.subtitle ? <p className="mt-0.5 text-sm text-[var(--color-fg-muted)]">{item.subtitle}</p> : null}
+              {item.detail ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.detail}</p> : null}
               {item.meta ? (
-                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#7A887B]">
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
                   {item.meta}
                 </p>
               ) : null}
@@ -291,9 +291,9 @@ function TimelineEmpty({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="flex min-h-[320px] items-center justify-center text-center">
       <div>
-        <Clock3 className="mx-auto h-8 w-8 text-[#6B7C68]" />
-        <h2 className="mt-3 text-lg font-semibold text-[#102016]">{title}</h2>
-        <p className="mt-2 max-w-sm text-sm leading-6 text-[#526854]">{detail}</p>
+        <Clock3 className="mx-auto h-8 w-8 text-[var(--color-fg-subtle)]" />
+        <h2 className="mt-3 text-lg font-semibold text-[var(--color-fg)]">{title}</h2>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--color-fg-muted)]">{detail}</p>
       </div>
     </div>
   );
@@ -551,34 +551,34 @@ function latestProfileLog(log: ReadonlyArray<ProfileLogEntry> | undefined) {
 function toneClasses(tone: TimelineTone) {
   const tones = {
     work: {
-      dot: "bg-[#3F7A56] shadow-[0_0_0_3px_rgba(63,122,86,0.16)]",
-      icon: "bg-[#E8F4E2]/84 text-[#2F6242]",
-      source: "text-[#3F7A56]",
+      dot: "bg-[var(--cat-work-dot)] shadow-[0_0_0_3px_var(--cat-work-dot-ring)]",
+      icon: "bg-[var(--cat-work-icon-bg)] text-[var(--cat-work-icon-fg)]",
+      source: "text-[var(--cat-work-icon-fg)]",
     },
     education: {
-      dot: "bg-[#6EA0CA] shadow-[0_0_0_3px_rgba(110,160,202,0.14)]",
-      icon: "bg-[#EEF6FB]/86 text-[#386A91]",
-      source: "text-[#386A91]",
+      dot: "bg-[var(--cat-education-dot)] shadow-[0_0_0_3px_var(--cat-education-dot-ring)]",
+      icon: "bg-[var(--cat-education-icon-bg)] text-[var(--cat-education-icon-fg)]",
+      source: "text-[var(--cat-education-icon-fg)]",
     },
     project: {
-      dot: "bg-[#34A56B] shadow-[0_0_0_3px_rgba(52,165,107,0.14)]",
-      icon: "bg-[#E8F7EE]/86 text-[#28774D]",
-      source: "text-[#28774D]",
+      dot: "bg-[var(--cat-project-dot)] shadow-[0_0_0_3px_var(--cat-project-dot-ring)]",
+      icon: "bg-[var(--cat-project-icon-bg)] text-[var(--cat-project-icon-fg)]",
+      source: "text-[var(--cat-project-icon-fg)]",
     },
     signal: {
-      dot: "bg-[#B86D12] shadow-[0_0_0_3px_rgba(184,109,18,0.13)]",
-      icon: "bg-[#FBF1E3]/86 text-[#8A520E]",
-      source: "text-[#8A520E]",
+      dot: "bg-[var(--cat-cert-dot)] shadow-[0_0_0_3px_var(--cat-cert-dot-ring)]",
+      icon: "bg-[var(--cat-cert-icon-bg)] text-[var(--cat-cert-icon-fg)]",
+      source: "text-[var(--cat-cert-icon-fg)]",
     },
     system: {
-      dot: "bg-[#6E7B6C] shadow-[0_0_0_3px_rgba(110,123,108,0.12)]",
-      icon: "bg-white/64 text-[#526854]",
-      source: "text-[#607060]",
+      dot: "bg-[var(--cat-other-dot)] shadow-[0_0_0_3px_var(--cat-other-dot-ring)]",
+      icon: "bg-[var(--theme-compat-bg)] text-[var(--color-fg-muted)]",
+      source: "text-[var(--color-fg-subtle)]",
     },
     warning: {
-      dot: "bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.12)]",
-      icon: "bg-red-50 text-red-700",
-      source: "text-red-700",
+      dot: "bg-[var(--color-danger)] shadow-[0_0_0_3px_var(--color-danger-soft)]",
+      icon: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
+      source: "text-[var(--color-danger)]",
     },
   } satisfies Record<TimelineTone, { dot: string; icon: string; source: string }>;
   return tones[tone];

@@ -79,10 +79,10 @@ You may reformulate the candidate's real experience using the exact vocabulary o
 HARD RULES:
 1. Never fabricate experience, employers, dates, metrics, skills, or projects not in the profile. If the JD asks for X and the candidate doesn't have X, do not add X.
 2. You may reorder, reshape, and rephrase existing bullets. You may merge two of the candidate's own bullets into one tighter line. You may not invent accomplishments, projects, or technologies.
-3. Skills array: only include skills the candidate actually has. Reorder so JD-relevant skills come first. Drop skills that are noise for this job. Max 12.
-4. Bullets: each one starts with a strong verb, fits at 11pt on one line (target 14-18 words), keeps any metrics that exist in the source bullet. If the source has no metric, do not invent one. 3-5 bullets per role.
-5. STRICT PDF STRUCTURE: the rendered resume will contain only Header, Experience, Education, Skills, Projects. Still return headline/summary for app compatibility, but do not rely on them for quality.
-6. Projects array: include 0-3 projects only from profile.github.topRepos. Use the exact repo/project name and URL. Do not invent project names, metrics, users, or technologies.
+3. Skills array: only include skills the candidate actually has. Reorder so JD-relevant skills come first. Drop skills that are noise for this job. Max 16.
+4. Bullets: each one starts with a strong verb, fits compactly on a resume line (target 16-24 words), keeps any metrics that exist in the source bullet. If the source has no metric, do not invent one. Use the space: target 4-6 bullets for the most relevant/current role, 2-4 bullets for other roles, and never leave a role thin when the profile description supports more.
+5. STRICT PDF STRUCTURE: the rendered resume will contain Header, Summary, Experience, Education, Skills, Projects. Summary should be 1-2 dense sentences grounded in the candidate profile and target role.
+6. Projects array: include 0-4 projects only from profile.github.topRepos. Use the exact repo/project name and URL. Do not invent project names, metrics, users, or technologies.
 7. KEYWORD PLACEMENT: extract the top 5 keywords from research.requirements + research.techStack. Place them in the FIRST bullet of EACH role where they honestly apply, in project bullets where supported, and in the skills section.
 8. ANTI-CLICHE: never use "passionate about", "leveraged", "spearheaded", "synergy", "results-driven", "team player". Use active voice with concrete verbs ("Cut latency from 2.1s to 380ms", not "Improved performance").
 9. tailoringNotes.confidence: honest 0-100 self-assessment of fit. Calibrated 60 beats fake 90.
@@ -164,7 +164,7 @@ export function compactProfileForPrompt(profile: UserProfile) {
       ? {
           username: profile.github.username,
           bio: profile.github.bio,
-          topRepos: (profile.github.topRepos ?? []).slice(0, 5).map((r) => ({
+          topRepos: (profile.github.topRepos ?? []).slice(0, 8).map((r) => ({
             name: r.name,
             description: r.description,
             language: r.language,

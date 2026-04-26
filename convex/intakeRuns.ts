@@ -24,6 +24,7 @@ const kindValidator = v.union(
   v.literal("resume"),
   v.literal("web"),
   v.literal("chat"),
+  v.literal("voice"),
   v.literal("ai-report")
 );
 
@@ -186,6 +187,7 @@ const INTAKE_KINDS = [
   "resume",
   "web",
   "chat",
+  "voice",
   "ai-report",
 ] as const;
 

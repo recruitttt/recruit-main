@@ -16,6 +16,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MuteToggle } from "./mute-toggle";
 import { MobileNav, navItems } from "./mobile-nav";
 import {
   RecruitBrandLink,
@@ -112,6 +113,7 @@ export function Topnav() {
         actions={
           <>
             <ThemeToggle />
+            <MuteToggle className="hidden lg:inline-flex" />
 
             {showRoom3dBeta && (
               <Link
@@ -152,10 +154,10 @@ export function Topnav() {
                         <img
                           src={user.image}
                           alt=""
-                          className="h-8 w-8 rounded-full bg-slate-950 object-cover"
+                          className="h-8 w-8 rounded-full bg-[var(--color-fg)] object-cover"
                         />
                       ) : (
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold uppercase text-white">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-fg)] text-[10px] font-semibold uppercase text-[var(--color-surface)]">
                           {initials}
                         </span>
                       )}
@@ -225,6 +227,7 @@ export function Topnav() {
             <div className="flex items-center gap-2 lg:hidden">
               <StatusBadge tone="active">live</StatusBadge>
               <ThemeToggle compact />
+              <MuteToggle />
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(true)}

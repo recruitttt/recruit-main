@@ -1,17 +1,45 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { X, ArrowUpRight } from "lucide-react";
 import { useRoomStore, type FocusTarget, type FurnitureId } from "./room-store";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import { applicationForAgent } from "@/lib/room/app-agent-map";
-import { mockPersonaReviews, stageLabels } from "@/lib/mock-data";
+import { mockPersonaReviews, stageLabels, type Stage } from "@/lib/mock-data";
+import { speak } from "@/lib/speech";
 import { CompanyLogo } from "@/components/ui/logo";
 import { StageBadge, Pill } from "@/components/ui/badge";
 import { STATIONS, type StationId } from "@/lib/room/stations";
 import { cn } from "@/lib/utils";
 import { useLiveRoom } from "@/lib/room/use-live-room";
+
+// Each agent in the room is paired with one of the user's live applications
+// (see `applicationForAgent`); the spoken intro frames them as the recruiter
+// at that company, riffing on the application's current pipeline stage.
+function recruiterLine(args: {
+  name: string;
+  company: string;
+  role: string;
+  stage: Stage;
+}): string {
+  const { name, company, role, stage } = args;
+  switch (stage) {
+    case "queued":
+      return `Hey — ${name} from ${company}. Your ${role} application is queued up. We'll start the tailor pass as soon as the front of the line clears.`;
+    case "tailoring":
+      return `${name}, ${company} talent team. We're tailoring your ${role} draft right now — want the framing tight before it goes out.`;
+    case "reviewing":
+      return `${name} from ${company}. Reviewing your ${role} draft on our side. Recruiter, hiring manager, and an IC are all weighing in.`;
+    case "submitting":
+      return `${name} — ${company}. Hitting submit on your ${role} application right now. Stand by.`;
+    case "submitted":
+      return `${name}, ${company}. Your ${role} application is in. Looking strong on our end — we'll be in touch.`;
+    case "blocked":
+      return `${name} from ${company}. Your ${role} application hit a snag on the form — we're working it out on this side.`;
+  }
+}
 
 const verdictColors: Record<string, string> = {
   Strong: "text-emerald-700",
@@ -76,6 +104,27 @@ function AgentPanel({ agentId }: { agentId: AgentId }) {
   const app = applicationForAgent(agentId);
   const live = useLiveRoom();
   const liveTask = live.byAgent[agentId];
+
+  // Greet the player in this agent's own ElevenLabs voice when the panel
+  // opens. The line is built from the LIVE application paired with this
+  // agent (same source as the floating job card above their head), so a
+  // walk around the room sounds like five recruiters reporting on the real
+  // pipeline state of five real applications. If the live task hasn't
+  // loaded yet, stay silent rather than narrate stale mock data.
+  useEffect(() => {
+    if (!liveTask) return;
+    const line = recruiterLine({
+      name: agent.name,
+      company: liveTask.company,
+      role: liveTask.role,
+      stage: liveTask.stage,
+    });
+    void speak(line, { voiceId: agent.voiceId });
+  }, [
+    agent.name,
+    agent.voiceId,
+    liveTask,
+  ]);
 
   const company = liveTask?.company ?? app.company;
   const role = liveTask?.role ?? app.role;

@@ -48,6 +48,7 @@ export function resumeFallbackText(resume: TailoredResume): string {
     displayName(resume),
     contact.length > 0 ? contact.join(" | ") : undefined,
     clean(resume.headline) || undefined,
+    clean(resume.summary) || undefined,
     "",
     experience.length > 0 ? "EXPERIENCE" : undefined,
     ...experience,

@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 import { Activity, Check, ChevronRight, Loader2, Play, Radio } from "lucide-react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { ActionButton, StatusBadge } from "@/components/design-system";
 import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "./metric-animation";
@@ -24,16 +25,41 @@ type Stage = {
   state: StageState;
 };
 
+const flowContainerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.55,
+      delayChildren: 0.18,
+    },
+  },
+};
+
+const cardEntranceVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 1.4, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
 export function DashboardStatusStrip({
   run,
   recommendationCount,
   refreshedAt,
   controls,
 }: DashboardStatusStripProps) {
+  const reduceMotion = useReducedMotion();
   const stages = buildStages(run, recommendationCount);
 
   return (
-    <section className="relative overflow-hidden rounded-[20px] border border-[var(--dashboard-panel-border)] bg-[var(--dashboard-panel-bg)] px-4 py-3 text-[var(--dashboard-panel-fg)] shadow-[var(--dashboard-panel-shadow)] backdrop-blur-xl">
+    <motion.section
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-[20px] border border-[var(--dashboard-panel-border)] bg-[var(--dashboard-panel-bg)] px-4 py-3 text-[var(--dashboard-panel-fg)] shadow-[var(--dashboard-panel-shadow)] backdrop-blur-xl"
+    >
       <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent" />
 
       <div className="relative flex flex-col gap-4">
@@ -83,15 +109,18 @@ export function DashboardStatusStrip({
           </div>
         </div>
 
-        <PipelineFlow stages={stages} />
+        <PipelineFlow stages={stages} reduceMotion={Boolean(reduceMotion)} />
       </div>
-    </section>
+    </motion.section>
   );
 }
 
-function PipelineFlow({ stages }: { stages: Stage[] }) {
+function PipelineFlow({ stages, reduceMotion }: { stages: Stage[]; reduceMotion: boolean }) {
   return (
-    <div
+    <motion.div
+      variants={reduceMotion ? undefined : flowContainerVariants}
+      initial={reduceMotion ? false : "hidden"}
+      animate={reduceMotion ? false : "visible"}
       className={cn(
         "grid grid-cols-1 gap-3 border-t border-[var(--dashboard-panel-divider)] pt-3",
         "md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] md:items-stretch md:gap-0",
@@ -103,40 +132,78 @@ function PipelineFlow({ stages }: { stages: Stage[] }) {
         const next = stages[index + 1];
         return (
           <Fragment key={stage.id}>
-            <PipelineNode stage={stage} />
+            <motion.div
+              variants={reduceMotion ? undefined : cardEntranceVariants}
+              className="h-full"
+            >
+              <PipelineNode stage={stage} reduceMotion={reduceMotion} />
+            </motion.div>
             {next ? (
               <PipelineConnector
                 fromState={stage.state}
                 toState={next.state}
+                reduceMotion={reduceMotion}
               />
             ) : null}
           </Fragment>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
 
-function PipelineNode({ stage }: { stage: Stage }) {
+function PipelineNode({ stage, reduceMotion }: { stage: Stage; reduceMotion: boolean }) {
   const isActive = stage.state === "active";
   const isDone = stage.state === "done";
   const isFailed = stage.state === "failed";
 
   return (
-    <div
+    <motion.div
+      layout
       role="listitem"
       aria-label={`${stage.label}: ${String(stage.value)} (${stage.state})`}
+      initial={false}
+      animate={{
+        opacity: stage.state === "idle" ? 0.72 : 1,
+        scale: isActive && !reduceMotion ? 1.012 : 1,
+      }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : {
+              layout: { type: "spring", stiffness: 360, damping: 30, mass: 0.8 },
+              opacity: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+              scale: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+            }
+      }
       className={cn(
-        "relative h-full rounded-[18px] border px-4 py-3 transition-colors",
+        "relative h-full overflow-hidden rounded-[18px] border px-4 py-3 transition-colors",
         "bg-[var(--dashboard-card-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]",
         isActive && "border-[var(--color-accent)] bg-[var(--color-accent-soft)]",
         isDone && "border-[var(--dashboard-card-border)]",
-        stage.state === "idle" && "border-[var(--dashboard-card-border)] opacity-72",
+        stage.state === "idle" && "border-[var(--dashboard-card-border)]",
         isFailed && "border-[var(--color-danger-border)] bg-[var(--color-danger-soft)]",
       )}
     >
-      <div className="flex items-center gap-1.5">
-        <StateIcon state={stage.state} />
+      {isActive && !reduceMotion ? (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          animate={{ x: ["0%", "320%"] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ) : null}
+      {isDone && !reduceMotion ? (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[var(--color-success-soft)]"
+          initial={{ opacity: 0.46 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+        />
+      ) : null}
+      <div className="relative flex items-center gap-1.5">
+        <StateIcon state={stage.state} reduceMotion={reduceMotion} />
         <div
           className={cn(
             "text-[11px] font-semibold uppercase tracking-[0.18em]",
@@ -154,7 +221,7 @@ function PipelineNode({ stage }: { stage: Stage }) {
       </div>
       <div
         className={cn(
-          "mt-2 text-xl font-semibold tracking-[-0.03em]",
+          "relative mt-2 text-xl font-semibold tracking-[-0.03em]",
           stage.state === "idle" ? "text-[var(--dashboard-panel-subtle)]" : "text-[var(--dashboard-panel-fg)]",
         )}
       >
@@ -162,24 +229,30 @@ function PipelineNode({ stage }: { stage: Stage }) {
       </div>
       <div
         className={cn(
-          "mt-1 text-xs",
+          "relative mt-1 text-xs",
           stage.state === "idle" ? "text-[var(--dashboard-panel-subtle)]" : "text-[var(--dashboard-panel-muted)]",
         )}
       >
         {stage.caption}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-function StateIcon({ state }: { state: StageState }) {
+function StateIcon({ state, reduceMotion }: { state: StageState; reduceMotion: boolean }) {
   if (state === "done") {
     return (
-      <Check
+      <motion.span
         aria-hidden
-        className="h-3.5 w-3.5 text-[var(--color-success)]"
-        strokeWidth={3}
-      />
+        animate={reduceMotion ? undefined : { scale: [1, 1.18, 1], opacity: [0.86, 1, 0.86] }}
+        transition={reduceMotion ? undefined : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        className="inline-flex h-3.5 w-3.5 items-center justify-center"
+      >
+        <Check
+          className="h-3.5 w-3.5 text-[var(--color-success)]"
+          strokeWidth={3}
+        />
+      </motion.span>
     );
   }
   if (state === "active") {
@@ -209,23 +282,39 @@ function StateIcon({ state }: { state: StageState }) {
 function PipelineConnector({
   fromState,
   toState,
+  reduceMotion,
 }: {
   fromState: StageState;
   toState: StageState;
+  reduceMotion: boolean;
 }) {
   const reached = fromState === "done" || (fromState === "active" && toState !== "idle");
 
   return (
-    <div aria-hidden className="hidden items-center justify-center px-2 md:flex">
+    <motion.div
+      aria-hidden
+      variants={reduceMotion ? undefined : cardEntranceVariants}
+      className="hidden items-center justify-center px-2 md:flex"
+    >
       <div className="relative flex w-full items-center">
-        <div
+        <motion.div
           className={cn(
-            "h-px w-full transition-colors",
+            "h-px w-full origin-left transition-colors",
             reached
               ? "bg-gradient-to-r from-[var(--color-accent)]/55 to-[var(--color-accent)]/30"
               : "bg-[var(--dashboard-panel-divider)]",
           )}
+          initial={false}
+          animate={{ scaleX: reached ? 1 : 0.72, opacity: reached ? 1 : 0.72 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         />
+        {reached && !reduceMotion ? (
+          <motion.span
+            className="absolute left-0 h-px w-6 rounded-full bg-[var(--color-accent)] shadow-[0_0_10px_var(--color-accent-glow)]"
+            animate={{ left: ["0%", "calc(100% - 1.5rem)"], opacity: [0, 1, 0] }}
+            transition={{ duration: 1.55, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ) : null}
         <ChevronRight
           className={cn(
             "absolute right-[-6px] h-4 w-4 transition-colors",
@@ -234,7 +323,7 @@ function PipelineConnector({
           strokeWidth={2.25}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
