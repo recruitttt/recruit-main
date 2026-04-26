@@ -17,15 +17,16 @@ export async function GET() {
   }
 
   try {
-    const [run, recommendations] = await Promise.all([
+    const [run, recommendations, followUps] = await Promise.all([
       client.query(api.ashby.latestIngestionRunSummary, {}),
       client.query(api.ashby.currentRecommendations, {}),
+      client.query(api.followups.followUpSummary, {}),
     ]);
     const logs = await client.query(api.ashby.latestPipelineLogs, run?._id
       ? { runId: run._id, limit: 200 }
       : { limit: 200 });
 
-    return Response.json({ run, recommendations, logs });
+    return Response.json({ run, recommendations, logs, followUps });
   } catch (err) {
     const error = err as Error & { cause?: { code?: string; message?: string } };
     const message = [
