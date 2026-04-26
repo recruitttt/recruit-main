@@ -170,7 +170,7 @@ await withEnvAsync({ STRIPE_SECRET_KEY: "sk_test_123", STRIPE_CHECKOUT_MOCK: und
   }
 });
 
-await withEnvAsync({ NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
+await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
   await assertJsonResponse(await postRunFirst3(), 500, {
     error: "NEXT_PUBLIC_CONVEX_URL is not configured.",
   });

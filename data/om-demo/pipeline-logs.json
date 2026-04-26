@@ -1,0 +1,1074 @@
+[
+  {
+    "_creationTime": 1777186945607.8574,
+    "_id": "n17ecnrmzqavm8jfv7nbxk176h85k5ac",
+    "createdAt": "2026-04-26T07:02:25.607Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started mixed-provider ingestion for ashby, lever, greenhouse, workable.",
+    "payload": {
+      "maxJobs": 175,
+      "providers": [
+        "ashby",
+        "lever",
+        "greenhouse",
+        "workable"
+      ],
+      "targetJobs": 150
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "ingestion"
+  },
+  {
+    "_creationTime": 1777186945658.1997,
+    "_id": "n17345zz91nzmhqrd4yx7n4br185jtnn",
+    "createdAt": "2026-04-26T07:02:25.658Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Aleph Alpha (AlephAlpha) from ashby.",
+    "payload": {
+      "company": "Aleph Alpha",
+      "provider": "ashby",
+      "slug": "AlephAlpha"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947737.408,
+    "_id": "n17122cdh3asmmncznee7szqbx85kd20",
+    "createdAt": "2026-04-26T07:02:27.737Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 10 jobs and kept 10 complete jobs from Aleph Alpha.",
+    "payload": {
+      "company": "Aleph Alpha",
+      "jobCount": 10,
+      "provider": "ashby",
+      "slug": "AlephAlpha",
+      "storedJobs": 10
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947772.2034,
+    "_id": "n17bktfhbe3p0k6rn0f6eyh2g185krf5",
+    "createdAt": "2026-04-26T07:02:27.772Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Attio (attio) from ashby.",
+    "payload": {
+      "company": "Attio",
+      "provider": "ashby",
+      "slug": "attio"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947829.9849,
+    "_id": "n176n9mcyzpav2m2vvbyedxgcx85kg9w",
+    "createdAt": "2026-04-26T07:02:27.830Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 29 jobs and kept 29 complete jobs from Attio.",
+    "payload": {
+      "company": "Attio",
+      "jobCount": 29,
+      "provider": "ashby",
+      "slug": "attio",
+      "storedJobs": 29
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947864.3337,
+    "_id": "n17cmcbmye1vyrmvwd91tqcqcd85kt8z",
+    "createdAt": "2026-04-26T07:02:27.864Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Bland AI (bland) from ashby.",
+    "payload": {
+      "company": "Bland AI",
+      "provider": "ashby",
+      "slug": "bland"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947912.6152,
+    "_id": "n17aanky17nr4k3azzd88r4rh185j8em",
+    "createdAt": "2026-04-26T07:02:27.912Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 13 jobs and kept 13 complete jobs from Bland AI.",
+    "payload": {
+      "company": "Bland AI",
+      "jobCount": 13,
+      "provider": "ashby",
+      "slug": "bland",
+      "storedJobs": 13
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947941.0747,
+    "_id": "n173qr64jrha0wphgs733ccjsx85jc04",
+    "createdAt": "2026-04-26T07:02:27.941Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Causaly (causaly) from ashby.",
+    "payload": {
+      "company": "Causaly",
+      "provider": "ashby",
+      "slug": "causaly"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186947989.7722,
+    "_id": "n173b74d6qf77n6rc5tezzwr6985kf6a",
+    "createdAt": "2026-04-26T07:02:27.989Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 9 jobs and kept 9 complete jobs from Causaly.",
+    "payload": {
+      "company": "Causaly",
+      "jobCount": 9,
+      "provider": "ashby",
+      "slug": "causaly",
+      "storedJobs": 9
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948017.4136,
+    "_id": "n173cts2ztvxt77ydv9rtt299h85kp8a",
+    "createdAt": "2026-04-26T07:02:28.017Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Clay Labs (claylabs) from ashby.",
+    "payload": {
+      "company": "Clay Labs",
+      "provider": "ashby",
+      "slug": "claylabs"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948084.6,
+    "_id": "n179szwwsctgzq06cqpx7qzjjn85jmq5",
+    "createdAt": "2026-04-26T07:02:28.084Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 71 jobs and kept 71 complete jobs from Clay Labs.",
+    "payload": {
+      "company": "Clay Labs",
+      "jobCount": 71,
+      "provider": "ashby",
+      "slug": "claylabs",
+      "storedJobs": 71
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948112.4438,
+    "_id": "n17483qnnz79ndr3xhynef239x85jhek",
+    "createdAt": "2026-04-26T07:02:28.112Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Clerk (clerk) from ashby.",
+    "payload": {
+      "company": "Clerk",
+      "provider": "ashby",
+      "slug": "clerk"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948152.603,
+    "_id": "n174gk181jtcx7mjckvthpz05s85j1bh",
+    "createdAt": "2026-04-26T07:02:28.152Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 2 jobs and kept 2 complete jobs from Clerk.",
+    "payload": {
+      "company": "Clerk",
+      "jobCount": 2,
+      "provider": "ashby",
+      "slug": "clerk",
+      "storedJobs": 2
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948179.8713,
+    "_id": "n175h15cqsrnfxp4bfhnfnbyy185jfyj",
+    "createdAt": "2026-04-26T07:02:28.179Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Fetching Cohere (cohere) from ashby.",
+    "payload": {
+      "company": "Cohere",
+      "provider": "ashby",
+      "slug": "cohere"
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186948260.5708,
+    "_id": "n1775pfwzjmkeypcvgvkptzf8d85kwzt",
+    "createdAt": "2026-04-26T07:02:28.260Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Fetched 114 jobs and kept 41 complete jobs from Cohere.",
+    "payload": {
+      "company": "Cohere",
+      "jobCount": 114,
+      "provider": "ashby",
+      "slug": "cohere",
+      "storedJobs": 41
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "fetch"
+  },
+  {
+    "_creationTime": 1777186950132.2224,
+    "_id": "n178d5vfsczffhjbvtdy61rs4n85kqfa",
+    "createdAt": "2026-04-26T07:02:30.132Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Stored 175 complete mixed-provider jobs with 0 source errors.",
+    "payload": {
+      "errorCount": 0,
+      "fetchedCount": 7,
+      "maxJobs": 175,
+      "providers": [
+        "ashby",
+        "lever",
+        "greenhouse",
+        "workable"
+      ],
+      "rawJobCount": 175,
+      "sourceCount": 7,
+      "sourceSummaries": [
+        {
+          "company": "Aleph Alpha",
+          "fetchedJobs": 10,
+          "provider": "ashby",
+          "slug": "AlephAlpha",
+          "storedJobs": 10
+        },
+        {
+          "company": "Attio",
+          "fetchedJobs": 29,
+          "provider": "ashby",
+          "slug": "attio",
+          "storedJobs": 29
+        },
+        {
+          "company": "Bland AI",
+          "fetchedJobs": 13,
+          "provider": "ashby",
+          "slug": "bland",
+          "storedJobs": 13
+        },
+        {
+          "company": "Causaly",
+          "fetchedJobs": 9,
+          "provider": "ashby",
+          "slug": "causaly",
+          "storedJobs": 9
+        },
+        {
+          "company": "Clay Labs",
+          "fetchedJobs": 71,
+          "provider": "ashby",
+          "slug": "claylabs",
+          "storedJobs": 71
+        },
+        {
+          "company": "Clerk",
+          "fetchedJobs": 2,
+          "provider": "ashby",
+          "slug": "clerk",
+          "storedJobs": 2
+        },
+        {
+          "company": "Cohere",
+          "fetchedJobs": 114,
+          "provider": "ashby",
+          "slug": "cohere",
+          "storedJobs": 41
+        }
+      ],
+      "targetJobs": 150
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "storage"
+  },
+  {
+    "_creationTime": 1777186956612.897,
+    "_id": "n170k79y1d5f1q89zb6gwx9qxd85j6gd",
+    "createdAt": "2026-04-26T07:02:36.612Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started ranking ingested jobs.",
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "ranking"
+  },
+  {
+    "_creationTime": 1777186958310.6611,
+    "_id": "n179g49r4ntm5v1hf7ygfpn9gd85kz7p",
+    "createdAt": "2026-04-26T07:02:38.310Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Loaded 175 ingested jobs for ranking.",
+    "payload": {
+      "jobCount": 175,
+      "profileKeys": 17
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "ranking"
+  },
+  {
+    "_creationTime": 1777186958490.96,
+    "_id": "n17e7arqjt1mgpdnnjnyzy2eg985kgaw",
+    "createdAt": "2026-04-26T07:02:38.491Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Applied hard filters: 89 kept, 86 rejected.",
+    "payload": {
+      "kept": 89,
+      "rejected": 86
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "filter"
+  },
+  {
+    "_creationTime": 1777186960148.0708,
+    "_id": "n17ehj5exjpfbwyfqx3p8b83r185k9ks",
+    "createdAt": "2026-04-26T07:02:40.148Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "BM25 ranked 89 candidates.",
+    "payload": {
+      "candidateCount": 89
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "ranking"
+  },
+  {
+    "_creationTime": 1777186992772.803,
+    "_id": "n177saj5mz4avrkc7s3df42fad85j0a6",
+    "createdAt": "2026-04-26T07:03:12.772Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Scored 40 candidates using llm.",
+    "payload": {
+      "mode": "llm",
+      "model": "gpt-4o-mini",
+      "scoredCount": 40
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "scoring"
+  },
+  {
+    "_creationTime": 1777186993225.2698,
+    "_id": "n171bx76tkptk69v9s7z4qnatn85je4s",
+    "createdAt": "2026-04-26T07:03:13.225Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Wrote 9 recommendations.",
+    "payload": {
+      "filteredCount": 86,
+      "llmScoredCount": 40,
+      "recommendedCount": 9,
+      "survivorCount": 89
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "recommendations"
+  },
+  {
+    "_creationTime": 1777187000473.8152,
+    "_id": "n17aq1q73jszkm9jq6z51f9z0h85jj95",
+    "createdAt": "2026-04-26T07:03:20.473Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Cohere - Software Engineer - Applied ML - UK Public Sector",
+    "payload": {
+      "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187044050.5122,
+    "_id": "n175jn1dmbb01rfj6t3kdmte4n85kzf2",
+    "createdAt": "2026-04-26T07:04:04.050Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Cohere - Software Engineer - Applied ML - UK Public Sector",
+    "payload": {
+      "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+      "keywordCoverage": 14,
+      "pdfReady": true,
+      "tailoringScore": 30
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187044146.013,
+    "_id": "n174p0yymp5mexvf077hd6rd8x85kzdw",
+    "createdAt": "2026-04-26T07:04:04.146Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Researcher - Pre-training Data",
+    "payload": {
+      "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187082869.8022,
+    "_id": "n172kch1r09bam7r9dn64agnpn85jxe9",
+    "createdAt": "2026-04-26T07:04:42.869Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Researcher - Pre-training Data",
+    "payload": {
+      "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+      "keywordCoverage": 21,
+      "pdfReady": true,
+      "tailoringScore": 38
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187083080.2175,
+    "_id": "n178nvaqpdx3h35nsgd0n0nc3n85jkhb",
+    "createdAt": "2026-04-26T07:04:43.080Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Engineer – Pre-training Data (f/m/d)",
+    "payload": {
+      "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187121848.2197,
+    "_id": "n17fg267sqkynzyy1ahzyma3eh85k5cw",
+    "createdAt": "2026-04-26T07:05:21.848Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Engineer – Pre-training Data (f/m/d)",
+    "payload": {
+      "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+      "keywordCoverage": 12,
+      "pdfReady": true,
+      "tailoringScore": 35
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187121927.1843,
+    "_id": "n171zbs114ns2fmn9aahrfg56585k59v",
+    "createdAt": "2026-04-26T07:05:21.927Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Cohere - Research Internship (Spring/Summer 2026)",
+    "payload": {
+      "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187164126.7368,
+    "_id": "n17aj611bfzw6sra8gppedr81585jbs4",
+    "createdAt": "2026-04-26T07:06:04.126Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Cohere - Research Internship (Spring/Summer 2026)",
+    "payload": {
+      "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+      "keywordCoverage": 23,
+      "pdfReady": true,
+      "tailoringScore": 45
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187164207.7227,
+    "_id": "n171nm0x5ky1sw5stfbjrnw84x85jvt7",
+    "createdAt": "2026-04-26T07:06:04.207Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Researcher - Pre-training (f/m/d)",
+    "payload": {
+      "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187202286.3481,
+    "_id": "n171h3cpnrbx6nqnd2m0s7rzyh85k2vn",
+    "createdAt": "2026-04-26T07:06:42.286Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Researcher - Pre-training (f/m/d)",
+    "payload": {
+      "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+      "keywordCoverage": 16,
+      "pdfReady": true,
+      "tailoringScore": 36
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187202347.479,
+    "_id": "n1780rtnyemp5qfw09wjzbkww985js6p",
+    "createdAt": "2026-04-26T07:06:42.347Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored 5/5 top recommendations.",
+    "payload": {
+      "attemptedCount": 5,
+      "completedCount": 5,
+      "limit": 5,
+      "results": [
+        {
+          "company": "Cohere",
+          "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+          "ok": true,
+          "rank": 1,
+          "title": "Software Engineer - Applied ML - UK Public Sector"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+          "ok": true,
+          "rank": 2,
+          "title": "Senior AI Researcher - Pre-training Data"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+          "ok": true,
+          "rank": 3,
+          "title": "Senior AI Engineer – Pre-training Data (f/m/d)"
+        },
+        {
+          "company": "Cohere",
+          "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+          "ok": true,
+          "rank": 4,
+          "title": "Research Internship (Spring/Summer 2026)"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+          "ok": true,
+          "rank": 5,
+          "title": "Senior AI Researcher - Pre-training (f/m/d)"
+        }
+      ]
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187254492.689,
+    "_id": "n173epag0gmcyqdxtws6qmmhb985kha2",
+    "createdAt": "2026-04-26T07:07:34.492Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Cohere - Software Engineer - Applied ML - UK Public Sector",
+    "payload": {
+      "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187290073.567,
+    "_id": "n178p831zras0hzcr172gf4at585jkpj",
+    "createdAt": "2026-04-26T07:08:10.073Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Cohere - Software Engineer - Applied ML - UK Public Sector",
+    "payload": {
+      "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+      "keywordCoverage": 13,
+      "pdfReady": true,
+      "tailoringScore": 41
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187290164.6274,
+    "_id": "n177qfjhc4hqa4an9twqp59er985j3sy",
+    "createdAt": "2026-04-26T07:08:10.164Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Researcher - Pre-training Data",
+    "payload": {
+      "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187326034.8887,
+    "_id": "n172czgtrh3psq2a70kdk9ndfh85j049",
+    "createdAt": "2026-04-26T07:08:46.034Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Researcher - Pre-training Data",
+    "payload": {
+      "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+      "keywordCoverage": 23,
+      "pdfReady": true,
+      "tailoringScore": 39
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187326126.4397,
+    "_id": "n173rba0881t2hw4q5bqdekr2d85kh2n",
+    "createdAt": "2026-04-26T07:08:46.126Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Engineer – Pre-training Data (f/m/d)",
+    "payload": {
+      "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187362030.9204,
+    "_id": "n17bjcasy6g52y3zzhz4be22qn85jcba",
+    "createdAt": "2026-04-26T07:09:22.030Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Engineer – Pre-training Data (f/m/d)",
+    "payload": {
+      "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+      "keywordCoverage": 12,
+      "pdfReady": true,
+      "tailoringScore": 35
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187362116.9595,
+    "_id": "n17fzx3s3gtd1x42t901f6d29x85jn03",
+    "createdAt": "2026-04-26T07:09:22.117Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Cohere - Research Internship (Spring/Summer 2026)",
+    "payload": {
+      "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187415454.995,
+    "_id": "n174m4yhyycrt0561a201n4fs585jjk5",
+    "createdAt": "2026-04-26T07:10:15.455Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Cohere - Research Internship (Spring/Summer 2026)",
+    "payload": {
+      "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+      "keywordCoverage": 23,
+      "pdfReady": true,
+      "tailoringScore": 39
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187415541.9407,
+    "_id": "n179xse8jc4gjyrs7b4axk3meh85k1xb",
+    "createdAt": "2026-04-26T07:10:15.542Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Researcher - Pre-training (f/m/d)",
+    "payload": {
+      "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187455252.824,
+    "_id": "n177pnbrr58xghmavc6hhr1ned85jafs",
+    "createdAt": "2026-04-26T07:10:55.252Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Researcher - Pre-training (f/m/d)",
+    "payload": {
+      "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+      "keywordCoverage": 13,
+      "pdfReady": true,
+      "tailoringScore": 35
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187455340.5999,
+    "_id": "n1759gx9japk05smmv1q0j24nx85jbew",
+    "createdAt": "2026-04-26T07:10:55.340Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Clay Labs - Web Developer (Growth & Conversion Optimization)",
+    "payload": {
+      "jobId": "m57fdnz7a7nky8jzp7h1p8bce985kxcr",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187514655.0723,
+    "_id": "n17evxvjhq1h3q19n7x1ycr7y185jhtg",
+    "createdAt": "2026-04-26T07:11:54.655Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Clay Labs - Web Developer (Growth & Conversion Optimization)",
+    "payload": {
+      "jobId": "m57fdnz7a7nky8jzp7h1p8bce985kxcr",
+      "keywordCoverage": 10,
+      "pdfReady": true,
+      "tailoringScore": 28
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187514736.7036,
+    "_id": "n177v6bzqx780gmj0vdxk7mcth85jka6",
+    "createdAt": "2026-04-26T07:11:54.736Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Clay Labs - Software Engineer, Developer Experience (AI)",
+    "payload": {
+      "jobId": "m573byfm0szapbb7x082rz0dq985ks1e",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187554971.7017,
+    "_id": "n17ee9a169c005t0ek9j475m7585jfs8",
+    "createdAt": "2026-04-26T07:12:34.971Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Clay Labs - Software Engineer, Developer Experience (AI)",
+    "payload": {
+      "jobId": "m573byfm0szapbb7x082rz0dq985ks1e",
+      "keywordCoverage": 13,
+      "pdfReady": true,
+      "tailoringScore": 35
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187555050.5178,
+    "_id": "n17etwebbj7hswkcwqtagmys3s85ky3n",
+    "createdAt": "2026-04-26T07:12:35.050Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Causaly - Senior AI Engineer",
+    "payload": {
+      "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187595532.5522,
+    "_id": "n17e7akrttqsxq1m08zyyme5ys85j4z3",
+    "createdAt": "2026-04-26T07:13:15.532Z",
+    "demoUserId": "om-demo",
+    "level": "error",
+    "message": "Tailoring failed for Causaly - Senior AI Engineer",
+    "payload": {
+      "error": "tailor_quality_failed: unsupported_skills:Data Analysis",
+      "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187595602.9502,
+    "_id": "n179jmnrwcfqnv0fvqxpa2gbh985k5bw",
+    "createdAt": "2026-04-26T07:13:15.603Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Aleph Alpha - Senior AI Researcher- Reinforcement learning (f/m/d)",
+    "payload": {
+      "jobId": "m57dmbpmd0qhe2q0tswmzt21ah85j9w1",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187600649.8044,
+    "_id": "n17ayy4yfw1v6sphddk0q2q4y985j35c",
+    "createdAt": "2026-04-26T07:13:20.649Z",
+    "demoUserId": "om-demo",
+    "level": "info",
+    "message": "Started tailoring Causaly - Senior AI Engineer",
+    "payload": {
+      "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+      "pdfReady": false
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187632687.4368,
+    "_id": "n175wxqb00z23c41y2ypahy3sh85knhk",
+    "createdAt": "2026-04-26T07:13:52.687Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Aleph Alpha - Senior AI Researcher- Reinforcement learning (f/m/d)",
+    "payload": {
+      "jobId": "m57dmbpmd0qhe2q0tswmzt21ah85j9w1",
+      "keywordCoverage": 19,
+      "pdfReady": true,
+      "tailoringScore": 38
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187632751.9993,
+    "_id": "n177se52xbergbn8mgz4k2k3ts85k23d",
+    "createdAt": "2026-04-26T07:13:52.752Z",
+    "demoUserId": "om-demo",
+    "level": "warning",
+    "message": "Tailored 8/9 top recommendations.",
+    "payload": {
+      "attemptedCount": 9,
+      "completedCount": 8,
+      "limit": 9,
+      "results": [
+        {
+          "company": "Cohere",
+          "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+          "ok": true,
+          "rank": 1,
+          "title": "Software Engineer - Applied ML - UK Public Sector"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+          "ok": true,
+          "rank": 2,
+          "title": "Senior AI Researcher - Pre-training Data"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+          "ok": true,
+          "rank": 3,
+          "title": "Senior AI Engineer – Pre-training Data (f/m/d)"
+        },
+        {
+          "company": "Cohere",
+          "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+          "ok": true,
+          "rank": 4,
+          "title": "Research Internship (Spring/Summer 2026)"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+          "ok": true,
+          "rank": 5,
+          "title": "Senior AI Researcher - Pre-training (f/m/d)"
+        },
+        {
+          "company": "Clay Labs",
+          "jobId": "m57fdnz7a7nky8jzp7h1p8bce985kxcr",
+          "ok": true,
+          "rank": 6,
+          "title": "Web Developer (Growth & Conversion Optimization)"
+        },
+        {
+          "company": "Clay Labs",
+          "jobId": "m573byfm0szapbb7x082rz0dq985ks1e",
+          "ok": true,
+          "rank": 7,
+          "title": "Software Engineer, Developer Experience (AI)"
+        },
+        {
+          "company": "Causaly",
+          "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+          "ok": false,
+          "rank": 8,
+          "reason": "tailor_quality_failed: unsupported_skills:Data Analysis",
+          "title": "Senior AI Engineer"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57dmbpmd0qhe2q0tswmzt21ah85j9w1",
+          "ok": true,
+          "rank": 9,
+          "title": "Senior AI Researcher- Reinforcement learning (f/m/d)"
+        }
+      ]
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187638825.3113,
+    "_id": "n1761b1cr3j4zt0d0xmgg8qnrn85j4z1",
+    "createdAt": "2026-04-26T07:13:58.825Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored resume ready for Causaly - Senior AI Engineer",
+    "payload": {
+      "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+      "keywordCoverage": 17,
+      "pdfReady": true,
+      "tailoringScore": 37
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  },
+  {
+    "_creationTime": 1777187638904.0664,
+    "_id": "n17dga3pq7sv3p7s3aafdz18dd85jxj5",
+    "createdAt": "2026-04-26T07:13:58.904Z",
+    "demoUserId": "om-demo",
+    "level": "success",
+    "message": "Tailored 9/9 top recommendations.",
+    "payload": {
+      "attemptedCount": 9,
+      "completedCount": 9,
+      "limit": 9,
+      "results": [
+        {
+          "company": "Cohere",
+          "jobId": "m576d7tac59qdwtsdb28k91v1d85kzpv",
+          "ok": true,
+          "rank": 1,
+          "skipped": true,
+          "title": "Software Engineer - Applied ML - UK Public Sector"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57bhq4294yvg8t42yhg7713eh85jgv7",
+          "ok": true,
+          "rank": 2,
+          "skipped": true,
+          "title": "Senior AI Researcher - Pre-training Data"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57crjmx3sm9bgkbk215jqc1zn85krbs",
+          "ok": true,
+          "rank": 3,
+          "skipped": true,
+          "title": "Senior AI Engineer – Pre-training Data (f/m/d)"
+        },
+        {
+          "company": "Cohere",
+          "jobId": "m579587fffqnjsys65kcwd2kmn85jkax",
+          "ok": true,
+          "rank": 4,
+          "skipped": true,
+          "title": "Research Internship (Spring/Summer 2026)"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m5772g9dvhyp1dp3a6030g5b0x85k70p",
+          "ok": true,
+          "rank": 5,
+          "skipped": true,
+          "title": "Senior AI Researcher - Pre-training (f/m/d)"
+        },
+        {
+          "company": "Clay Labs",
+          "jobId": "m57fdnz7a7nky8jzp7h1p8bce985kxcr",
+          "ok": true,
+          "rank": 6,
+          "skipped": true,
+          "title": "Web Developer (Growth & Conversion Optimization)"
+        },
+        {
+          "company": "Clay Labs",
+          "jobId": "m573byfm0szapbb7x082rz0dq985ks1e",
+          "ok": true,
+          "rank": 7,
+          "skipped": true,
+          "title": "Software Engineer, Developer Experience (AI)"
+        },
+        {
+          "company": "Causaly",
+          "jobId": "m576vxh2ectqea7esfge92hmx185k1zq",
+          "ok": true,
+          "rank": 8,
+          "title": "Senior AI Engineer"
+        },
+        {
+          "company": "Aleph Alpha",
+          "jobId": "m57dmbpmd0qhe2q0tswmzt21ah85j9w1",
+          "ok": true,
+          "rank": 9,
+          "skipped": true,
+          "title": "Senior AI Researcher- Reinforcement learning (f/m/d)"
+        }
+      ],
+      "skippedCompletedCount": 8
+    },
+    "runId": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "stage": "tailoring"
+  }
+]

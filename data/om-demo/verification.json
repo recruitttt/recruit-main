@@ -1,0 +1,32 @@
+{
+  "decisions": 175,
+  "jobs": {
+    "count": 175,
+    "withDescription": 175,
+    "withEstimatedPay": 87,
+    "withPay": 175,
+    "withSubstantialDescription": 175
+  },
+  "recommendations": 9,
+  "run": {
+    "_id": "m973fa2ppmrpg4fxwz5kwdjzq185jszp",
+    "completedAt": "2026-04-26T07:03:12.852Z",
+    "demoUserId": "om-demo",
+    "errorCount": 0,
+    "filteredCount": 86,
+    "llmScoredCount": 40,
+    "provider": "mixed",
+    "rawJobCount": 175,
+    "recommendedCount": 9,
+    "scoringMode": "llm",
+    "startedAt": "2026-04-26T07:02:25.563Z",
+    "status": "completed",
+    "survivorCount": 89
+  },
+  "scores": 89,
+  "tailored": {
+    "attempted": 9,
+    "completed": 9,
+    "failed": 0
+  }
+}
