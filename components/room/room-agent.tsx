@@ -20,6 +20,8 @@ type Props = {
   agentId: AgentId;
 };
 
+const SELECTED_AGENT_FACING = -0.55;
+
 export function RoomAgent({ agentId }: Props) {
   const hue = AGENTS[agentId].hue;
   const refs = useAgentRefs();
@@ -82,6 +84,9 @@ export function RoomAgent({ agentId }: Props) {
 
     const target = wanderState.current.target;
     const pos = g.position;
+    if (selected && !scoutInterlude) {
+      target.copy(pos);
+    }
     const toTarget = new THREE.Vector3().subVectors(target, pos);
     toTarget.y = 0;
     const dist = toTarget.length();
@@ -121,7 +126,7 @@ export function RoomAgent({ agentId }: Props) {
     } else {
       const interludeFront =
         scoutInterlude && (intakePhase === "waving" || intakePhase === "questioning");
-      const facing = interludeFront ? FRONT_STAGE_FACING : selected ? -0.55 : station.facing;
+      const facing = interludeFront ? FRONT_STAGE_FACING : selected ? SELECTED_AGENT_FACING : station.facing;
       g.rotation.y = dampYaw(g.rotation.y, facing, delta);
       wanderState.current.lastIdle += delta;
 

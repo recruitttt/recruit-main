@@ -13,7 +13,6 @@ import { RoomFurniture } from "./room-furniture";
 import { RoomRecruiters } from "./room-recruiters";
 import { DeskHub } from "./desk-hub";
 import { ApplicationTerminal } from "./application-terminal";
-import { PersonalizationCompanion } from "./personalization-companion";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
@@ -68,7 +67,6 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
         <RoomRecruiters userId={userId} />
         <DeskHub userId={userId} />
         <ApplicationTerminal userId={userId} />
-        <PersonalizationCompanion />
         {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows
           position={[0, 0.004, -0.4]}

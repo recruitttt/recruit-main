@@ -151,23 +151,18 @@ export function AgentFigure({
 function BlinkingEyes({ agentId }: { agentId: AgentId }) {
   const frontLeft = useRef<THREE.Mesh>(null);
   const frontRight = useRef<THREE.Mesh>(null);
-  const rearLeft = useRef<THREE.Mesh>(null);
-  const rearRight = useRef<THREE.Mesh>(null);
   const timing = useMemo(() => blinkTiming(agentId), [agentId]);
 
   useFrame(({ clock }) => {
     const openness = blinkOpenness(clock.elapsedTime, timing.period, timing.offset);
     const scaleY = Math.max(0.08, openness);
-    for (const eye of [frontLeft, frontRight, rearLeft, rearRight]) {
+    for (const eye of [frontLeft, frontRight]) {
       if (eye.current) eye.current.scale.y = scaleY;
     }
   });
 
   return (
-    <>
-      <EyePair left={frontLeft} right={frontRight} position={[0, 0.035, 0.264]} />
-      <EyePair left={rearLeft} right={rearRight} position={[0, 0.035, -0.264]} rotation={[0, Math.PI, 0]} />
-    </>
+    <EyePair left={frontLeft} right={frontRight} position={[0, 0.035, 0.264]} />
   );
 }
 

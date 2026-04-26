@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -15,6 +14,8 @@ const PLAYER_BODY_HUE = "#94A3B8";
 const PLAYER_CAP_HUE = "#F97316";
 const NEAREST_AGENT_RADIUS = 1.8;
 const PLAYER_SPEED = WALK_SPEED * 1.35;
+const JUMP_VELOCITY = 4.2;
+const JUMP_GRAVITY = 12.5;
 
 type Keys = { forward: boolean; back: boolean; left: boolean; right: boolean; interact: boolean };
 
@@ -50,6 +51,9 @@ function PlayerCharacterActive() {
   const headRef = useRef<THREE.Group>(null);
   const positionRef = useRef(new THREE.Vector3(SPAWN_POINT[0], SPAWN_POINT[1], SPAWN_POINT[2]));
   const yawRef = useRef(SPAWN_FACING);
+  const jumpYRef = useRef(0);
+  const jumpVelocityRef = useRef(0);
+  const groundedRef = useRef(true);
   const keys = useRef<Keys>({ forward: false, back: false, left: false, right: false, interact: false });
   const palette = useMemo(() => makePalette(PLAYER_BODY_HUE), []);
 
@@ -98,6 +102,15 @@ function PlayerCharacterActive() {
           e.preventDefault();
           return;
         }
+      }
+      if (e.code === "Space") {
+        const pose = useRoomStore.getState().playerPose;
+        if (pose === "standing" && groundedRef.current) {
+          groundedRef.current = false;
+          jumpVelocityRef.current = JUMP_VELOCITY;
+        }
+        e.preventDefault();
+        return;
       }
       const k = map[e.code];
       if (!k) return;
@@ -149,12 +162,21 @@ function PlayerCharacterActive() {
       yawRef.current = Math.atan2(stepX, stepZ);
       moving = true;
     }
+    if (!groundedRef.current || jumpYRef.current > 0) {
+      jumpVelocityRef.current -= JUMP_GRAVITY * delta;
+      jumpYRef.current += jumpVelocityRef.current * delta;
+      if (jumpYRef.current <= 0) {
+        jumpYRef.current = 0;
+        jumpVelocityRef.current = 0;
+        groundedRef.current = true;
+      }
+    }
 
     playerPosition.copy(pos);
 
     const g = groupRef.current;
     if (!g) return;
-    g.position.set(pos.x, 0, pos.z);
+    g.position.set(pos.x, jumpYRef.current, pos.z);
     g.rotation.y = dampYaw(g.rotation.y, yawRef.current, delta);
 
     const t = clock.elapsedTime;
@@ -255,35 +277,8 @@ function PlayerCharacterActive() {
           </mesh>
         </group>
       </group>
-      <DeskSitPrompt positionRef={positionRef} />
       {nearestId ? <NearestPrompt agentName={AGENTS[nearestId].name} /> : null}
     </group>
-  );
-}
-
-function DeskSitPrompt({ positionRef }: { positionRef: React.RefObject<THREE.Vector3> }) {
-  const playerPose = useRoomStore((s) => s.playerPose);
-  const [visible, setVisible] = React.useState(false);
-  useFrame(() => {
-    if (!positionRef.current) return;
-    const pos = positionRef.current;
-    const distToDesk = Math.hypot(pos.x - 0, pos.z - 0);
-    const shouldShow = distToDesk < 1.2 && playerPose === "standing";
-    if (shouldShow !== visible) setVisible(shouldShow);
-  });
-  if (!visible) return null;
-  return (
-    <Html
-      position={[0, 1.95, 0]}
-      center
-      distanceFactor={9}
-      style={{ pointerEvents: "none" }}
-      zIndexRange={[40, 0]}
-    >
-      <div className="pointer-events-none -translate-y-1 select-none rounded-full border border-white/55 bg-emerald-700/90 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white shadow-[0_8px_18px_-10px_rgba(15,23,42,0.4)]">
-        E · sit at desk
-      </div>
-    </Html>
   );
 }
 

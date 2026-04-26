@@ -674,13 +674,13 @@ function FloorLamp({ position }: { position: [number, number, number] }) {
 function BackWallWindows() {
   const beach = useBeachTexture();
   // One long picture window spanning most of the back wall
-  const WIN_W = 17.6;
-  const WIN_H = 2.2;
+  const WIN_W = 18.5;
+  const WIN_H = 2.95;
   const FRAME_D = 0.12;
-  const lightCenters = [-6.6, -2.2, 2.2, 6.6];
+  const lightCenters = [-7.1, -2.35, 2.35, 7.1];
 
   return (
-    <group position={[0, 2.55, -5.07]}>
+    <group position={[0, 3.18, -5.07]}>
       {/* Linen side panels and a slim rail integrate the panorama into the wall */}
       <mesh position={[-WIN_W / 2 - 0.22, 0, 0.088]}>
         <planeGeometry args={[0.44, WIN_H + 0.42]} />
