@@ -58,7 +58,8 @@ export default defineSchema({
     provider: v.union(
       v.literal("greenhouse"),
       v.literal("lever"),
-      v.literal("workday")
+      v.literal("workday"),
+      v.literal("workable")
     ),
     company: v.string(),
     slug: v.string(),

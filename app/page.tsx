@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
+import { Fragment, useRef, type ReactNode } from "react";
 import {
   ArrowRight,
   Check,
@@ -14,12 +14,13 @@ import {
   MessageSquareText,
   Search,
   ShieldCheck,
-  Sparkles,
   Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Mark, Wordmark } from "@/components/ui/logo";
+
+const HERO_TITLE_WORDS = ["Apply", "to", "jobs", "without", "applying."];
 
 const liveRuns = [
   { company: "Linear", role: "Design Engineer", state: "Submitting", score: 94 },
@@ -51,28 +52,55 @@ const steps = [
   },
 ];
 
+const pricingPlans = [
+  {
+    name: "Free",
+    price: "$0",
+    detail: "5 applications / month",
+    features: ["Ashby coverage", "Resume tailoring", "Review queue"],
+    cta: "Start free",
+    href: "/onboarding",
+    featured: false,
+  },
+  {
+    name: "Standard",
+    price: "$10",
+    detail: "100 applications / month",
+    features: ["Priority queue", "3-persona review", "Unlimited answer cache"],
+    cta: "Start Standard",
+    href: "/onboarding?tier=standard",
+    featured: true,
+  },
+  {
+    name: "Pro",
+    price: "$20",
+    detail: "Unlimited applications",
+    features: ["Recruiter outreach", "Auto follow-ups", "Custom templates"],
+    cta: "Start Pro",
+    href: "/onboarding?tier=pro",
+    featured: false,
+  },
+];
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#EEF3F7] text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-white/45 bg-[#EEF3F7]/78 backdrop-blur-2xl">
+      <header className="absolute inset-x-0 top-0 z-40">
         <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6">
           <Link
             href="/"
             aria-label="Recruit"
-            className="flex h-10 items-center gap-2 rounded-full border border-white/70 bg-white/55 px-2.5 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_12px_30px_rgba(15,23,42,0.06)]"
+            className="flex h-10 items-center gap-2 [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
           >
-            <Mark size="sm" className="text-sky-600" />
-            <span className="font-serif text-[19px] leading-none tracking-tight text-sky-700">
+            <Mark size="sm" className="text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.18)]" />
+            <span className="font-serif text-[19px] leading-none tracking-tight text-white">
               recruit
             </span>
           </Link>
 
-          <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-slate-500 md:flex">
-            <Link href="/dashboard" className="transition hover:text-slate-950">
+          <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-white/85 md:flex [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]">
+            <Link href="/dashboard" className="transition hover:text-white">
               Dashboard
-            </Link>
-            <Link href="/pricing" className="transition hover:text-slate-950">
-              Pricing
             </Link>
           </nav>
 
@@ -81,7 +109,7 @@ export default function LandingPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full text-slate-600 hover:bg-white/45 hover:text-slate-950"
+                className="rounded-full text-white/90 hover:bg-white/15 hover:text-white [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
               >
                 Sign in
               </Button>
@@ -96,46 +124,58 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="relative border-b border-white/50">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.72),rgba(255,255,255,0.18)_42%,rgba(238,243,247,0))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:64px_64px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+      <section className="relative">
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[78svh] overflow-hidden"
+          style={{
+            backgroundImage: "url(/landing-hero.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 85%",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_22%,rgba(255,255,255,0)_55%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[16%] bg-[linear-gradient(to_bottom,rgba(238,243,247,0)_0%,#EEF3F7_100%)]" />
+        </div>
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/62 px-3 py-1.5 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_16px_40px_rgba(15,23,42,0.06)]"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white">
-                <Sparkles className="h-3 w-3" />
-              </span>
-              AI agents for the job hunt
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
-              className="mx-auto max-w-5xl text-balance font-serif text-[clamp(48px,9vw,112px)] leading-[0.91] tracking-tight text-slate-950"
-            >
-              Apply to jobs without applying.
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-              className="mx-auto max-w-2xl text-balance text-[16px] leading-7 text-slate-600 sm:text-[18px]"
+            <h1 className="mx-auto max-w-4xl text-balance font-serif text-[clamp(32px,5.6vw,72px)] leading-[0.96] tracking-tight text-slate-950">
+              {HERO_TITLE_WORDS.map((word, index) => (
+                <Fragment key={`${word}-${index}`}>
+                  <span
+                    className="inline-block"
+                    style={{ perspective: "900px" }}
+                  >
+                    <span
+                      className="inline-block will-change-transform"
+                      style={{
+                        transformOrigin: "50% 90%",
+                        animation: `word-flip-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) ${0.25 + index * 0.12}s both`,
+                      }}
+                    >
+                      {word}
+                    </span>
+                  </span>
+                  {index < HERO_TITLE_WORDS.length - 1 ? " " : null}
+                </Fragment>
+              ))}
+            </h1>
+            <p
+              className="mx-auto max-w-xl text-balance text-[13px] leading-5 text-slate-600 sm:text-[14px]"
+              style={{
+                animation: "hero-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1.35s both",
+              }}
             >
               Recruit finds roles, researches each company, tailors your resume, and pauses only when it needs your truth.
-            </motion.p>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
+            <div
               className="flex flex-col items-center justify-center gap-3 sm:flex-row"
+              style={{
+                animation: "hero-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 1.6s both",
+              }}
             >
               <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
                 <Button size="lg" className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800">
@@ -152,10 +192,15 @@ export default function LandingPage() {
                   View live dashboard
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
 
-          <div className="relative mx-auto mt-12 w-full max-w-6xl flex-1">
+          <div
+            className="relative mx-auto mt-10 w-full max-w-4xl flex-1"
+            style={{
+              animation: "hero-rise 0.95s cubic-bezier(0.22, 1, 0.36, 1) 1.9s both",
+            }}
+          >
             <ProductMockup />
           </div>
         </div>
@@ -178,11 +223,73 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Simple pricing</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Start free, then scale only when the agent is doing real work.</p>
+            </div>
+            <div className="text-sm font-medium text-slate-500">Cancel anytime</div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-3" style={{ perspective: "1100px" }}>
+            {pricingPlans.map((plan) => (
+              <TiltCard
+                key={plan.name}
+                className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
+                  plan.featured
+                    ? "border-sky-200/80 bg-white/82"
+                    : "border-white/70 bg-white/58"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-950">{plan.name}</div>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-semibold tracking-tight text-slate-950">{plan.price}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">/ mo</span>
+                    </div>
+                  </div>
+                  {plan.featured ? (
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                      Popular
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-2 text-sm text-slate-600">{plan.detail}</div>
+                <div className="mt-4 grid gap-2">
+                  {plan.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-2 text-sm text-slate-600">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link href={plan.href} className="mt-4 block">
+                  <Button
+                    size="sm"
+                    variant={plan.featured ? "primary" : "secondary"}
+                    className={`w-full rounded-full ${
+                      plan.featured
+                        ? "bg-slate-950 text-white hover:bg-slate-800"
+                        : "border-white/70 bg-white/58 text-slate-700 hover:bg-white/75"
+                    }`}
+                  >
+                    {plan.cta}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </TiltCard>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <footer className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-6 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <Wordmark />
           <div className="flex gap-5">
-            <Link href="/pricing" className="transition hover:text-slate-950">Pricing</Link>
             <Link href="/dashboard" className="transition hover:text-slate-950">Dashboard</Link>
             <Link href="/onboarding" className="transition hover:text-slate-950">Start</Link>
           </div>
@@ -224,7 +331,7 @@ function ProductMockup() {
               </div>
             </div>
             <div className="mt-5 space-y-2 text-[13px]">
-              {["Dashboard", "Applications", "Artifacts", "DLQ"].map((item, index) => (
+              {["Dashboard", "Applications", "Artifacts", "Review queue"].map((item, index) => (
                 <div
                   key={item}
                   className={`flex items-center justify-between rounded-2xl px-3 py-2.5 ${
@@ -352,6 +459,55 @@ function MiniArtifact({
         <div className="truncate text-[13px] font-semibold text-slate-950">{title}</div>
         <div className="mt-0.5 truncate text-[12px] text-slate-500">{detail}</div>
       </div>
+    </div>
+  );
+}
+
+function TiltCard({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const rafId = useRef<number | null>(null);
+
+  function applyTilt(rotX: number, rotY: number, hover: boolean) {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(0)`;
+    el.style.boxShadow = hover
+      ? "inset 0 1px 0 rgba(255,255,255,0.9), 0 28px 60px -18px rgba(15,23,42,0.18)"
+      : "inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 36px rgba(15,23,42,0.05)";
+  }
+
+  function handleMove(event: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (event.clientX - cx) / (rect.width / 2);
+    const dy = (event.clientY - cy) / (rect.height / 2);
+    const rotY = Math.max(-1, Math.min(1, dx)) * 8;
+    const rotX = Math.max(-1, Math.min(1, dy)) * -8;
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => applyTilt(rotX, rotY, true));
+  }
+
+  function handleLeave() {
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    applyTilt(0, 0, false);
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      style={{
+        transformStyle: "preserve-3d",
+        transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease-out",
+        willChange: "transform",
+      }}
+    >
+      {children}
     </div>
   );
 }

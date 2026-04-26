@@ -3,6 +3,7 @@ import {
   normalizeGreenhouseJob,
   normalizeLeverJob,
   normalizeWorkdayJob,
+  normalizeWorkableJob,
   stripHtml,
   type AtsSource,
 } from "../convex/atsIngestion";
@@ -137,6 +138,38 @@ assert.equal(
   normalizeWorkdayJob(workdaySource, { Job_ID: "wd-bad", Job_URL: "https://gamma/jobs/wd-bad" }, "run1"),
   null
 );
+
+const workableSource: AtsSource = {
+  provider: "workable",
+  company: "Delta",
+  slug: "delta",
+};
+
+const workableJob = normalizeWorkableJob(
+  workableSource,
+  {
+    shortcode: "ABC123",
+    title: "Solutions Engineer",
+    url: "https://apply.workable.com/j/ABC123",
+    application_url: "https://apply.workable.com/j/ABC123/apply",
+    published_on: "2026-04-19",
+    city: "London",
+    country: "United Kingdom",
+    telecommuting: true,
+    employment_type: "Full-time",
+    department: "Solutions",
+    description: "<p>Work with customers.</p>",
+  },
+  "run1"
+);
+
+assert.equal(workableJob?.sourceSlug, "workable:delta");
+assert.equal(workableJob?.dedupeKey, "workable:delta:ABC123");
+assert.equal(workableJob?.isRemote, true);
+assert.equal(workableJob?.location, "London, United Kingdom");
+assert.equal(workableJob?.descriptionPlain, "Work with customers.");
+assert.equal(normalizeWorkableJob(workableSource, { shortcode: "bad" }, "run1"), null);
+
 assert.equal(stripHtml("<p>One&nbsp;&amp;&nbsp;two</p>"), "One & two");
 assert.equal(stripHtml("<p>Line one</p><br><p>Line&nbsp;two</p>"), "Line one Line two");
 

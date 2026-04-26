@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 const TIERS = {
-  standard: { name: "Standard", unitAmount: 2400 },
-  pro: { name: "Pro", unitAmount: 7900 },
+  standard: { name: "Standard", unitAmount: 1000 },
+  pro: { name: "Pro", unitAmount: 2000 },
 } as const;
 
 type Tier = keyof typeof TIERS;

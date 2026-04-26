@@ -103,7 +103,7 @@ const scores = [
 
 const componentRows = [
   ["OpenSesame", "Software Engineering Intern", "Greenhouse", "submitted", "88", "8.4", "resume + cover"],
-  ["Cloudflare", "Software Engineer Intern", "Greenhouse", "submitted", "91", "8.7", "DLQ resolved"],
+  ["Cloudflare", "Software Engineer Intern", "Greenhouse", "submitted", "91", "8.7", "review resolved"],
   ["Forerunner", "Software Engineering Intern", "Greenhouse", "submitted", "84", "8.1", "cache reused"],
   ["Radiant", "Summer 2026 Software Engineering Internship", "Greenhouse", "submitting", "86", "8.3", "live session"],
 ];
@@ -126,7 +126,7 @@ const recruitIcons: Array<{
 const agentRuns = [
   ["Run 042", "Active", "18 apps", "2.1/min"],
   ["Run 041", "Replayed", "12 apps", "0 errors"],
-  ["Run 040", "Paused", "7 apps", "DLQ: 2"],
+  ["Run 040", "Paused", "7 apps", "2 to review"],
 ];
 
 const approvalItems = [
@@ -179,7 +179,7 @@ const notifications = [
 const analyticsRows = [
   ["Greenhouse", "Applied", "23", "11.2%"],
   ["Lever", "Interview", "6", "8.7%"],
-  ["Workday", "DLQ", "9", "21.4%"],
+  ["Workday", "Needs review", "9", "21.4%"],
 ];
 
 const auditRows = [
@@ -349,7 +349,7 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
               <GlassTag variantKey={variantKey} label="Applied" />
               <GlassTag variantKey={variantKey} label="Submitted" tone="success" />
               <GlassTag variantKey={variantKey} label="Reviewing" tone="warning" />
-              <GlassTag variantKey={variantKey} label="DLQ" tone="danger" />
+              <GlassTag variantKey={variantKey} label="Needs review" tone="danger" />
               <GlassTag variantKey={variantKey} label="Saved" tone="neutral" />
             </div>
             <GlassCard className="space-y-4">
@@ -518,7 +518,7 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
             <GlassCard>
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-950">DLQ Recovery</h3>
+                  <h3 className="text-lg font-semibold text-slate-950">Review recovery</h3>
                   <p className="mt-1 text-sm text-slate-600">Visa answer requires approval.</p>
                 </div>
                 <TriangleAlert className="h-5 w-5 text-amber-600" />
@@ -889,7 +889,7 @@ function RoleDetailDrawer({ variantKey }: { variantKey: VariantKey }) {
 
 function DLQTriageView({ variantKey }: { variantKey: VariantKey }) {
   return (
-    <Panel variantKey={variantKey} title="05 / Error & DLQ Triage">
+    <Panel variantKey={variantKey} title="05 / Error & Review Triage">
       <div className="grid gap-3 lg:grid-cols-3">
         {dlqItems.map(([company, reason, detail]) => (
           <GlassCard key={company}>
@@ -1207,14 +1207,14 @@ function DashboardPageComponents({ variantKey }: { variantKey: VariantKey }) {
             <div className="grid gap-3 md:grid-cols-4">
               {[
                 ["Applications", "23", v.accent],
-                ["DLQ pending", "4", mistColors.warning],
+                ["Needs review", "4", mistColors.warning],
                 ["Cache reuse", "67.8%", v.accent2],
                 ["Time saved", "18.5h", v.success],
               ].map(([label, value, color]) => (
                 <div key={label} className="rounded-[18px] border border-white/45 bg-white/24 px-3 py-3">
                   <div className="text-xs font-semibold text-slate-500">{label}</div>
                   <div className="mt-2 font-mono text-2xl text-slate-950">{value}</div>
-                  <MiniMeter value={label === "DLQ pending" ? 38 : 72} color={color} />
+                  <MiniMeter value={label === "Needs review" ? 38 : 72} color={color} />
                 </div>
               ))}
             </div>
@@ -1288,7 +1288,7 @@ function ApplicationDetailPageComponents({ variantKey }: { variantKey: VariantKe
 function DLQCachePageComponents({ variantKey }: { variantKey: VariantKey }) {
   return (
     <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-      <Panel variantKey={variantKey} title="DLQ & Answer Cache Components">
+      <Panel variantKey={variantKey} title="Review Queue & Answer Cache Components">
         <div className="grid gap-4">
           <GlassCard variant="critical">
             <div className="flex items-start justify-between gap-3">
@@ -1464,7 +1464,7 @@ function PageReadyComponents({ variantKey }: { variantKey: VariantKey }) {
       <GallerySectionHeader
         kicker="07 / Pages"
         title="Page-Ready Components"
-        description="Composite building blocks mapped to the Linear MVP routes: dashboard, application detail, DLQ/cache, settings/intake, provider proof, and pricing."
+        description="Composite building blocks mapped to the Linear MVP routes: dashboard, application detail, review queue/cache, settings/intake, provider proof, and pricing."
       />
       <DashboardPageComponents variantKey={variantKey} />
       <ApplicationDetailPageComponents variantKey={variantKey} />

@@ -35,8 +35,12 @@ function getAuthServer() {
   return authServer;
 }
 
-export function getToken() {
-  return getAuthServer().getToken();
+export async function getToken() {
+  try {
+    return await getAuthServer().getToken();
+  } catch {
+    return null;
+  }
 }
 
 async function getSessionFromAuth() {

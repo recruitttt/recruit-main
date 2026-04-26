@@ -16,9 +16,11 @@ import {
 } from "../lib/job-ranking";
 import {
   fetchJsonWithRetry,
+  extractWorkableJobs,
   normalizeGreenhouseJob,
   normalizeLeverJob,
   normalizeWorkdayJob,
+  normalizeWorkableJob,
   parallelMap as parallelMapAts,
   type AtsProvider,
   type AtsSource,
@@ -45,6 +47,7 @@ const LEVER_API_BASES = {
   global: "https://api.lever.co/v0/postings",
   eu: "https://api.eu.lever.co/v0/postings",
 };
+const WORKABLE_WIDGET_API_BASE = "https://apply.workable.com/api/v1/widget/accounts";
 const MAX_LLM_CANDIDATES = 40;
 const MAX_RECOMMENDATIONS = 15;
 const RECOMMENDATION_CUTOFF = 70;
@@ -123,7 +126,8 @@ export const seedAtsSourcesFromCareerOps = action({
       v.union(
         v.literal("greenhouse"),
         v.literal("lever"),
-        v.literal("workday")
+        v.literal("workday"),
+        v.literal("workable")
       )
     ),
   },
@@ -137,6 +141,42 @@ export const seedAtsSourcesFromCareerOps = action({
       stage: "sources",
       level: "success",
       message: `Seeded ${result.upserted} ATS sources from ${sources.length} Career Ops candidates.`,
+      payload: {
+        provider: args.provider,
+        upserted: result.upserted,
+        sourceCount: sources.length,
+      },
+    });
+    return {
+      upserted: result.upserted,
+      sourceCount: sources.length,
+    };
+  },
+});
+
+export const seedCuratedAtsSources = action({
+  args: {
+    provider: v.optional(
+      v.union(
+        v.literal("greenhouse"),
+        v.literal("lever"),
+        v.literal("workday"),
+        v.literal("workable")
+      )
+    ),
+  },
+  returns: v.object({ upserted: v.number(), sourceCount: v.number() }),
+  handler: async (ctx, args) => {
+    const sources = CURATED_ATS_SOURCES.filter((source) =>
+      args.provider ? source.provider === args.provider : true
+    );
+    const result = await ctx.runMutation(anyApi.ashby.upsertAtsSources, {
+      sources,
+    });
+    await appendPipelineLog(ctx, {
+      stage: "sources",
+      level: "success",
+      message: `Seeded ${result.upserted} curated ATS sources from ${sources.length} candidates.`,
       payload: {
         provider: args.provider,
         upserted: result.upserted,
@@ -533,12 +573,30 @@ export const runWorkdayIngestion = action({
   },
 });
 
+export const runWorkableIngestion = action({
+  args: {
+    demoUserId: v.optional(v.string()),
+    limitSources: v.optional(v.number()),
+    sources: v.optional(v.array(v.any())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return runProviderIngestion(ctx, {
+      provider: "workable",
+      demoUserId: args.demoUserId,
+      limitSources: args.limitSources,
+      sources: args.sources,
+    });
+  },
+});
+
 export const runAtsIngestion = action({
   args: {
     provider: v.union(
       v.literal("greenhouse"),
       v.literal("lever"),
-      v.literal("workday")
+      v.literal("workday"),
+      v.literal("workable")
     ),
     demoUserId: v.optional(v.string()),
     limitSources: v.optional(v.number()),
@@ -1039,6 +1097,8 @@ function normalizeAtsSources(provider: AtsProvider, sources: any[]): AtsSource[]
           source.boardToken ??
           source.board_token ??
           source.site ??
+          source.account ??
+          source.accountSlug ??
           source.tenantReportSlug ??
           ""
       ).trim();
@@ -1084,6 +1144,17 @@ async function fetchProviderJobs(source: AtsSource, runId: string) {
     }
 
     return jobs;
+  }
+
+  if (source.provider === "workable") {
+    const url =
+      typeof source.config?.apiUrl === "string" && source.config.apiUrl.trim()
+        ? source.config.apiUrl.trim()
+        : `${WORKABLE_WIDGET_API_BASE}/${encodeURIComponent(source.slug)}`;
+    const json = await fetchJsonWithRetry<any>(url);
+    return extractWorkableJobs(json)
+      .map((job) => normalizeWorkableJob(source, job, runId))
+      .filter((job): job is NormalizedAtsJob => job !== null);
   }
 
   const reportUrl = typeof source.config?.reportUrl === "string" ? source.config.reportUrl : "";
@@ -1299,6 +1370,18 @@ function detectCareerOpsAtsSource(company: Record<string, any>): AtsSource | nul
       enabled: company.enabled !== false,
       seededFrom: "career-ops",
       config: { reportUrl: stringOrUndefined(company.report_url) },
+    };
+  }
+
+  const workableMatch = careersUrl.match(/apply\.workable\.com\/([^/?#]+)/);
+  if (workableMatch) {
+    return {
+      provider: "workable",
+      company: name,
+      slug: workableMatch[1],
+      careersUrl,
+      enabled: company.enabled !== false,
+      seededFrom: "career-ops",
     };
   }
 
@@ -1728,5 +1811,50 @@ const FALLBACK_ASHBY_SOURCES: Required<AshbySource>[] = [
     careersUrl: "https://jobs.ashbyhq.com/workos",
     enabled: true,
     notes: "Developer tools and enterprise auth APIs.",
+  },
+];
+
+const CURATED_ATS_SOURCES: AtsSource[] = [
+  {
+    provider: "greenhouse",
+    company: "Airtable",
+    slug: "airtable",
+    careersUrl: "https://job-boards.greenhouse.io/airtable",
+    enabled: true,
+    seededFrom: "curated",
+  },
+  {
+    provider: "greenhouse",
+    company: "Vercel",
+    slug: "vercel",
+    careersUrl: "https://job-boards.greenhouse.io/vercel",
+    enabled: true,
+    seededFrom: "curated",
+  },
+  {
+    provider: "lever",
+    company: "Mistral AI",
+    slug: "mistral",
+    careersUrl: "https://jobs.lever.co/mistral",
+    enabled: true,
+    seededFrom: "curated",
+    config: { region: "global" },
+  },
+  {
+    provider: "lever",
+    company: "Palantir",
+    slug: "palantir",
+    careersUrl: "https://jobs.lever.co/palantir",
+    enabled: true,
+    seededFrom: "curated",
+    config: { region: "global" },
+  },
+  {
+    provider: "workable",
+    company: "Rentokil Initial",
+    slug: "rentokil-initial",
+    careersUrl: "https://apply.workable.com/rentokil-initial",
+    enabled: true,
+    seededFrom: "curated",
   },
 ];

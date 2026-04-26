@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { GithubIcon, LinkedinIcon, XIcon, DevpostIcon } from "@/components/ui/brand-icons";
-import { Check, Globe, Sparkles } from "lucide-react";
+import { Check, Globe, Pencil, X } from "lucide-react";
 import {
   ActionButton,
   GlassCard,
@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(readProfile()));
   const [saved, setSaved] = useState(false);
   const [feedback, setFeedback] = useState<SaveFeedback | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   useEffect(() => {
     return subscribeProfile((p) => {
@@ -82,7 +83,7 @@ export default function SettingsPage() {
   }, [feedback]);
 
   const display = (v?: string) => (v && v.trim() ? v : PLACEHOLDER);
-  const enriched = profile.log.length > 0;
+  const enriched = Boolean(profile.email || profile.name || profile.prefs.workAuth || profile.prefs.roles.length > 0);
   const setDraftField = (field: keyof ProfileDraft, value: string) => {
     setSaved(false);
     setDraft((current) => ({ ...current, [field]: value }));
@@ -113,13 +114,14 @@ export default function SettingsPage() {
       );
       setSaved(true);
       setFeedback({ kind: "saved", text: "Saved ✓" });
+      setEditingProfile(false);
     } catch {
       setFeedback({ kind: "error", text: "Couldn’t save" });
     }
   };
 
   return (
-    <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
+    <main className={cx("min-h-screen overflow-x-hidden px-6 py-6 sm:px-8 md:px-10 md:py-8", mistClasses.page)}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[7%] top-[10%] h-72 w-72 rounded-full bg-white/30 blur-3xl" />
         <div
@@ -132,12 +134,11 @@ export default function SettingsPage() {
         />
       </div>
 
-      <div className="relative mx-auto grid min-w-0 max-w-[1520px] gap-5">
-        <header className={cx("flex flex-col gap-4 border px-4 py-4 md:flex-row md:items-center md:justify-between", mistClasses.panel)}>
+      <div className="relative mx-auto grid min-w-0 max-w-[1480px] gap-5">
+        <header className={cx("flex flex-col gap-4 border px-5 py-5 md:flex-row md:items-center md:justify-between", mistClasses.panel)}>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={enriched ? "success" : "neutral"}>{enriched ? "verified" : "pending"}</StatusBadge>
-              <StatusBadge tone="accent">{profile.log.length} source{profile.log.length === 1 ? "" : "s"}</StatusBadge>
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl">Settings</h1>
             <p className="mt-2 max-w-[calc(100vw-4.5rem)] text-sm leading-6 text-slate-600 [overflow-wrap:anywhere] md:max-w-2xl">
@@ -145,64 +146,24 @@ export default function SettingsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <StatusBadge tone="neutral" variant="soft">profile log</StatusBadge>
             <StatusBadge tone="accent" variant="soft">live read</StatusBadge>
           </div>
         </header>
 
-        <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
           <div className="space-y-5">
-            <Panel
-              title="Edit profile"
-              description="Manual edits are saved to this browser profile and used by dashboard tailoring."
-              actions={saved ? <StatusBadge tone="success"><Check className="h-3.5 w-3.5" /> saved</StatusBadge> : <StatusBadge tone="neutral">local profile</StatusBadge>}
-            >
-              <GlassCard density="compact" className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <EditInput label="Full name" value={draft.name} onChange={(value) => setDraftField("name", value)} />
-                  <EditInput label="Email" value={draft.email} onChange={(value) => setDraftField("email", value)} />
-                  <EditInput label="Headline" value={draft.headline} onChange={(value) => setDraftField("headline", value)} />
-                  <EditInput label="Location" value={draft.location} onChange={(value) => setDraftField("location", value)} />
-                  <EditInput label="Work auth" value={draft.workAuth} onChange={(value) => setDraftField("workAuth", value)} />
-                  <EditInput label="Target roles" value={draft.roles} onChange={(value) => setDraftField("roles", value)} placeholder="Software Engineer, Product Engineer" />
-                  <EditInput label="Target locations" value={draft.locations} onChange={(value) => setDraftField("locations", value)} placeholder="Remote, San Francisco" />
-                  <EditInput label="Website" value={draft.website} onChange={(value) => setDraftField("website", value)} />
-                  <EditInput label="GitHub" value={draft.github} onChange={(value) => setDraftField("github", value)} />
-                  <EditInput label="LinkedIn" value={draft.linkedin} onChange={(value) => setDraftField("linkedin", value)} />
-                  <EditInput label="DevPost" value={draft.devpost} onChange={(value) => setDraftField("devpost", value)} />
-                  <EditInput label="X / Twitter" value={draft.twitter} onChange={(value) => setDraftField("twitter", value)} />
-                </div>
-                <div className="flex items-center justify-end gap-3">
-                  <AnimatePresence>
-                    {feedback ? (
-                      <motion.span
-                        key={feedback.text}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className={cn(
-                          "text-xs font-medium leading-none",
-                          feedback.kind === "saved" ? "text-emerald-600" : "text-rose-600"
-                        )}
-                        role="status"
-                        aria-live="polite"
-                      >
-                        {feedback.text}
-                      </motion.span>
-                    ) : null}
-                  </AnimatePresence>
-                  <ActionButton type="button" variant="primary" onClick={saveDraft}>
-                    Save changes
-                  </ActionButton>
-                </div>
-              </GlassCard>
-            </Panel>
-
             <Panel
               title="Profile"
               description="Core identity used for applications."
-              actions={<StatusBadge tone={enriched ? "success" : "neutral"}>{enriched ? "verified" : "pending"}</StatusBadge>}
+              actions={
+                <>
+                  <StatusBadge tone={enriched ? "success" : "neutral"}>{enriched ? "verified" : "pending"}</StatusBadge>
+                  <ActionButton type="button" variant="secondary" size="sm" onClick={() => setEditingProfile(true)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </ActionButton>
+                </>
+              }
             >
               <div className="space-y-3">
                 <Field label="Full name" value={display(profile.name)} source={profile.provenance.name} />
@@ -283,30 +244,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-5">
-            {profile.suggestions.filter((item) => item.status === "pending").length > 0 && (
-              <Panel
-                title="Profile suggestions"
-                description="Public-link enrichment is suggest-only and cannot overwrite resume or chat identity."
-                actions={<StatusBadge tone="warning">{profile.suggestions.filter((item) => item.status === "pending").length} pending</StatusBadge>}
-              >
-                <div className="space-y-2">
-                  {profile.suggestions.filter((item) => item.status === "pending").map((suggestion) => (
-                    <GlassCard key={suggestion.id} density="compact" className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ProvenanceDot source={suggestion.source} />
-                        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500">{suggestion.source}</span>
-                        <StatusBadge tone="warning" variant="soft">{suggestion.field}</StatusBadge>
-                      </div>
-                      <div className="grid gap-2 text-xs leading-5 md:grid-cols-2">
-                        <SuggestionValue label="Current" value={suggestion.currentValue} />
-                        <SuggestionValue label="Suggested" value={suggestion.suggestedValue} />
-                      </div>
-                    </GlassCard>
-                  ))}
-                </div>
-              </Panel>
-            )}
-
             {profile.experience.length > 0 && (
               <Panel
                 title="Experience"
@@ -374,49 +311,89 @@ export default function SettingsPage() {
                 </GlassCard>
               </Panel>
             )}
-
-            <Panel
-              title="Profile sources"
-              description="Source and provenance events captured during onboarding."
-              actions={
-                <div className="flex items-center gap-2">
-                  <StatusBadge tone={enriched ? "success" : "neutral"}>{profile.log.length} event{profile.log.length === 1 ? "" : "s"}</StatusBadge>
-                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
-                    <Sparkles className="h-3.5 w-3.5 text-[#0EA5E9]" />
-                    Provenance
-                  </span>
-                </div>
-              }
-            >
-              {profile.log.length === 0 ? (
-                <GlassCard density="compact" className="text-sm leading-6 text-slate-600">
-                  Sources will show up here as you complete onboarding.
-                </GlassCard>
-              ) : (
-                <div className="space-y-2">
-                  {[...profile.log].reverse().map((entry, i) => (
-                    <GlassCard key={`${entry.at}-${i}`} density="compact" className="space-y-1.5">
-                      <div className="flex items-center gap-3">
-                        <ProvenanceDot source={entry.source} />
-                        <span className="w-[84px] shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                          {entry.source}
-                        </span>
-                        <StatusBadge tone={logTone(entry.level)} variant="soft">{entry.level ?? "success"}</StatusBadge>
-                        <span className="min-w-0 flex-1 text-sm leading-6 text-slate-700">{entry.label}</span>
-                      </div>
-                      {entry.payload !== undefined && (
-                        <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md border border-white/45 bg-white/30 p-2 text-[11px] leading-4 text-slate-600">
-                          {compactPayload(entry.payload)}
-                        </pre>
-                      )}
-                    </GlassCard>
-                  ))}
-                </div>
-              )}
-            </Panel>
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {editingProfile ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/26 px-4 py-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-profile-title"
+            onMouseDown={() => setEditingProfile(false)}
+          >
+            <motion.div
+              className={cx("max-h-[min(760px,calc(100vh-3rem))] w-full max-w-5xl overflow-auto border p-5 shadow-[0_24px_80px_rgba(15,23,42,0.26)]", mistClasses.panel)}
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div id="edit-profile-title" className={mistClasses.sectionLabel}>Edit profile</div>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                    Manual edits are saved to this browser profile and used by dashboard tailoring.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {saved ? <StatusBadge tone="success"><Check className="h-3.5 w-3.5" /> saved</StatusBadge> : <StatusBadge tone="neutral">local profile</StatusBadge>}
+                  <ActionButton type="button" variant="ghost" size="icon" aria-label="Close edit profile" onClick={() => setEditingProfile(false)}>
+                    <X className="h-4 w-4" />
+                  </ActionButton>
+                </div>
+              </div>
+
+              <GlassCard density="compact" className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditInput label="Full name" value={draft.name} onChange={(value) => setDraftField("name", value)} />
+                  <EditInput label="Email" value={draft.email} onChange={(value) => setDraftField("email", value)} />
+                  <EditInput label="Headline" value={draft.headline} onChange={(value) => setDraftField("headline", value)} />
+                  <EditInput label="Location" value={draft.location} onChange={(value) => setDraftField("location", value)} />
+                  <EditInput label="Work auth" value={draft.workAuth} onChange={(value) => setDraftField("workAuth", value)} />
+                  <EditInput label="Target roles" value={draft.roles} onChange={(value) => setDraftField("roles", value)} placeholder="Software Engineer, Product Engineer" />
+                  <EditInput label="Target locations" value={draft.locations} onChange={(value) => setDraftField("locations", value)} placeholder="Remote, San Francisco" />
+                  <EditInput label="Website" value={draft.website} onChange={(value) => setDraftField("website", value)} />
+                  <EditInput label="GitHub" value={draft.github} onChange={(value) => setDraftField("github", value)} />
+                  <EditInput label="LinkedIn" value={draft.linkedin} onChange={(value) => setDraftField("linkedin", value)} />
+                  <EditInput label="DevPost" value={draft.devpost} onChange={(value) => setDraftField("devpost", value)} />
+                  <EditInput label="X / Twitter" value={draft.twitter} onChange={(value) => setDraftField("twitter", value)} />
+                </div>
+                <div className="flex items-center justify-end gap-3">
+                  <AnimatePresence>
+                    {feedback ? (
+                      <motion.span
+                        key={feedback.text}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className={cn(
+                          "text-xs font-medium leading-none",
+                          feedback.kind === "saved" ? "text-emerald-600" : "text-rose-600"
+                        )}
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {feedback.text}
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
+                  <ActionButton type="button" variant="primary" onClick={saveDraft}>
+                    Save changes
+                  </ActionButton>
+                </div>
+              </GlassCard>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </main>
   );
 }
@@ -486,32 +463,6 @@ function parseList(value: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function SuggestionValue({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div className="rounded-md border border-white/45 bg-white/30 p-2">
-      <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-[11px] leading-4 text-slate-700">{compactPayload(value) || PLACEHOLDER}</pre>
-    </div>
-  );
-}
-
-function logTone(level?: UserProfile["log"][number]["level"]) {
-  if (level === "error") return "danger";
-  if (level === "warning") return "warning";
-  if (level === "info") return "active";
-  return "success";
-}
-
-function compactPayload(value: unknown) {
-  if (value === undefined || value === null || value === "") return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 function LinkRow({
