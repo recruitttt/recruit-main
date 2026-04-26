@@ -55,6 +55,8 @@ function PlayerCharacterActive() {
   const setFocusTarget = useRoomStore((s) => s.setFocusTarget);
   const setNearest = useRoomStore((s) => s.setPlayerNearestAgent);
   const nearestId = useRoomStore((s) => s.playerNearestAgentId);
+  const setPlayerPose = useRoomStore((s) => s.setPlayerPose);
+  const setCameraMode = useRoomStore((s) => s.setCameraMode);
 
   useEffect(() => {
     if (groupRef.current) groupRef.current.position.copy(positionRef.current);
@@ -85,11 +87,33 @@ function PlayerCharacterActive() {
       return (el as HTMLElement).isContentEditable === true;
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTextEntryFocused()) return;
+      if (e.code === "Escape" || e.key === "Escape") {
+        const pose = useRoomStore.getState().playerPose;
+        if (pose === "sitting") {
+          setPlayerPose("transitioning");
+          setCameraMode("overview");
+          window.setTimeout(() => setPlayerPose("standing"), 800);
+          e.preventDefault();
+          return;
+        }
+      }
       const k = map[e.code];
       if (!k) return;
-      if (isTextEntryFocused()) return;
       if (k === "interact") {
-        const id = useRoomStore.getState().playerNearestAgentId;
+        const state = useRoomStore.getState();
+        const pose = state.playerPose;
+        const pos = positionRef.current;
+        const distToDesk = Math.hypot(pos.x - 0, pos.z - 0);
+        const canSit = distToDesk < 1.2 && pose === "standing";
+        if (canSit) {
+          setPlayerPose("transitioning");
+          setCameraMode("first-person-desk");
+          window.setTimeout(() => setPlayerPose("sitting"), 800);
+          e.preventDefault();
+          return;
+        }
+        const id = state.playerNearestAgentId;
         if (id) setFocusTarget({ kind: "agent", id });
         return;
       }
@@ -107,7 +131,7 @@ function PlayerCharacterActive() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [setFocusTarget]);
+  }, [setFocusTarget, setPlayerPose, setCameraMode]);
 
   useFrame(({ clock }, delta) => {
     const k = keys.current;
