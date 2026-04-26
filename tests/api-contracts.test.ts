@@ -249,7 +249,30 @@ await withEnvAsync({
   assert.equal((omDetailJson.detail as { job?: { company?: string } }).job?.company, firstRecommendation.company);
 });
 
-await withEnvAsync({ DASHBOARD_DATA_SOURCE: "convex", NEXT_PUBLIC_CONVEX_URL: undefined }, async () => {
+await withEnvAsync({
+  DASHBOARD_DATA_SOURCE: undefined,
+  NEXT_PUBLIC_CONVEX_URL: "https://convex.test",
+  AI_GATEWAY_API_KEY: undefined,
+  OPENAI_API_KEY: undefined,
+  COHERE_API_KEY: undefined,
+}, async () => {
+  const liveJson = await assertJsonResponse(
+    await getDashboardLive(new Request("http://test.local/api/dashboard/live")),
+    200,
+    {}
+  );
+  assert.equal(
+    (liveJson.fixture as { source?: string }).source,
+    "data/om-demo",
+    "deployment builds with Convex configured should still serve checked-in sample jobs"
+  );
+});
+
+await withEnvAsync({
+  DASHBOARD_DATA_SOURCE: "convex",
+  DASHBOARD_LIVE_CONVEX_ENABLED: "true",
+  NEXT_PUBLIC_CONVEX_URL: undefined,
+}, async () => {
   await assertJsonResponse(await postRunFirst3(), 500, {
     error: "NEXT_PUBLIC_CONVEX_URL is not configured.",
   });

@@ -33,6 +33,9 @@ export const OM_DEMO_USER_ID = "om-demo";
 const OM_DEMO_RECOMMENDATION_COUNT = 100;
 const OM_DEMO_CACHE_TTL_MS = 5 * 60 * 1000;
 const OM_DEMO_COMPANY_PAGE_BASE_URL = "https://recruit-company-pages.vercel.app";
+const OM_DEMO_DATA_SOURCE_MODES = new Set(["fixture", "fixtures", "demo", "om-demo", "om-data"]);
+const LIVE_CONVEX_DATA_SOURCE_MODES = new Set(["convex", "live", "live-convex"]);
+const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
 const OM_DEMO_COMPANY_PAGE_SLUGS: Record<string, string> = {
   "google-deepmind": "google-deepmind",
   apple: "apple",
@@ -81,11 +84,23 @@ const rankedPayloadCache = new Map<string, Promise<RankedOmDemoPayload> | OmDemo
 let latestRankedByJobId = new Map<string, RankedLiveRecommendation>();
 let latestRankedPayload: OmDemoCacheEntry | null = null;
 
-export function shouldUseOmDemoData() {
-  const mode = (process.env.DASHBOARD_DATA_SOURCE ?? "").trim().toLowerCase();
-  if (["convex", "live"].includes(mode)) return false;
-  if (["fixture", "fixtures", "demo", "om-demo"].includes(mode)) return true;
-  return !process.env.NEXT_PUBLIC_CONVEX_URL;
+export function shouldUseOmDemoData(env: NodeJS.ProcessEnv = process.env) {
+  const mode = (env.DASHBOARD_DATA_SOURCE ?? "").trim().toLowerCase();
+  if (OM_DEMO_DATA_SOURCE_MODES.has(mode)) return true;
+
+  // Deployment often has Convex configured for auth/profile state. That should
+  // not silently switch dashboard sample jobs away from the checked-in OM data.
+  // Live Convex dashboard reads are an explicit opt-in for operators.
+  if (LIVE_CONVEX_DATA_SOURCE_MODES.has(mode)) {
+    return !isLiveConvexDashboardEnabled(env);
+  }
+
+  return true;
+}
+
+function isLiveConvexDashboardEnabled(env: NodeJS.ProcessEnv) {
+  const raw = env.DASHBOARD_LIVE_CONVEX_ENABLED ?? env.DASHBOARD_ALLOW_LIVE_CONVEX;
+  return TRUE_ENV_VALUES.has((raw ?? "").trim().toLowerCase());
 }
 
 export function omDemoLivePayload() {

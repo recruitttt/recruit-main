@@ -19,8 +19,8 @@ withEnv(
   () => {
     assert.equal(
       shouldUseOmDemoData(),
-      false,
-      "with Convex configured, the dashboard should use live ranking by default"
+      true,
+      "with Convex configured, sample dashboard jobs should still come from data/om-demo"
     );
   }
 );
@@ -41,8 +41,23 @@ withEnv(
   () => {
     assert.equal(
       shouldUseOmDemoData(),
+      true,
+      "Convex mode should not disable checked-in sample data unless live reads are explicitly enabled"
+    );
+  }
+);
+
+withEnv(
+  {
+    DASHBOARD_DATA_SOURCE: "convex",
+    DASHBOARD_LIVE_CONVEX_ENABLED: "true",
+    NEXT_PUBLIC_CONVEX_URL: undefined,
+  },
+  () => {
+    assert.equal(
+      shouldUseOmDemoData(),
       false,
-      "explicit Convex mode should disable fixture data even before URL validation"
+      "operators can explicitly opt into live Convex dashboard reads"
     );
   }
 );

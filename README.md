@@ -175,6 +175,7 @@ Useful optional environment variables:
 | Capability | Variables |
 | --- | --- |
 | Convex app data | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_DEPLOYMENT` |
+| Dashboard sample jobs | Checked-in `data/om-demo` is the default in local and deployed builds. Set `DASHBOARD_DATA_SOURCE=convex` and `DASHBOARD_LIVE_CONVEX_ENABLED=true` only when intentionally testing live Convex dashboard reads. |
 | Better Auth | `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, `ADDITIONAL_TRUSTED_ORIGINS` |
 | GitHub intake | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_OWNER` |
 | AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `TAILOR_PROVIDER`, `TAILOR_MODEL`, `GEMMA_TAILOR_MODEL`, `RESEARCH_PROVIDER`, `RESEARCH_MODEL`, `GEMMA_RESEARCH_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL` |
