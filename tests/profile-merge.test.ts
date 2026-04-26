@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 
-import { clearProfile, mergeProfile, readProfile } from "../lib/profile";
+import { clearProfile, mergeProfile, PROFILE_STORAGE_KEY, readProfile } from "../lib/profile";
+import { installMemoryWindow } from "./helpers";
 
-class MemoryStorage {
-  private items = new Map<string, string>();
-  getItem(key: string) { return this.items.get(key) ?? null; }
-  setItem(key: string, value: string) { this.items.set(key, value); }
-  removeItem(key: string) { this.items.delete(key); }
-}
+const storage = installMemoryWindow();
 
-Object.defineProperty(globalThis, "window", {
-  value: { localStorage: new MemoryStorage(), setTimeout },
-  configurable: true,
-});
+storage.setItem(PROFILE_STORAGE_KEY, "{not json");
+const corrupt = readProfile();
+assert.equal(corrupt.name, undefined);
+assert.deepEqual(corrupt.skills, []);
+assert.deepEqual(corrupt.prefs, { roles: [], locations: [] });
 
 clearProfile();
 mergeProfile({ name: "Jordan QA Candidate" }, "chat", "Got your name");
@@ -52,5 +49,37 @@ assert.ok(profile.suggestions.some((suggestion) => suggestion.field === "locatio
 assert.equal(profile.provenance.name, "chat");
 assert.equal(profile.provenance.experience, "resume");
 assert.ok(profile.log.some((entry) => entry.source === "linkedin" && entry.level === "warning"));
+
+const suggestionCount = profile.suggestions.length;
+mergeProfile(
+  {
+    name: "Jordana Qi",
+    location: "Rochester, NY",
+    experience: [{ company: "Other Co", title: "Unrelated role" }],
+    education: [{ school: "Other School" }],
+    skills: ["Renovation", "Hospitality"],
+  },
+  "linkedin",
+  "Read your LinkedIn again"
+);
+assert.equal(readProfile().suggestions.length, suggestionCount);
+
+mergeProfile(
+  {
+    name: "",
+    email: "",
+    experience: [],
+    education: [],
+    skills: [],
+    prefs: { roles: [], locations: [], minSalary: "" },
+  },
+  "chat",
+  "Ignored empty update"
+);
+const afterEmpty = readProfile();
+assert.equal(afterEmpty.name, "Jordan QA Candidate");
+assert.equal(afterEmpty.email, "jordan.qa+recruit-live-20260425@example.com");
+assert.equal(afterEmpty.location, "San Francisco, CA");
+assert.deepEqual(afterEmpty.skills, ["TypeScript", "AI systems", "Product engineering"]);
 
 console.log("profile merge authority test passed");
