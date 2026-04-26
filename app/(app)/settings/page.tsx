@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { GithubIcon, LinkedinIcon, XIcon, DevpostIcon } from "@/components/ui/brand-icons";
 import { Check, Globe, Sparkles } from "lucide-react";
 import {
@@ -13,6 +14,7 @@ import {
   mistClasses,
   mistColors,
 } from "@/components/design-system";
+import { cn } from "@/lib/utils";
 import {
   readProfile,
   mergeProfile,
@@ -57,10 +59,13 @@ function draftFromProfile(profile: UserProfile): ProfileDraft {
   };
 }
 
+type SaveFeedback = { kind: "saved" | "error"; text: string };
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile>(() => readProfile());
   const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(readProfile()));
   const [saved, setSaved] = useState(false);
+  const [feedback, setFeedback] = useState<SaveFeedback | null>(null);
 
   useEffect(() => {
     return subscribeProfile((p) => {
@@ -70,6 +75,12 @@ export default function SettingsPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), 1600);
+    return () => clearTimeout(t);
+  }, [feedback]);
+
   const display = (v?: string) => (v && v.trim() ? v : PLACEHOLDER);
   const enriched = profile.log.length > 0;
   const setDraftField = (field: keyof ProfileDraft, value: string) => {
@@ -77,29 +88,34 @@ export default function SettingsPage() {
     setDraft((current) => ({ ...current, [field]: value }));
   };
   const saveDraft = () => {
-    mergeProfile(
-      {
-        name: draft.name,
-        email: draft.email,
-        headline: draft.headline,
-        location: draft.location,
-        links: {
-          github: draft.github,
-          linkedin: draft.linkedin,
-          website: draft.website,
-          devpost: draft.devpost,
-          twitter: draft.twitter,
+    try {
+      mergeProfile(
+        {
+          name: draft.name,
+          email: draft.email,
+          headline: draft.headline,
+          location: draft.location,
+          links: {
+            github: draft.github,
+            linkedin: draft.linkedin,
+            website: draft.website,
+            devpost: draft.devpost,
+            twitter: draft.twitter,
+          },
+          prefs: {
+            roles: parseList(draft.roles),
+            locations: parseList(draft.locations || draft.location),
+            workAuth: draft.workAuth,
+          },
         },
-        prefs: {
-          roles: parseList(draft.roles),
-          locations: parseList(draft.locations || draft.location),
-          workAuth: draft.workAuth,
-        },
-      },
-      "manual",
-      "Edited settings"
-    );
-    setSaved(true);
+        "manual",
+        "Edited settings"
+      );
+      setSaved(true);
+      setFeedback({ kind: "saved", text: "Saved ✓" });
+    } catch {
+      setFeedback({ kind: "error", text: "Couldn’t save" });
+    }
   };
 
   return (
@@ -156,7 +172,26 @@ export default function SettingsPage() {
                   <EditInput label="DevPost" value={draft.devpost} onChange={(value) => setDraftField("devpost", value)} />
                   <EditInput label="X / Twitter" value={draft.twitter} onChange={(value) => setDraftField("twitter", value)} />
                 </div>
-                <div className="flex justify-end">
+                <div className="flex items-center justify-end gap-3">
+                  <AnimatePresence>
+                    {feedback ? (
+                      <motion.span
+                        key={feedback.text}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className={cn(
+                          "text-xs font-medium leading-none",
+                          feedback.kind === "saved" ? "text-emerald-600" : "text-rose-600"
+                        )}
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {feedback.text}
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
                   <ActionButton type="button" variant="primary" onClick={saveDraft}>
                     Save changes
                   </ActionButton>
@@ -436,7 +471,11 @@ function EditInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/15"
+        className={cn(
+          "h-10 w-full rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm leading-none text-slate-900 outline-none transition-shadow",
+          "placeholder:leading-none placeholder:text-slate-400",
+          "focus-visible:ring-2 focus-visible:ring-sky-400/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        )}
       />
     </label>
   );
@@ -488,7 +527,11 @@ function LinkRow({
 }) {
   const empty = handle === PLACEHOLDER;
   return (
-    <GlassCard density="compact" className="flex flex-wrap items-center gap-3">
+    <GlassCard
+      density="compact"
+      interactive
+      className="flex flex-wrap items-center gap-3"
+    >
       <ProvenanceDot source={source} />
       <Icon className="h-4 w-4 text-[#0EA5E9]" />
       {prefix && (
