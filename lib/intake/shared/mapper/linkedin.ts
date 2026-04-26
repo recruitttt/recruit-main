@@ -8,6 +8,7 @@ import type {
   LinkedInPublication,
   LinkedInSnapshot,
 } from "@/lib/intake/linkedin";
+import { dedupeLinkedInExperiences } from "@/lib/intake/linkedin/experience-dedupe";
 import type {
   ApplicationProfile,
   Certification,
@@ -27,7 +28,7 @@ export interface LinkedInMergeResult {
 }
 
 export function buildLinkedInMerge(snapshot: LinkedInSnapshot): LinkedInMergeResult {
-  const experience = snapshot.experiences.map(toExperience);
+  const experience = dedupeLinkedInExperiences(snapshot.experiences).map(toExperience);
   const education = snapshot.educations.map(toEducation);
   const projects = snapshot.projects.map(toProject).filter((x): x is ProjectItem => Boolean(x));
   const certifications = snapshot.certifications

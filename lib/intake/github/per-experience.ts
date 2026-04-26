@@ -1,4 +1,5 @@
 import type { LinkedInExperience } from "@/lib/intake/linkedin";
+import { linkedInExperienceDedupeKey } from "@/lib/intake/linkedin/experience-dedupe";
 import { generateValidatedJson } from "./json";
 import { pickModel, type AICredentials } from "./models";
 import { EXPERIENCE_SCHEMA_HINT, ExperienceSummarySchema, type ExperienceSummary } from "./types";
@@ -62,10 +63,7 @@ export async function summarizeExperience({
 }
 
 export function experienceKey(experience: LinkedInExperience): string {
-  const company = experience.company ?? "unknown";
-  const title = experience.position_title ?? "unknown";
-  const start = experience.from_date ?? "?";
-  return `${company}::${title}::${start}`;
+  return linkedInExperienceDedupeKey(experience);
 }
 
 export function experienceContentHash(experience: LinkedInExperience): string {
