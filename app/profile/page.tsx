@@ -5,9 +5,9 @@
 //
 // This is a server component. It:
 //   1. Reads the session via the existing better-auth bridge in lib/auth-server.
-//   2. Redirects unauthenticated users to /sign-in (the (app) layout would
-//      also redirect, but doing it here too means we always have a userId
-//      before mounting the client subscription components).
+//   2. Redirects unauthenticated users to /sign-in. This route deliberately
+//      lives outside app/(app) so it is not hidden by the onboarding cookie
+//      gate after logout/re-login or cookie clearing.
 //   3. Renders a sticky toggle (?view=data default | ?view=graph) and mounts
 //      BOTH <DataView /> and <GraphView /> — the inactive one is hidden via
 //      `display:none` so neither tears down its Convex subscriptions when
@@ -23,6 +23,8 @@ import { DataView } from "@/components/profile/DataView";
 import { GraphView } from "@/components/profile/GraphView";
 
 import { cx, mistClasses } from "@/components/design-system";
+import { PageTransition } from "@/components/page-transition";
+import { Topnav } from "@/components/shell/topnav";
 import { getSessionUser } from "./_session";
 import { IntakeStatusRow } from "./_intake-status-row";
 
@@ -54,25 +56,32 @@ export default async function ProfilePage({
   const view = parseView(params["view"]);
 
   return (
-    <div className={cx("min-h-screen pb-12", mistClasses.page)}>
-      <ViewToggle current={view} />
+    <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
+      <Topnav />
+      <main className="flex-1">
+        <PageTransition>
+          <div className={cx("min-h-screen pb-12", mistClasses.page)}>
+            <ViewToggle current={view} />
 
-      {/* Both subtrees mounted so subscriptions survive a tab flip. */}
-      <div hidden={view !== "data"}>
-        <div className="mx-auto w-full max-w-[1200px] px-4 pt-4 md:px-6">
-          <IntakeStatusRow userId={sessionUser.id} />
-        </div>
-        <DataView
-          userId={sessionUser.id}
-          fallbackName={sessionUser.name ?? undefined}
-          fallbackEmail={sessionUser.email ?? undefined}
-          fallbackImage={sessionUser.image ?? undefined}
-        />
-      </div>
-      <div hidden={view !== "graph"}>
-        {/* GraphView reads its own session via authClient — no props. */}
-        <GraphView />
-      </div>
+            {/* Both subtrees mounted so subscriptions survive a tab flip. */}
+            <div hidden={view !== "data"}>
+              <div className="mx-auto w-full max-w-[1200px] px-4 pt-4 md:px-6">
+                <IntakeStatusRow userId={sessionUser.id} />
+              </div>
+              <DataView
+                userId={sessionUser.id}
+                fallbackName={sessionUser.name ?? undefined}
+                fallbackEmail={sessionUser.email ?? undefined}
+                fallbackImage={sessionUser.image ?? undefined}
+              />
+            </div>
+            <div hidden={view !== "graph"}>
+              {/* GraphView reads its own session via authClient — no props. */}
+              <GraphView />
+            </div>
+          </div>
+        </PageTransition>
+      </main>
     </div>
   );
 }
