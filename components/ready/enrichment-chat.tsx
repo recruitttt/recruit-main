@@ -19,7 +19,6 @@ import { api } from "@/convex/_generated/api";
 import {
   ActionButton,
   GlassCard,
-  TextField,
   cx,
   mistClasses,
   mistRadii,
@@ -228,10 +227,10 @@ export function EnrichmentChat({
             )}
           >
             <div className="min-w-0 flex-1">
-              <TextField
+              <input
+                type="text"
                 value={reply}
                 placeholder="Type your answer…"
-                readOnly={false}
                 onChange={(e) => setReply(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -239,6 +238,7 @@ export function EnrichmentChat({
                     void handleSubmit();
                   }
                 }}
+                className="h-9 w-full border-0 bg-transparent px-2 text-sm leading-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:ring-0"
               />
             </div>
             <ActionButton
