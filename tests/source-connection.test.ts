@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   canStartSourceRun,
@@ -81,6 +82,14 @@ function main() {
   });
   assert.equal(alreadyClosed.send({ stage: "late" }), false);
   assert.doesNotThrow(() => alreadyClosed.close());
+
+  const onboardingPage = readFileSync(
+    new URL("../app/onboarding/page.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(onboardingPage, /label="LinkedIn URL"/);
+  assert.equal(onboardingPage.includes("GitHub already connected"), false);
+  assert.equal(onboardingPage.includes("auto-skip Connect"), false);
 }
 
 main();
