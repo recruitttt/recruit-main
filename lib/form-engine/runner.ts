@@ -1,6 +1,9 @@
 import { runAshbyFormFillOnPage, type AshbyPageLike } from "../ashby-fill/browser";
 import type { AshbyApprovedAnswer, AshbyPromptAlias } from "../ashby-fill/types";
 import { ashbyResultToSubmissionResult, ashbySnapshotToFormIR, detectProviderFromUrl } from "./ashby-adapter";
+import { runLeverFormFillOnPage } from "../lever-fill/browser";
+import { leverResultToSubmissionResult, leverSnapshotToFormIR } from "./lever-adapter";
+import { isBrowserbaseCaptchaSolvingEnabled } from "../pdf";
 import type {
   ApplicationJobInput,
   EvidenceBundle,
@@ -30,6 +33,37 @@ export type RunFormAutomationResult = {
 
 export async function runFormAutomation(args: RunFormAutomationArgs): Promise<RunFormAutomationResult> {
   const provider = args.job.provider ?? args.job.providerHint ?? detectProviderFromUrl(args.job.targetUrl);
+  if (provider === "lever") {
+    const llmMode = args.llmMode ?? args.job.llmMode;
+    const rawResult = await runLeverFormFillOnPage(args.page, {
+      targetUrl: args.job.targetUrl,
+      profile: args.profile,
+      aliases: args.aliases ?? [],
+      approvedAnswers: args.approvedAnswers ?? [],
+      openAiBestEffort: llmMode === "best_effort",
+      openAiApiKey: llmMode === "best_effort" ? args.openAiApiKey : null,
+      openAiModel: args.openAiModel,
+      draftAnswerMode: llmMode === "best_effort" ? "fill" : "review_only",
+      browserbaseCaptchaSolving: isBrowserbaseCaptchaSolvingEnabled(),
+      submit: args.job.submitPolicy === "submit",
+    });
+    const formIR = leverSnapshotToFormIR({
+      snapshot: rawResult.finalSnapshot,
+      targetUrl: rawResult.targetUrl,
+      companySlug: rawResult.companySlug,
+      postingId: rawResult.postingId,
+    });
+    const submission = leverResultToSubmissionResult(rawResult);
+
+    return {
+      provider,
+      formIR,
+      submission,
+      evidence: submission.evidence,
+      rawResult,
+    };
+  }
+
   if (provider !== "ashby") {
     return unsupportedProviderResult(args.job, provider);
   }

@@ -1,0 +1,58 @@
+{
+  "provider": "lever",
+  "createdAt": "2026-04-26",
+  "source": {
+    "strategy": "lever_api_existing_sources",
+    "companies": ["mistral", "palantir"],
+    "endpoints": [
+      "https://api.lever.co/v0/postings/mistral?mode=json",
+      "https://api.lever.co/v0/postings/palantir?mode=json"
+    ]
+  },
+  "split": {
+    "train": { "startIndex": 1, "endIndex": 32 },
+    "test": { "startIndex": 33, "endIndex": 40 }
+  },
+  "urls": [
+    "https://jobs.lever.co/mistral/2a357282-9d44-4b41-a249-c75ffe878ce2/apply",
+    "https://jobs.lever.co/mistral/7894fd8a-ffc9-4c89-87f0-f8a7b695cf01/apply",
+    "https://jobs.lever.co/mistral/618c9763-cb22-4343-baca-cf1cf6b05f5c/apply",
+    "https://jobs.lever.co/mistral/ed08b81f-9c52-4f86-addd-c4c06f3b114a/apply",
+    "https://jobs.lever.co/mistral/25757afe-9b9d-4be7-87e1-e744eaa01105/apply",
+    "https://jobs.lever.co/mistral/5fb6179e-74ae-46c8-9cde-95b71890e76a/apply",
+    "https://jobs.lever.co/mistral/46bf0c1c-cca2-4941-bd8d-18024fa59afa/apply",
+    "https://jobs.lever.co/mistral/04a3a058-aff8-4cc4-a419-eb09e83fa947/apply",
+    "https://jobs.lever.co/mistral/52808932-3aaa-419f-a08d-1fb2a0aed781/apply",
+    "https://jobs.lever.co/mistral/abff0584-d2e2-446e-b2a8-28d660e3773a/apply",
+    "https://jobs.lever.co/mistral/51a3b9c3-6679-4e24-85df-746cc0a8e565/apply",
+    "https://jobs.lever.co/mistral/daf03118-b649-4a1b-8f61-a4e86839fd7c/apply",
+    "https://jobs.lever.co/mistral/9808a516-afa8-49a4-93e2-dfc6c616ea0b/apply",
+    "https://jobs.lever.co/mistral/bb02882b-fb2e-4d06-9d5e-bd7654eee8e7/apply",
+    "https://jobs.lever.co/mistral/0cde829a-c9b9-4ee1-827f-9bd30c1810fc/apply",
+    "https://jobs.lever.co/mistral/c9e2dbb5-00ed-4096-ba88-ac0bdffb68fd/apply",
+    "https://jobs.lever.co/mistral/8f93bac1-1885-41ea-8650-cb5454be97e7/apply",
+    "https://jobs.lever.co/mistral/1937a5af-2c9b-4a75-bb91-b06ebe714dbd/apply",
+    "https://jobs.lever.co/mistral/2aaf4e18-0943-4ebe-914d-cc9e32db8834/apply",
+    "https://jobs.lever.co/mistral/f9697798-31f8-4809-87b6-05eeb5261353/apply",
+    "https://jobs.lever.co/palantir/5ec536c8-67b8-4b6b-b23e-cde403d59d53/apply",
+    "https://jobs.lever.co/palantir/a543d82a-a089-4b1c-afd1-4f30d3d8ee23/apply",
+    "https://jobs.lever.co/palantir/a63092fa-64c0-4c09-b827-bb23a98cb207/apply",
+    "https://jobs.lever.co/palantir/fe2a8c69-49b7-405f-816c-a6c6f894399a/apply",
+    "https://jobs.lever.co/palantir/50a8a83d-cc13-44b2-bc0c-4730fd7aa51c/apply",
+    "https://jobs.lever.co/palantir/205c3184-4272-41a9-a1e2-5352d4d00910/apply",
+    "https://jobs.lever.co/palantir/7e3ec54c-b73a-4014-8ef3-cdce8a4953c4/apply",
+    "https://jobs.lever.co/palantir/86641a6e-5abb-40c5-8cc3-d481f70350d7/apply",
+    "https://jobs.lever.co/palantir/a5fdd5ec-d1f3-4837-83af-161b003931dd/apply",
+    "https://jobs.lever.co/palantir/ce813413-de04-4a7b-a796-43735f55bf0c/apply",
+    "https://jobs.lever.co/palantir/f8df815c-6a38-4d57-b75f-c4262b9311b4/apply",
+    "https://jobs.lever.co/palantir/0b2dbe51-0d9f-47ee-9f24-82bff4654048/apply",
+    "https://jobs.lever.co/palantir/10dfc8bc-99ad-4ca2-ab76-853cb90a92c2/apply",
+    "https://jobs.lever.co/palantir/ab7e3425-81d5-4705-a7b5-cd60c8a45cdb/apply",
+    "https://jobs.lever.co/palantir/1345438c-ebfc-4fa5-b545-30c1414f317c/apply",
+    "https://jobs.lever.co/palantir/a8174f9c-6f46-46b4-8e15-d1ff9e37c9eb/apply",
+    "https://jobs.lever.co/palantir/d33e0c31-ac7e-4f57-ba74-36f2df6ae2f5/apply",
+    "https://jobs.lever.co/palantir/6fe5515f-f677-4d98-8ac2-1775a425f5e7/apply",
+    "https://jobs.lever.co/palantir/f70cdff7-c62f-4b73-a136-909e5e3d1891/apply",
+    "https://jobs.lever.co/palantir/fb2d3222-dbd8-4e03-8d39-47b820e9509c/apply"
+  ]
+}

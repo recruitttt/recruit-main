@@ -8,7 +8,12 @@ import { actionGeneric, anyApi } from "convex/server";
 import { v } from "convex/values";
 import { DEMO_PROFILE, isProfileUsable } from "../lib/demo-profile";
 import { validateDirectAshbyApplicationUrl } from "../lib/ashby-fill/core";
-import { getPuppeteerBrowser } from "../lib/pdf";
+import { validateDirectLeverApplicationUrl } from "../lib/lever-fill/core";
+import {
+  getPuppeteerBrowser,
+  isBrowserbaseCaptchaSolvingEnabled,
+  isBrowserbaseConfigured,
+} from "../lib/pdf";
 import { runFormAutomation } from "../lib/form-engine/runner";
 import type {
   ApplicationJobInput,
@@ -72,10 +77,10 @@ export const runApplicationJob = action({
       }
     }
 
-    if (provider !== "ashby") {
+    if (provider !== "ashby" && provider !== "lever") {
       const outcome: SubmissionResult = {
         status: "needs_human_review",
-        provider: "generic",
+        provider,
         confidence: 0,
         submitAttempted: false,
         submitCompleted: false,
@@ -91,10 +96,17 @@ export const runApplicationJob = action({
 
     let normalizedUrl = job.targetUrl;
     let organizationSlug: string | undefined;
+    let companySlug: string | undefined;
     try {
-      const normalized = validateDirectAshbyApplicationUrl(job.targetUrl);
-      normalizedUrl = normalized.normalizedUrl;
-      organizationSlug = normalized.organizationSlug;
+      if (provider === "ashby") {
+        const normalized = validateDirectAshbyApplicationUrl(job.targetUrl);
+        normalizedUrl = normalized.normalizedUrl;
+        organizationSlug = normalized.organizationSlug;
+      } else {
+        const normalized = validateDirectLeverApplicationUrl(job.targetUrl);
+        normalizedUrl = normalized.normalizedUrl;
+        companySlug = normalized.companySlug;
+      }
     } catch (error) {
       const status = "failed_unsupported_widget";
       await finalize(ctx, args.jobId, status, undefined, safeMessage(error));
@@ -104,7 +116,7 @@ export const runApplicationJob = action({
     const demoUserId = job.demoUserId ?? DEMO_USER_ID;
     const context = await ctx.runQuery(anyApi.ashby.getAshbyFormFillContext, {
       demoUserId,
-      organizationSlug,
+      organizationSlug: organizationSlug ?? companySlug,
     });
     const baseProfile = isProfileUsable(context?.profile) ? context.profile : DEMO_PROFILE;
     const tailoredResume = await materializeTailoredResumeForJob(ctx, {
@@ -118,12 +130,12 @@ export const runApplicationJob = action({
       id: args.jobId,
       demoUserId,
       profileId: job.profileId ?? demoUserId,
-      providerHint: "ashby",
-      provider: "ashby",
+      providerHint: provider,
+      provider,
       jobId: job.jobId ?? null,
       targetUrl: normalizedUrl,
       canonicalTargetUrl: job.canonicalTargetUrl ?? normalizedUrl,
-      company: job.company ?? organizationSlug ?? null,
+      company: job.company ?? organizationSlug ?? companySlug ?? null,
       title: job.title ?? null,
       submitPolicy: job.submitPolicy ?? "dry_run",
       llmMode: job.llmMode ?? "best_effort",
@@ -131,18 +143,18 @@ export const runApplicationJob = action({
       idempotencyKey: job.idempotencyKey,
     };
 
-      await checkpoint(ctx, args.jobId, "browser_starting", "claimed", {
-        provider: "ashby",
-        normalizedUrl,
-        submitPolicy: jobInput.submitPolicy,
-        tailoredResume: tailoredResume
-          ? {
-              source: "tailoredApplications",
-              filename: tailoredResume.filename,
-              byteLength: tailoredResume.byteLength,
-            }
-          : null,
-      });
+    await checkpoint(ctx, args.jobId, "browser_starting", "claimed", {
+      provider,
+      normalizedUrl,
+      submitPolicy: jobInput.submitPolicy,
+      tailoredResume: tailoredResume
+        ? {
+            source: "tailoredApplications",
+            filename: tailoredResume.filename,
+            byteLength: tailoredResume.byteLength,
+          }
+        : null,
+    });
 
     let page: any = null;
     try {
@@ -153,8 +165,9 @@ export const runApplicationJob = action({
         throw new Error(`browser_page_failed: ${safeMessage(error)}`);
       }
       await checkpoint(ctx, args.jobId, "browser_started", "browser_started", {
-        localBrowser: true,
-        browserbaseSessionId: null,
+        localBrowser: !isBrowserbaseConfigured(),
+        browserbaseEnabled: isBrowserbaseConfigured(),
+        browserbaseCaptchaSolving: isBrowserbaseCaptchaSolvingEnabled(),
       });
       await checkpoint(ctx, args.jobId, "fill_started", "fill_in_progress", {
         llmMode: jobInput.llmMode,
@@ -165,10 +178,13 @@ export const runApplicationJob = action({
         page,
         job: jobInput,
         profile,
-        aliases: Array.isArray(context?.aliases) ? context.aliases : [],
-        approvedAnswers: Array.isArray(context?.approvedAnswers) ? context.approvedAnswers : [],
+        aliases: provider === "ashby" && Array.isArray(context?.aliases) ? context.aliases : [],
+        approvedAnswers: provider === "ashby" && Array.isArray(context?.approvedAnswers) ? context.approvedAnswers : [],
         openAiApiKey: jobInput.llmMode === "best_effort" ? process.env.OPENAI_API_KEY : null,
-        openAiModel: process.env.OPENAI_ASHBY_FILL_MODEL ?? "gpt-4o-mini",
+        openAiModel:
+          provider === "lever"
+            ? process.env.OPENAI_LEVER_FILL_MODEL ?? process.env.OPENAI_ASHBY_FILL_MODEL ?? "gpt-4o-mini"
+            : process.env.OPENAI_ASHBY_FILL_MODEL ?? "gpt-4o-mini",
       });
       const raw = automation.rawResult as any;
 
@@ -226,7 +242,7 @@ export const runApplicationJob = action({
       return {
         jobId: args.jobId,
         status,
-        provider: "ashby",
+        provider,
         submitAttempted: false,
         submitCompleted: false,
         error: message,
@@ -375,6 +391,9 @@ function compactRawResult(raw: any) {
     targetUrl: raw.targetUrl,
     finalUrl: raw.finalUrl,
     organizationSlug: raw.organizationSlug,
+    companySlug: raw.companySlug,
+    postingId: raw.postingId,
+    provider: raw.provider,
     outcome: raw.outcome,
     submitAttempted: raw.submitAttempted,
     submitCompleted: raw.submitCompleted,
