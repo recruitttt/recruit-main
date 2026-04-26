@@ -25,18 +25,18 @@ export function Topnav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/35 bg-[#CDD5DF]/78 px-3 py-3 text-[#101827] backdrop-blur-2xl md:px-5">
-      <div className={cx("mx-auto flex min-h-14 max-w-[1500px] items-center gap-2 border px-2 py-2 md:gap-3 md:px-3", mistClasses.panel)}>
+    <header className="sticky top-0 z-30 border-b border-white/35 bg-[#CDD5DF]/78 px-2 py-3 text-[#101827] backdrop-blur-2xl md:px-5">
+      <div className={cx("mx-auto flex min-h-14 max-w-[1500px] items-center gap-1 border px-1.5 py-2 md:gap-3 md:px-3", mistClasses.panel)}>
         <Link
           href="/dashboard"
-          className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/60 bg-white/44 px-2.5 pr-3 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_10px_28px_rgba(15,23,42,0.06)] transition hover:bg-white/58"
+          className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/60 bg-white/44 px-2 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_10px_28px_rgba(15,23,42,0.06)] transition hover:bg-white/58 sm:pr-3"
           aria-label="Recruit dashboard"
         >
           <Mark size="sm" className="text-sky-600" />
           <span className="hidden font-serif text-[19px] leading-none text-sky-700 sm:inline">recruit</span>
         </Link>
 
-        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-white/45 bg-white/24 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded-full border border-white/45 bg-white/24 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] sm:gap-1">
           {navItems.map((item) => {
             const active =
               pathname === item.href ||
@@ -47,7 +47,7 @@ export function Topnav() {
                 key={item.href}
                 href={item.href}
                 className={cx(
-                  "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold text-slate-600 transition md:px-3 md:text-[13px]",
+                  "flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold text-slate-600 transition sm:gap-1.5 sm:px-2.5 sm:text-[12px] md:px-3 md:text-[13px]",
                   active
                     ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_24px_rgba(15,23,42,0.06)]"
                     : "border border-transparent hover:bg-white/34 hover:text-slate-900"

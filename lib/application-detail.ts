@@ -139,7 +139,7 @@ type PipelineLog = {
   createdAt: string;
 };
 
-const DEMO_STARTED_AT = new Date(Date.now() - 1000 * 60 * 12).toISOString();
+const DEMO_STARTED_AT = "2026-04-25T18:48:00.000Z";
 
 export async function getApplicationDetail(id: string): Promise<ApplicationDetailModel> {
   const seeded = mockApplications.find((application) => application.id === id);
@@ -159,10 +159,8 @@ export async function getApplicationDetail(id: string): Promise<ApplicationDetai
 
     return liveDetail(id, detail, logs);
   } catch (err) {
-    return fallbackDetail(
-      id,
-      `Live Convex detail could not be loaded: ${err instanceof Error ? err.message : String(err)}`
-    );
+    void err;
+    return fallbackDetail(id, "No live application record was found for this id.");
   }
 }
 

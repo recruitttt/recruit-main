@@ -17,14 +17,20 @@ export async function GET() {
   }
 
   try {
-    const [run, recommendations, followUps] = await Promise.all([
+    const [runResult, recommendationsResult, followUpsResult] = await Promise.allSettled([
       client.query(api.ashby.latestIngestionRunSummary, {}),
       client.query(api.ashby.currentRecommendations, {}),
       client.query(api.followups.followUpSummary, {}),
     ]);
-    const logs = await client.query(api.ashby.latestPipelineLogs, run?._id
-      ? { runId: run._id, limit: 200 }
-      : { limit: 200 });
+    const run = runResult.status === "fulfilled" ? runResult.value : null;
+    const recommendations = recommendationsResult.status === "fulfilled" ? recommendationsResult.value : [];
+    const followUps = followUpsResult.status === "fulfilled" ? followUpsResult.value : undefined;
+    const logsResult = await Promise.allSettled([
+      client.query(api.ashby.latestPipelineLogs, run?._id
+        ? { runId: run._id, limit: 200 }
+        : { limit: 200 }),
+    ]);
+    const logs = logsResult[0].status === "fulfilled" ? logsResult[0].value : [];
 
     return Response.json({ run, recommendations, logs, followUps });
   } catch (err) {

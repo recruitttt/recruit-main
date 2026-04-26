@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Check, CreditCard, LayoutDashboard, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, CreditCard, LayoutDashboard, Loader2, Sparkles, X } from "lucide-react";
 
 import {
   ActionButton,
@@ -22,6 +21,7 @@ const tiers = [
     cadence: "forever",
     description: "Try the agent on a handful of roles. No credit card.",
     cta: "Start free",
+    checkoutTier: null,
     features: ["5 applications / month", "Ashby coverage", "Resume tailoring", "DLQ + answer cache", "Standard support"],
     notIncluded: ["Recruiter outreach", "Priority queue"],
     highlight: false,
@@ -33,6 +33,7 @@ const tiers = [
     cadence: "/ month",
     description: "For active job seekers who want real momentum.",
     cta: "Upgrade to Standard",
+    checkoutTier: "standard",
     features: [
       "100 applications / month",
       "All providers as they ship",
@@ -51,6 +52,7 @@ const tiers = [
     cadence: "/ month",
     description: "Full autonomy. Recruiter outreach. White-glove support.",
     cta: "Go Pro",
+    checkoutTier: "pro",
     features: [
       "Unlimited applications",
       "Recruiter outreach via Gmail",
@@ -66,8 +68,35 @@ const tiers = [
 ] as const;
 
 export default function PricingPage() {
-  const [confirmed, setConfirmed] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<{ tier?: string; error?: string; loading?: boolean }>({});
   const router = useRouter();
+
+  async function startCheckout(tier: typeof tiers[number]) {
+    if (!tier.checkoutTier) {
+      router.push("/onboarding");
+      return;
+    }
+
+    try {
+      setCheckout({ tier: tier.name, loading: true });
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: tier.checkoutTier }),
+      });
+      const body = await response.json().catch(() => null) as { url?: string; message?: string } | null;
+      if (!response.ok || !body?.url) {
+        throw new Error(body?.message ?? "Checkout is not available right now.");
+      }
+      window.location.assign(body.url);
+    } catch (err) {
+      setCheckout({
+        tier: tier.name,
+        loading: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   return (
     <main className={cx("min-h-screen overflow-x-hidden px-5 py-5 md:px-6 md:py-7", mistClasses.page)}>
@@ -84,7 +113,7 @@ export default function PricingPage() {
           actions={
             <>
               <StatusBadge tone="success">live</StatusBadge>
-              <StatusBadge tone="neutral">mock checkout</StatusBadge>
+              <StatusBadge tone="neutral">Stripe sandbox</StatusBadge>
               <ActionButton size="sm" variant="secondary" onClick={() => router.push("/dashboard")}>
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -102,7 +131,7 @@ export default function PricingPage() {
 
         <Panel
           title="Plan ladder"
-          description="Each CTA opens the same mock Stripe flow. Close the modal to stay here, or continue to the dashboard."
+            description="Free starts onboarding. Paid plans hand off to Stripe Checkout when sandbox credentials are configured."
           actions={<StatusBadge tone="neutral">{tiers.length} plans</StatusBadge>}
         >
           <div className="grid gap-5 md:grid-cols-3">
@@ -136,9 +165,10 @@ export default function PricingPage() {
                 <ActionButton
                   className="mt-5 w-full"
                   variant={tier.highlight ? "primary" : "secondary"}
-                  onClick={() => setConfirmed(tier.name)}
+                  onClick={() => void startCheckout(tier)}
+                  disabled={checkout.loading}
                 >
-                  <CreditCard className="h-4 w-4" />
+                  {checkout.loading && checkout.tier === tier.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                   {tier.cta}
                 </ActionButton>
 
@@ -164,57 +194,13 @@ export default function PricingPage() {
             <span>All plans · cancel anytime · no contract</span>
             <span>Checkout returns to /dashboard</span>
           </div>
+          {checkout.error && (
+            <div className="mt-4 rounded-[18px] border border-amber-300/55 bg-amber-50/55 px-4 py-3 text-sm leading-6 text-amber-800">
+              {checkout.error}
+            </div>
+          )}
         </Panel>
       </div>
-
-      <AnimatePresence>
-        {confirmed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
-            onClick={() => setConfirmed(null)}
-          >
-            <motion.div
-              initial={{ y: 16, scale: 0.97 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 16, scale: 0.97 }}
-              transition={{ duration: 0.25 }}
-              className="w-full max-w-md"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <GlassCard density="spacious" variant="selected">
-                <div className="flex items-center gap-2">
-                  <StatusBadge tone="neutral" variant="solid">
-                    Stripe
-                  </StatusBadge>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500">test mode</span>
-                </div>
-                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-950">{confirmed} plan</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  This is a mockup. In the real product, Stripe Checkout would open here.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-end gap-2">
-                  <ActionButton variant="ghost" onClick={() => setConfirmed(null)}>
-                    Close
-                  </ActionButton>
-                  <ActionButton
-                    variant="primary"
-                    onClick={() => {
-                      setConfirmed(null);
-                      router.push("/dashboard");
-                    }}
-                  >
-                    Go to dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </ActionButton>
-                </div>
-              </GlassCard>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
