@@ -31,6 +31,7 @@ type RoomState = {
   startIntake: () => void;
   setIntakePhase: (phase: IntakePhase) => void;
   submitIntakeAnswer: (value: string) => Promise<void>;
+  skipIntake: () => void;
   finishIntake: () => void;
 };
 
@@ -162,6 +163,11 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     }
 
     set({ intakeMessages: nextMessages, intakePending: false });
+  },
+  skipIntake: () => {
+    const phase = get().intakePhase;
+    if (phase === "inactive" || phase === "walking-back") return;
+    set({ intakePhase: "walking-back", intakePending: false, intakeError: null });
   },
   finishIntake: () => set({ intakePhase: "inactive", intakePending: false }),
 }));

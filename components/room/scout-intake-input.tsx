@@ -11,6 +11,7 @@ export function ScoutIntakeInput() {
   const pending = useRoomStore((s) => s.intakePending);
   const messageCount = useRoomStore((s) => s.intakeMessages.filter((m) => m.role === "user").length);
   const submitIntakeAnswer = useRoomStore((s) => s.submitIntakeAnswer);
+  const skipIntake = useRoomStore((s) => s.skipIntake);
   const visible = intakePhase === "questioning";
 
   return (
@@ -20,6 +21,7 @@ export function ScoutIntakeInput() {
           pending={pending}
           turnIndex={messageCount}
           onSubmit={(v) => void submitIntakeAnswer(v)}
+          onSkip={skipIntake}
         />
       ) : null}
     </AnimatePresence>
@@ -30,10 +32,12 @@ function IntakeInput({
   pending,
   turnIndex,
   onSubmit,
+  onSkip,
 }: {
   pending: boolean;
   turnIndex: number;
   onSubmit: (value: string) => void;
+  onSkip: () => void;
 }) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLInputElement>(null);
@@ -76,6 +80,14 @@ function IntakeInput({
         autoComplete="off"
         disabled={pending}
       />
+      <button
+        type="button"
+        onClick={onSkip}
+        disabled={pending}
+        className="rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6B7A90] transition-colors hover:text-[#101827] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Skip
+      </button>
       <Button type="submit" variant="accent" size="md" disabled={disabled}>
         {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><span>Send</span><ArrowRight className="h-3.5 w-3.5" /></>}
       </Button>
