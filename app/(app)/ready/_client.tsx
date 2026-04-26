@@ -23,6 +23,7 @@ import {
   mistClasses,
 } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
+import { buildOAuthCompletionURL } from "@/lib/auth-flow";
 import {
   isGithubConnected,
   shouldAutoStartGithubIntake,
@@ -210,7 +211,10 @@ export function ReadyRoom({
         try {
           await authClient.linkSocial({
             provider: "github",
-            callbackURL: new URL("/ready", window.location.origin).toString(),
+            callbackURL: buildOAuthCompletionURL(
+              window.location.origin,
+              "/ready"
+            ),
             errorCallbackURL: new URL(
               "/ready?github_error=oauth",
               window.location.origin
