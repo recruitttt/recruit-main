@@ -20,10 +20,12 @@ export function AgentMessage({
   from,
   children,
   showAvatar = true,
+  compact = false,
 }: {
   from: AgentId;
   children: React.ReactNode;
   showAvatar?: boolean;
+  compact?: boolean;
 }) {
   const a = AGENTS[from];
   return (
@@ -31,7 +33,7 @@ export function AgentMessage({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start gap-3"
+      className={cx("flex items-start gap-3", compact && "-mt-3")}
     >
       <div className="w-8 shrink-0 flex justify-center">
         {showAvatar && <Avatar from={from} />}

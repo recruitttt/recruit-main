@@ -163,17 +163,23 @@ function AgentOrb({
         )}
       </AnimatePresence>
 
-      {/* soft hue halo when speaking */}
+      {/* pulsing glow ring when speaking */}
       {speaking && (
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 0.7, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          style={{
-            background: `radial-gradient(circle, ${rgba(hue, 0.28)}, transparent 70%)`,
-          }}
-        />
+        <>
+          <motion.div
+            className="absolute inset-[-6px] rounded-full"
+            animate={{ opacity: [0.5, 0.9, 0.5], scale: [1, 1.08, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            style={{ background: `radial-gradient(circle, ${rgba(hue, 0.35)}, transparent 70%)` }}
+          />
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            style={{ boxShadow: `0 0 0 2px ${rgba(hue, 0.55)}, 0 0 14px 2px ${rgba(hue, 0.25)}` }}
+          />
+        </>
       )}
 
       {/* character with a brief scale bounce on wake */}
@@ -182,7 +188,7 @@ function AgentOrb({
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative"
       >
-        <AgentCharacter id={id} awake={awake} size={52} />
+        <AgentCharacter id={id} awake={awake || speaking} size={52} />
       </motion.div>
     </div>
   );
