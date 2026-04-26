@@ -2,47 +2,59 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wordmark } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Search, Bell, ChevronDown } from "lucide-react";
-import { RoomToggle } from "@/components/room/room-toggle";
+import { Mark } from "@/components/ui/logo";
+import { cx, mistClasses, StatusBadge } from "@/components/design-system";
+import {
+  AlertTriangle,
+  Bell,
+  ChevronDown,
+  CreditCard,
+  LayoutDashboard,
+  Search,
+  Settings,
+} from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dlq", label: "DLQ" },
-  { href: "/settings", label: "Settings" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dlq", label: "DLQ", icon: AlertTriangle },
+  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/pricing", label: "Pricing", icon: CreditCard },
 ];
 
 export function Topnav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
-      <div className="flex h-14 min-w-0 items-center gap-3 px-4 md:gap-6 md:px-6">
-        <Link href="/dashboard" className="shrink-0">
-          <Wordmark />
+    <header className="sticky top-0 z-30 border-b border-white/35 bg-[#CDD5DF]/78 px-3 py-3 text-[#101827] backdrop-blur-2xl md:px-5">
+      <div className={cx("mx-auto flex min-h-14 max-w-[1500px] items-center gap-2 border px-2 py-2 md:gap-3 md:px-3", mistClasses.panel)}>
+        <Link
+          href="/dashboard"
+          className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/60 bg-white/44 px-2.5 pr-3 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_10px_28px_rgba(15,23,42,0.06)] transition hover:bg-white/58"
+          aria-label="Recruit dashboard"
+        >
+          <Mark size="sm" className="text-sky-600" />
+          <span className="hidden font-serif text-[19px] leading-none text-sky-700 sm:inline">recruit</span>
         </Link>
 
-        <div className="hidden h-5 w-px shrink-0 bg-[var(--color-border)] sm:block" />
-
-        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-white/45 bg-white/24 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
           {navItems.map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={cn(
-                  "shrink-0 rounded-md px-3 py-1.5 text-[13px] font-medium tracking-tight transition-colors",
+                className={cx(
+                  "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold text-slate-600 transition md:px-3 md:text-[13px]",
                   active
-                    ? "text-[var(--color-fg)] bg-[var(--color-surface-1)]"
-                    : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                    ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_24px_rgba(15,23,42,0.06)]"
+                    : "border border-transparent hover:bg-white/34 hover:text-slate-900"
                 )}
+                aria-current={active ? "page" : undefined}
               >
+                <Icon className="h-3.5 w-3.5" />
                 {item.label}
               </Link>
             );
@@ -50,23 +62,29 @@ export function Topnav() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <RoomToggle />
-          <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12px] text-[var(--color-fg-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg-muted)] transition-colors w-80">
+          <button className="flex h-10 w-72 items-center gap-2 rounded-full border border-white/60 bg-white/42 px-3 text-[12px] text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56 hover:text-slate-700 xl:w-80">
             <Search className="h-3.5 w-3.5" />
-            <span>Search applications, jobs…</span>
-            <kbd className="ml-auto rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
+            <span className="truncate">Search applications, jobs...</span>
+            <kbd className="ml-auto rounded-full border border-white/70 bg-white/50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
               ⌘K
             </kbd>
           </button>
-          <Button variant="ghost" size="icon">
+          <button
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/38 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56 hover:text-slate-900"
+            aria-label="Notifications"
+          >
             <Bell className="h-4 w-4" />
-          </Button>
-          <button className="flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] pl-1 pr-2 hover:border-[var(--color-border-strong)] transition-colors">
-            <span className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-cyan-500 to-blue-700 text-[10px] font-medium text-white">
+          </button>
+          <button className="flex h-10 items-center gap-2 rounded-full border border-white/60 bg-white/42 py-1 pl-1 pr-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:bg-white/56">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
               MH
             </span>
-            <ChevronDown className="h-3 w-3 text-[var(--color-fg-subtle)]" />
+            <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
           </button>
+        </div>
+
+        <div className="hidden shrink-0 md:block lg:hidden">
+          <StatusBadge tone="active">live</StatusBadge>
         </div>
       </div>
     </header>
