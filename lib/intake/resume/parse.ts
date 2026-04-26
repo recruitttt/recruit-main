@@ -6,7 +6,7 @@
 //
 // Stages:
 //   1. `extractPdfText` — pdfjs-dist via unpdf, returns the joined plain text.
-//   2. `extractStructuredProfile` — GPT-4o-mini structures the text into a
+//   2. `extractStructuredProfile` — GPT-5.4 Mini structures the text into a
 //      `Partial<UserProfile>` that the intake driver can merge.
 //
 // Both functions return discriminated `{ ok: true, ... } | { ok: false, reason }`
@@ -52,6 +52,7 @@ Use ISO-like dates (YYYY-MM) when possible. For current roles, use endDate "Pres
 Skip fields you cannot find rather than guessing.`;
 
 const MAX_LLM_INPUT_CHARS = 16000;
+const DEFAULT_RESUME_REVIEW_MODEL = "gpt-5.4-mini";
 
 export type PdfTextResult =
   | { ok: true; rawText: string }
@@ -81,13 +82,13 @@ export type StructuredProfileResult =
   | { ok: false; reason: string };
 
 /**
- * Ask GPT-4o-mini to map plain resume text into a `Partial<UserProfile>`.
+ * Ask GPT-5.4 Mini to map plain resume text into a `Partial<UserProfile>`.
  * Returns `{ ok: false, reason: "no_api_key" }` when `OPENAI_API_KEY` is
  * absent so callers can degrade gracefully and still surface the raw text.
  */
 export async function extractStructuredProfile(
   rawText: string,
-  opts?: { apiKey?: string; signal?: AbortSignal }
+  opts?: { apiKey?: string; model?: string; signal?: AbortSignal }
 ): Promise<StructuredProfileResult> {
   const apiKey = opts?.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, reason: "no_api_key" };
@@ -103,7 +104,13 @@ export async function extractStructuredProfile(
       { role: "system", content: RESUME_SYSTEM_PROMPT },
       { role: "user", content: trimmed },
     ],
-    { signal: opts?.signal }
+    {
+      model:
+        opts?.model ??
+        process.env.RESUME_REVIEW_MODEL ??
+        DEFAULT_RESUME_REVIEW_MODEL,
+      signal: opts?.signal,
+    }
   );
   if (!llm.ok) return { ok: false, reason: llm.reason };
 
