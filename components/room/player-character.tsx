@@ -7,12 +7,11 @@ import { RoundedBox, Outlines, Html } from "@react-three/drei";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { agentHomePosition } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
-import { playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
+import { BOUNDS, playerActive, playerPosition, SPAWN_FACING, SPAWN_POINT } from "@/lib/room/player-position";
 import { useRoomStore } from "./room-store";
 
 const PLAYER_BODY_HUE = "#94A3B8";
 const PLAYER_CAP_HUE = "#F97316";
-const BOUNDS = { minX: -9, maxX: 9, minZ: -1.4, maxZ: 5.6 };
 const NEAREST_AGENT_RADIUS = 1.8;
 const PLAYER_SPEED = WALK_SPEED * 1.35;
 
