@@ -1,4 +1,4 @@
-import { startRecruit2ApplyRun } from "./recruit2-api";
+import { recruit2ApplyApiBaseUrl, startRecruit2ApplyRun } from "./recruit2-api";
 import { getApplyRunStore } from "./singleton";
 import type { NormalizedApplyBatch, ApplyRun } from "./types";
 
@@ -8,6 +8,13 @@ export async function startApplyBatch(batch: NormalizedApplyBatch): Promise<
 > {
   const store = getApplyRunStore();
   const run = store.createRun(batch, { source: "mock" });
+  if (!recruit2ApplyApiBaseUrl()) {
+    return {
+      ok: true,
+      run,
+    };
+  }
+
   const recruit2 = await startRecruit2ApplyRun(batch);
   if (recruit2.ok) {
     store.attachRemoteRun(run.id, recruit2.runId, recruit2.jobs);

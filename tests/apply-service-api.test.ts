@@ -44,6 +44,24 @@ async function main() {
   }));
   assert.equal(missingConsent.status, 403);
 
+  const localOnlyStarted = await startBatch(jsonRequest({
+    jobs: [{ id: "job_local", company: "Local Co", title: "Engineer", url: "https://jobs.example.com/local" }],
+    profile: { name: "Om Sanan", email: "om@example.com" },
+    settings: { devSkipRealSubmit: true },
+    consent: { externalTargetsApproved: true },
+  }));
+  assert.equal(localOnlyStarted.status, 200);
+  const localOnlyBody = await localOnlyStarted.json() as {
+    ok: true;
+    recruit2: null;
+    run: { source: string; remoteRunId?: string; jobs: Array<{ id: string; status: string }> };
+  };
+  assert.equal(localOnlyBody.ok, true);
+  assert.equal(localOnlyBody.recruit2, null);
+  assert.equal(localOnlyBody.run.source, "mock");
+  assert.equal(localOnlyBody.run.remoteRunId, undefined);
+  assert.equal(localOnlyBody.run.jobs[0]?.status, "filling");
+
   const originalFetch = globalThis.fetch;
   process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
   globalThis.fetch = (async () => Response.json({
