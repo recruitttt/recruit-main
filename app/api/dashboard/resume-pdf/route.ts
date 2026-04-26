@@ -16,13 +16,17 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const jobId = url.searchParams.get("jobId");
+  const demoUserId = url.searchParams.get("demoUserId") ?? undefined;
   const inline = url.searchParams.get("inline") === "1";
   if (!jobId) {
     return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
   }
 
   try {
-    const detail = await client.query(api.ashby.jobDetail, { jobId: jobId as never });
+    const detail = await client.query(api.ashby.jobDetail, {
+      jobId: jobId as never,
+      ...(demoUserId ? { demoUserId } : {}),
+    });
     const application = detail?.tailoredApplication as
       | { pdfBase64?: string; pdfFilename?: string }
       | undefined;
