@@ -25,6 +25,7 @@ export const PER_USER_LOCAL_STORAGE_KEYS = [
   "recruit:onboarding",         // lib/onboarding-storage.ts
   "recruit:tailoredApplications", // lib/tailor/client.ts
   "recruit:intake-done",        // components/room/room-store.ts
+  "recruit:tour-done",          // components/dashboard/dashboard-tour.tsx
 ] as const;
 
 /** Wipe every per-user storage key + the onboarding gate cookie. */
