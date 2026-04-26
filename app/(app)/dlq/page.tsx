@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { motion } from "motion/react";
 import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
   Check,
+  CheckCircle2,
   Database,
   RotateCcw,
 } from "lucide-react";
@@ -20,7 +22,7 @@ import {
   type StatusTone,
 } from "@/components/design-system";
 import { mockDLQItems, type DLQItem } from "@/lib/mock-data";
-import { formatRelative } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 
 type PersistedDLQItem = DLQItem & {
   status: "open" | "cached" | "skipped" | "resolved";
@@ -150,23 +152,37 @@ export default function DLQPage() {
             actions={<Pill tone={open.length > 0 ? "warning" : "success"}>{open.length === 0 ? "clear" : "needs review"}</Pill>}
           >
             {open.length === 0 ? (
-              <GlassCard className="py-12 text-center">
-                <Check className="mx-auto h-10 w-10 text-emerald-600" strokeWidth={1.5} />
-                <div className="mt-4 text-xl font-semibold tracking-[-0.02em] text-slate-950">Inbox zero</div>
-                <p className="mt-2 text-sm text-slate-600">No applications need your input right now.</p>
-              </GlassCard>
+              <div className="rounded-[20px] border border-white/50 bg-white/45 p-8 text-center">
+                <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" strokeWidth={1.5} />
+                <div className="mt-4 text-xl font-semibold leading-tight tracking-[-0.02em] text-slate-950">
+                  No blockers right now
+                </div>
+                <p className="mt-2 text-sm leading-snug text-slate-600">
+                  Great — nothing in the dead-letter queue. Failed jobs will appear here.
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {open.map((item) => (
-                  <DLQCard
+                {open.map((item, index) => (
+                  <motion.div
                     key={item.id}
-                    item={item}
-                    draft={drafts[item.id] ?? item.suggestedAnswer ?? ""}
-                    setDraft={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
-                    busy={busyItem === item.id}
-                    onSkip={() => void mutateQueue(item.id, "skip-role")}
-                    onResolve={() => void mutateQueue(item.id, item.type === "unanswerable_question" ? "approve-cache" : "mark-resolved")}
-                  />
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.22,
+                      delay: Math.min(index, 8) * 0.04,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  >
+                    <DLQCard
+                      item={item}
+                      draft={drafts[item.id] ?? item.suggestedAnswer ?? ""}
+                      setDraft={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
+                      busy={busyItem === item.id}
+                      onSkip={() => void mutateQueue(item.id, "skip-role")}
+                      onResolve={() => void mutateQueue(item.id, item.type === "unanswerable_question" ? "approve-cache" : "mark-resolved")}
+                    />
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -249,14 +265,17 @@ function DLQCard({
   const Icon = isQuestion ? AlertTriangle : AlertCircle;
 
   return (
-    <GlassCard variant={isQuestion ? "selected" : "critical"}>
+    <GlassCard
+      variant={isQuestion ? "selected" : "critical"}
+      className={cn("transition-colors duration-150 hover:bg-white/60", !busy && "cursor-pointer")}
+    >
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone={tone}>{isQuestion ? "question" : "submission error"}</Pill>
             <span className="font-mono text-[11px] text-slate-500">{formatRelative(item.raisedAt)}</span>
           </div>
-          <div className="mt-3 inline-flex max-w-full items-center gap-2 text-base font-semibold tracking-[-0.01em] text-slate-950">
+          <div className="mt-3 inline-flex max-w-full items-center gap-2 text-base font-semibold leading-tight tracking-[-0.01em] text-slate-950">
             <span className="truncate">
               {item.company} - {item.role}
             </span>
@@ -296,7 +315,7 @@ function DLQCard({
               onChange={(event) => setDraft(event.target.value)}
               placeholder={item.suggestedAnswer || "Type your answer..."}
               rows={4}
-              className="min-h-28 w-full resize-none rounded-[18px] border border-white/55 bg-white/36 px-4 py-3 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/15"
+              className="min-h-28 w-full resize-none rounded-[18px] border border-white/55 bg-white/36 px-4 py-2.5 text-sm leading-snug text-slate-800 outline-none placeholder:leading-snug placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-sky-400/30"
             />
           </div>
         </div>
