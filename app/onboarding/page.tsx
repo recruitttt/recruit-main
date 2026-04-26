@@ -15,8 +15,6 @@ import { ArrowRight, Check, FileText, Upload, Volume2, VolumeX, X } from "lucide
 import { AgentCharacter } from "@/components/onboarding/characters";
 import { isMuted, setMuted, playSend, playReceive, playWake, playActivate } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
-import { SceneTransition } from "@/components/room/scene-transition";
-import { preloadRoomScene } from "@/components/room/room-canvas-client";
 import { ProfileCard } from "@/components/onboarding/profile-card";
 import { mergeProfile, type UserProfile } from "@/lib/profile";
 import {
@@ -116,13 +114,12 @@ export default function OnboardingChatPage() {
 
   // hydrate mute state
   useEffect(() => {
-    setMutedState(isMuted());
+    const id = window.setTimeout(() => setMutedState(isMuted()), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
     router.prefetch("/dashboard");
-    const id = setTimeout(() => preloadRoomScene(), 600);
-    return () => window.clearTimeout(id);
   }, [router]);
 
   const toggleMute = () => {
@@ -144,7 +141,8 @@ export default function OnboardingChatPage() {
         next = { ...next, prefs: { ...next.prefs, roles: [role, ...next.prefs.roles] } };
       }
     } catch {}
-    setData(next);
+    const id = window.setTimeout(() => setData(next), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   // persist
@@ -240,7 +238,7 @@ export default function OnboardingChatPage() {
     } else if (beat.k === "activate") {
       setActivating(true);
       playActivate();
-      // Navigation happens from the SceneTransition's onComplete callback.
+      after(900, () => router.push("/dashboard"));
     }
 
     return () => {
@@ -487,13 +485,13 @@ export default function OnboardingChatPage() {
               })}
 
               <AnimatePresence>
-                {typing && <TypingIndicator key={`t-${typing}-${pointer.current}`} from={typing} />}
+                {typing && <TypingIndicator key={`t-${typing}-${beatTick}`} from={typing} />}
               </AnimatePresence>
 
               {activating && (
-                <SceneTransition
-                  onComplete={() => router.push("/dashboard")}
-                />
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/85 px-5 py-4 text-[13px] text-[var(--color-fg-muted)] shadow-sm">
+                  Activating your dashboard...
+                </div>
               )}
             </div>
           </div>
