@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
@@ -209,13 +209,19 @@ export function EnrichmentChat({
         ref={scrollRef}
         className="max-h-[360px] min-h-[220px] space-y-4 overflow-y-auto pr-1"
       >
-        {messages.map((message) =>
-          message.kind === "agent" ? (
-            <ScoutLine key={message.id}>{message.text}</ScoutLine>
-          ) : (
-            <UserMessage key={message.id}>{message.text}</UserMessage>
-          ),
-        )}
+        <AnimatePresence initial={false}>
+          {messages.map((message, index) =>
+            message.kind === "agent" ? (
+              <ChatBubble key={message.id} kind="agent" index={index}>
+                <ScoutLine>{message.text}</ScoutLine>
+              </ChatBubble>
+            ) : (
+              <ChatBubble key={message.id} kind="user" index={index}>
+                <UserMessage>{message.text}</UserMessage>
+              </ChatBubble>
+            ),
+          )}
+        </AnimatePresence>
         {typing && <TypingIndicator from="scout" />}
       </div>
 
@@ -282,18 +288,44 @@ export function EnrichmentChat({
   );
 }
 
+function ChatBubble({
+  kind,
+  index,
+  children,
+}: {
+  kind: "agent" | "user";
+  index: number;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const reduce = useReducedMotion();
+  // Stagger only when several bubbles render together (initial paint). Once a
+  // user has typed past the third message we cap the delay so replies feel snappy.
+  const delay = reduce ? 0 : Math.min(index, 3) * 0.06;
+  const offsetX = reduce ? 0 : kind === "agent" ? -8 : 8;
+  return (
+    <motion.div
+      layout="position"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, x: offsetX }}
+      animate={{ opacity: 1, y: 0, x: 0 }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+      transition={
+        reduce
+          ? { duration: 0.18 }
+          : { duration: 0.36, ease: [0.22, 1, 0.36, 1], delay }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function ScoutLine({
   children,
 }: {
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="flex items-start gap-3"
-    >
+    <div className="flex items-start gap-3">
       <div className="flex w-8 shrink-0 justify-center">
         <AgentCharacter id="scout" awake size={36} />
       </div>
@@ -305,6 +337,6 @@ function ScoutLine({
           {children}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

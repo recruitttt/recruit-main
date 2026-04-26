@@ -22,7 +22,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertCircle, ArrowRight, Loader2, X } from "lucide-react";
 
 import {
@@ -50,6 +50,7 @@ export function StartSearchCta({
   snapshot,
 }: StartSearchCtaProps): React.ReactElement {
   const router = useRouter();
+  const reduce = useReducedMotion();
   const [stage, setStage] = useState<LaunchStage>("idle");
   const [error, setError] = useState<string | null>(null);
   const [userOpenedConfirm, setUserOpenedConfirm] = useState(false);
@@ -187,15 +188,36 @@ export function StartSearchCta({
                 Open dashboard
               </ActionButton>
             )}
-            <ActionButton
-              variant="primary"
-              size="lg"
-              loading={stage === "starting"}
-              onClick={handlePrimaryClick}
-            >
-              {primaryLabel}
-              {stage !== "starting" && <ArrowRight className="h-4 w-4" />}
-            </ActionButton>
+            {(() => {
+              const animateDisabled = reduce || stage === "starting";
+              return (
+                <motion.div
+                  className="inline-flex"
+                  animate={
+                    animateDisabled ? { scale: 1 } : { scale: [1, 1.02, 1] }
+                  }
+                  transition={
+                    animateDisabled
+                      ? { duration: 0 }
+                      : { duration: 2.4, ease: "easeInOut", repeat: Infinity }
+                  }
+                  whileHover={
+                    animateDisabled ? undefined : { scale: 1.04, y: -2 }
+                  }
+                  whileTap={animateDisabled ? undefined : { scale: 0.985 }}
+                >
+                  <ActionButton
+                    variant="primary"
+                    size="lg"
+                    loading={stage === "starting"}
+                    onClick={handlePrimaryClick}
+                  >
+                    {primaryLabel}
+                    {stage !== "starting" && <ArrowRight className="h-4 w-4" />}
+                  </ActionButton>
+                </motion.div>
+              );
+            })()}
           </div>
         </div>
       </GlassCard>

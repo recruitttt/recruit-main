@@ -13,7 +13,7 @@
 // page feels native.
 //
 
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -173,15 +173,21 @@ function SourceCard({
   onDisconnect?: (kind: IntakeKind) => void;
   disconnecting?: boolean;
 }): React.ReactElement {
+  const reduce = useReducedMotion();
   const Icon = meta.icon;
   const configurable = entry.kind !== "chat";
   const canDisconnect = configurable && entry.status !== "skipped";
+  const isRunning = entry.status === "running";
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 6 }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
+      transition={
+        reduce
+          ? { duration: 0.18 }
+          : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }
+      }
       className={cx(
         "flex items-start gap-3 border border-white/55 bg-white/30 px-3 py-3",
         mistRadii.nested,
@@ -195,7 +201,18 @@ function SourceCard({
           <span className="text-[13px] font-semibold text-slate-800">
             {meta.name}
           </span>
-          <StatusPill status={entry.status} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={entry.status}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="inline-flex"
+            >
+              <StatusPill status={entry.status} />
+            </motion.span>
+          </AnimatePresence>
         </div>
         <p
           className="mt-1 truncate font-mono text-[11px] leading-5 text-slate-500"
@@ -203,6 +220,23 @@ function SourceCard({
         >
           {entry.caption}
         </p>
+        {isRunning && (
+          <div
+            className={cx(
+              "relative mt-2 h-1 w-full overflow-hidden rounded-full bg-white/45",
+            )}
+            aria-hidden
+          >
+            <span
+              className={cx(
+                "absolute inset-y-0 left-0 w-full rounded-full",
+                "bg-[linear-gradient(90deg,transparent_0%,var(--color-accent-glow)_45%,var(--color-accent)_50%,var(--color-accent-glow)_55%,transparent_100%)]",
+                "[background-size:200%_100%]",
+                !reduce && "motion-safe:[animation:shimmer_2s_linear_infinite]",
+              )}
+            />
+          </div>
+        )}
       </div>
       {configurable && (
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">

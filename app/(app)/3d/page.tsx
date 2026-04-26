@@ -1,4 +1,5 @@
 import { RoomCanvasClient } from "@/components/room/room-canvas-client";
+import { RoomHud } from "./_hud";
 
 export const metadata = {
   title: "The room · Recruit",
@@ -8,12 +9,7 @@ export const metadata = {
 export default function ThreeDPage() {
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6 md:px-6">
-      <div className="mb-5">
-        <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#6B7A90]">
-          Live · agents working
-        </div>
-        <h1 className="mt-1 font-serif text-3xl leading-tight text-[#101827]">The room</h1>
-      </div>
+      <RoomHud />
       <RoomCanvasClient />
     </div>
   );

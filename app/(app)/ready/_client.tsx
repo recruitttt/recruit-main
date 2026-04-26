@@ -15,13 +15,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { api } from "@/convex/_generated/api";
 import {
   cx,
   mistClasses,
 } from "@/components/design-system";
+import { fadeUp, staggerContainer } from "@/lib/motion-presets";
 import { authClient } from "@/lib/auth-client";
 import { buildOAuthLinkCallbackURL } from "@/lib/auth-flow";
 import {
@@ -48,6 +49,7 @@ export function ReadyRoom({
   fallbackName,
 }: ReadyRoomProps): React.ReactElement {
   const router = useRouter();
+  const reduce = useReducedMotion();
   const githubAutoStartRef = useRef<string | null>(null);
   const githubRun = useQuery(api.intakeRuns.byUserKind, {
     userId,
@@ -299,13 +301,13 @@ export function ReadyRoom({
 
   return (
     <div className={cx("min-h-[calc(100vh-92px)] pb-12", mistClasses.page)}>
-      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 pt-6 md:px-6">
-        <motion.header
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-1.5"
-        >
+      <motion.div
+        className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 pt-6 md:px-6"
+        variants={staggerContainer(reduce ? 0 : 0.06, reduce ? 0 : 0.04)}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.header variants={fadeUp} className="space-y-1.5">
           <div className={cx(mistClasses.sectionLabel, "text-[var(--color-accent)]")}>
             Ready Room
           </div>
@@ -317,18 +319,24 @@ export function ReadyRoom({
           </p>
         </motion.header>
 
-        <IntakeStatusPanel
-          snapshot={snapshot}
-          onRetry={(kind) => void handleRetry(kind)}
-          onConfigure={(kind) => void handleConfigureSource(kind)}
-          onDisconnect={(kind) => void handleDisconnectSource(kind)}
-          disconnecting={disconnecting}
-        />
+        <motion.section variants={fadeUp}>
+          <IntakeStatusPanel
+            snapshot={snapshot}
+            onRetry={(kind) => void handleRetry(kind)}
+            onConfigure={(kind) => void handleConfigureSource(kind)}
+            onDisconnect={(kind) => void handleDisconnectSource(kind)}
+            disconnecting={disconnecting}
+          />
+        </motion.section>
 
-        <EnrichmentChat userId={userId} />
+        <motion.section variants={fadeUp}>
+          <EnrichmentChat userId={userId} />
+        </motion.section>
 
-        <StartSearchCta snapshot={snapshot} />
-      </div>
+        <motion.section variants={fadeUp}>
+          <StartSearchCta snapshot={snapshot} />
+        </motion.section>
+      </motion.div>
     </div>
   );
 }
