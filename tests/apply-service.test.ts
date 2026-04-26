@@ -9,6 +9,7 @@ import {
   toRecruit2Profile,
   type ApplyServiceProfile,
   type JobCandidate,
+  recruit2ApplyApiBaseUrl,
 } from "../lib/apply-service";
 
 const profile: ApplyServiceProfile = {
@@ -157,6 +158,19 @@ assert.equal(payload.settings.maxConcurrentApplications, 20);
 assert.equal(payload.settings.computerUseModel, "gpt-5.4-nano");
 assert.equal((payload.profile as { workAuth: { citizenshipStatus: string } }).workAuth.citizenshipStatus, "U.S. citizen");
 
+const handsFreeNormalized = normalizeApplyBatchRequest({
+  jobs: [jobs[0]!],
+  profile,
+  mode: "hands-free",
+  consent: { externalTargetsApproved: true },
+});
+assert.equal(handsFreeNormalized.ok, true);
+const handsFreePayload = buildRecruit2ApplyPayload(handsFreeNormalized.ok ? handsFreeNormalized.value : (() => {
+  throw new Error("hands-free normalization failed");
+})());
+assert.equal(handsFreePayload.targets[0]?.mode, "autonomous");
+assert.equal(handsFreePayload.settings.defaultMode, "autonomous");
+
 const groups = groupDeferredQuestions([
   {
     id: "q1",
@@ -234,5 +248,9 @@ assert.equal(store.getRun("run_test")?.jobs.find((job) => job.id === "job_ai")?.
 
 assert.equal(DEFAULT_APPLY_SERVICE_SETTINGS.maxApplicationsPerRun, 20);
 assert.equal(DEFAULT_APPLY_SERVICE_SETTINGS.maxConcurrentApplications, 10);
+assert.equal(recruit2ApplyApiBaseUrl({ APPLY_LAB_PUBLIC_BASE_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");
+assert.equal(recruit2ApplyApiBaseUrl({ NEXT_PUBLIC_APPLY_LAB_PUBLIC_BASE_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");
+assert.equal(recruit2ApplyApiBaseUrl({ RECRUIT2_APPLY_API_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");
+assert.equal(recruit2ApplyApiBaseUrl({ APPLY_ENGINE_API_URL: "https://apply-engine.example.com/" } as unknown as NodeJS.ProcessEnv), "https://apply-engine.example.com");
 
 console.log("Apply service tests passed");

@@ -29,7 +29,7 @@
     "test:ashby": "tsx tests/ashby-fill.test.ts",
     "test:lever": "tsx tests/lever-fill.test.ts",
     "test:form-engine": "tsx tests/form-engine.test.ts",
-    "test:apply-service": "tsx tests/apply-service.test.ts",
+    "test:apply-service": "tsx tests/apply-service.test.ts && tsx tests/apply-live-ui.test.ts",
     "test:apply-service-api": "tsx tests/apply-service-api.test.ts",
     "test:ranking": "tsx tests/job-ranking.test.ts",
     "test:ranking-eval": "tsx tests/ranking-eval.test.ts",

@@ -1,15 +1,16 @@
 import { toRecruit2Profile } from "./profile";
-import type { NormalizedApplyBatch, Recruit2ApplyPayload, TailoredResume } from "./types";
+import type { ApplyMode, NormalizedApplyBatch, Recruit2ApplyMode, Recruit2ApplyPayload, TailoredResume } from "./types";
 
 export function buildRecruit2ApplyPayload(batch: NormalizedApplyBatch): Recruit2ApplyPayload {
   const primaryResume = selectPrimaryResume(batch);
+  const recruit2Mode = toRecruit2Mode(batch.settings.mode);
   return {
     targets: batch.jobs.map((job) => ({
       kind: "external",
       url: job.applicationUrl ?? job.url,
       company: job.company,
       title: job.title,
-      mode: batch.settings.mode,
+      mode: recruit2Mode,
       approval: { externalTargetApproved: true },
     })),
     profile: toRecruit2Profile(batch.profile, {
@@ -17,7 +18,7 @@ export function buildRecruit2ApplyPayload(batch: NormalizedApplyBatch): Recruit2
       resumesByJob: batch.tailoredResumes,
     }),
     settings: {
-      defaultMode: batch.settings.mode,
+      defaultMode: recruit2Mode,
       maxApplicationsPerRun: batch.settings.maxApplicationsPerRun,
       maxConcurrentApplications: batch.settings.maxConcurrentApplications,
       maxConcurrentPerDomain: batch.settings.maxConcurrentPerDomain,
@@ -28,6 +29,10 @@ export function buildRecruit2ApplyPayload(batch: NormalizedApplyBatch): Recruit2
       autoSubmit: batch.consent.finalSubmitApproved === true && !batch.settings.devSkipRealSubmit,
     },
   };
+}
+
+function toRecruit2Mode(mode: ApplyMode): Recruit2ApplyMode {
+  return mode === "hands-free" ? "autonomous" : mode;
 }
 
 function selectPrimaryResume(batch: NormalizedApplyBatch): TailoredResume | null {

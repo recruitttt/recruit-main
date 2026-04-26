@@ -11,7 +11,13 @@ import {
 import {
   POST as approveJob,
 } from "../app/api/applications/runs/[runId]/jobs/[jobId]/approve/route";
-import { getApplyRunStore } from "../lib/apply-service";
+import {
+  POST as focusRecruit2Job,
+} from "../app/api/applications/runs/[runId]/jobs/[jobId]/focus/route";
+import {
+  GET as proxyRecruit2Events,
+} from "../app/api/applications/runs/[runId]/recruit2/events/route";
+import { getApplyRunStore, startRecruit2ApplyRun } from "../lib/apply-service";
 
 process.env.RECRUIT2_APPLY_API_URL = "";
 process.env.APPLY_LAB_PUBLIC_BASE_URL = "";
@@ -38,6 +44,15 @@ async function main() {
   }));
   assert.equal(missingConsent.status, 403);
 
+  const originalFetch = globalThis.fetch;
+  process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
+  globalThis.fetch = (async () => Response.json({
+    runId: "remote_started_1",
+    jobs: [
+      { slug: "remote_job_1", url: "https://jobs.ashbyhq.com/acme/1/application" },
+      { slug: "remote_job_2", url: "https://jobs.ashbyhq.com/beta/2" },
+    ],
+  })) as unknown as typeof fetch;
   const started = await startBatch(jsonRequest({
     jobs: [
       {
@@ -80,6 +95,8 @@ async function main() {
     },
     consent: { externalTargetsApproved: true },
   }));
+  globalThis.fetch = originalFetch;
+  process.env.RECRUIT2_APPLY_API_URL = "";
   assert.equal(started.status, 200);
   const startedBody = await started.json() as {
     ok: true;
@@ -88,6 +105,68 @@ async function main() {
   assert.equal(startedBody.ok, true);
   assert.equal(startedBody.run.jobs.length, 2);
   assert.equal(startedBody.run.settings.maxConcurrentApplications, 15);
+
+  const unreachableRecruit2 = await startRecruit2ApplyRun({
+    jobs: [
+      {
+        id: "job_unreachable_direct",
+        company: "Acme",
+        title: "AI Engineer",
+        url: "https://jobs.ashbyhq.com/acme/unreachable-direct",
+      },
+    ],
+    profile: { name: "Om Sanan", email: "om@example.com" },
+    tailoredResumes: {},
+    settings: {
+      maxApplicationsPerRun: 20,
+      maxConcurrentApplications: 10,
+      maxConcurrentPerDomain: 10,
+      mode: "manual",
+      devSkipRealSubmit: true,
+      computerUseModel: "gpt-5.4-nano",
+    },
+    consent: { externalTargetsApproved: true },
+  }, {
+    baseUrl: "http://recruit2.test",
+    fetchImpl: (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch,
+  });
+  assert.equal(unreachableRecruit2.ok, false);
+  assert.equal(unreachableRecruit2.status, 503);
+  assert.match(unreachableRecruit2.reason, /^apply_engine_unreachable: fetch failed/);
+
+  process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed");
+  }) as unknown as typeof fetch;
+  try {
+    const unavailableStarted = await startBatch(jsonRequest({
+      jobs: [
+        {
+          id: "job_unreachable",
+          company: "Acme",
+          title: "AI Engineer",
+          url: "https://jobs.ashbyhq.com/acme/unreachable",
+        },
+      ],
+      profile: {
+        name: "Om Sanan",
+        email: "om@example.com",
+      },
+      settings: {
+        devSkipRealSubmit: true,
+      },
+      consent: { externalTargetsApproved: true },
+    }));
+    assert.equal(unavailableStarted.status, 503);
+    const unavailableStartedBody = await unavailableStarted.json() as { ok: false; reason: string };
+    assert.equal(unavailableStartedBody.ok, false);
+    assert.match(unavailableStartedBody.reason, /^apply_engine_unreachable: fetch failed/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.RECRUIT2_APPLY_API_URL = "";
+  }
 
   const runId = startedBody.run.id;
   const jobId = startedBody.run.jobs[0]!.id;
@@ -115,6 +194,36 @@ async function main() {
     field: { label: "Language", selector: "#language" },
   });
 
+  process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
+  const questionProxyRequests: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    questionProxyRequests.push(String(input));
+    const resolved = init?.method === "POST";
+    return Response.json({
+      ok: true,
+      groups: [
+        {
+          groupId: "primary_programming_language",
+          normalizedKey: "primary_programming_language",
+          category: "primary_programming_language",
+          displayQuestion: "What is your main development language?",
+          provisionalValue: "Python",
+          confidence: 0.4,
+          status: resolved ? "resolved" : "pending",
+          resolvedValue: resolved ? "Python" : undefined,
+          targets: [
+            {
+              id: "remote_q1",
+              jobSlug: "remote_job_1",
+              fieldLabel: "Language",
+              selector: "#language",
+              provisionalValue: "Python",
+            },
+          ],
+        },
+      ],
+    });
+  }) as typeof fetch;
   const questionsResponse = await getQuestions(new Request(`http://test.local/api/applications/runs/${runId}/questions`), {
     params: { runId },
   } as never);
@@ -133,6 +242,16 @@ async function main() {
   } as never);
   assert.equal(resolvedResponse.status, 200);
   assert.equal((await resolvedResponse.json() as { groups: Array<{ status: string }> }).groups[0]?.status, "resolved");
+  assert.equal(
+    questionProxyRequests[0],
+    "http://recruit2.test/api/apply-lab/runs/remote_started_1/questions",
+  );
+  assert.equal(
+    questionProxyRequests[1],
+    "http://recruit2.test/api/apply-lab/runs/remote_started_1/questions/resolve-batch",
+  );
+  globalThis.fetch = originalFetch;
+  process.env.RECRUIT2_APPLY_API_URL = "";
 
   const approveResponse = await approveJob(jsonRequest({
     devSkipRealSubmit: true,
@@ -141,6 +260,48 @@ async function main() {
   } as never);
   assert.equal(approveResponse.status, 200);
   assert.equal((await approveResponse.json() as { job: { status: string } }).job.status, "submitted_dev");
+
+  getApplyRunStore().attachRemoteRun(runId, "remote_run_1", [
+    { slug: "remote_job_1", url: "https://jobs.ashbyhq.com/acme/1/application" },
+    { slug: "remote_job_2", url: "https://jobs.ashbyhq.com/beta/2" },
+  ]);
+  process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";
+  const proxiedRequests: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    proxiedRequests.push({ url: String(input), init });
+    if (String(input).endsWith("/events")) {
+      return new Response("event: status\ndata: {}\n\n", {
+        headers: { "content-type": "text/event-stream" },
+      });
+    }
+    return Response.json({ ok: true, screenshotPng: "focused" });
+  }) as typeof fetch;
+  try {
+    const focusResponse = await focusRecruit2Job(jsonRequest({
+      stepIndex: 0,
+      selector: "#name",
+      label: "Name",
+    }, `http://test.local/api/applications/runs/${runId}/jobs/${jobId}/focus`), {
+      params: { runId, jobId },
+    } as never);
+    assert.equal(focusResponse.status, 200);
+    assert.equal((await focusResponse.json() as { screenshotPng: string }).screenshotPng, "focused");
+    assert.equal(
+      proxiedRequests[0]?.url,
+      "http://recruit2.test/api/apply-lab/runs/remote_run_1/jobs/remote_job_1/focus",
+    );
+
+    const eventsProxyResponse = await proxyRecruit2Events(
+      new Request(`http://test.local/api/applications/runs/${runId}/recruit2/events`),
+      { params: { runId } } as never,
+    );
+    assert.equal(eventsProxyResponse.status, 200);
+    assert.equal(eventsProxyResponse.headers.get("content-type"), "text/event-stream");
+    assert.equal(await eventsProxyResponse.text(), "event: status\ndata: {}\n\n");
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.RECRUIT2_APPLY_API_URL = "";
+  }
 
   console.log("Apply service API tests passed");
 }

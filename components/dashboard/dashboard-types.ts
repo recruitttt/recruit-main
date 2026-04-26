@@ -69,6 +69,7 @@ export type LiveRecommendation = {
     title?: string;
     location?: string;
     jobUrl?: string;
+    applyUrl?: string;
     sourceSlug?: string;
     descriptionPlain?: string;
     compensationSummary?: string;

@@ -187,9 +187,14 @@ await withEnvAsync({ DASHBOARD_DATA_SOURCE: undefined, NEXT_PUBLIC_CONVEX_URL: u
   assert.equal((liveJson.run as { recommendedCount?: number }).recommendedCount, 100);
   const firstRecommendation = (liveJson.recommendations as Array<{
     company?: string;
+    jobUrl?: string;
     organization?: { logoUrl?: string; prestigeTag?: string };
+    job?: { jobUrl?: string; applyUrl?: string };
   }>)[0];
   assert.equal(firstRecommendation.company, "Google DeepMind");
+  assert.equal(firstRecommendation.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(firstRecommendation.job?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(firstRecommendation.job?.applyUrl, "https://recruit-company-pages.vercel.app/google-deepmind?apply=1");
   assert.equal(firstRecommendation.organization?.logoUrl, "/company-logos/google-deepmind.png");
   assert.equal(firstRecommendation.organization?.prestigeTag, "AI Lab");
 

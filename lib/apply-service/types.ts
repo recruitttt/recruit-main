@@ -1,4 +1,5 @@
 export type ApplyMode = "manual" | "auto-strict" | "auto-aggressive" | "hands-free";
+export type Recruit2ApplyMode = "manual" | "auto-strict" | "auto-aggressive" | "autonomous";
 
 export type ComputerUseModel = "gpt-5.4-nano" | "gpt-5.4-mini" | "claude-sonnet-4-6";
 
@@ -246,12 +247,12 @@ export type Recruit2ApplyPayload = {
     url: string;
     company?: string;
     title?: string;
-    mode: ApplyMode;
+    mode: Recruit2ApplyMode;
     approval: { externalTargetApproved: true };
   }>;
   profile: Record<string, unknown>;
   settings: {
-    defaultMode: ApplyMode;
+    defaultMode: Recruit2ApplyMode;
     maxApplicationsPerRun: number;
     maxConcurrentApplications: number;
     maxConcurrentPerDomain: number;

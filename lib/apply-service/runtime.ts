@@ -18,34 +18,14 @@ export async function startApplyBatch(batch: NormalizedApplyBatch): Promise<
     };
   }
 
-  if (recruit2.reason === "missing_recruit2_apply_api_url") {
-    seedDevReviewState(run.id, batch);
-    return { ok: true, run: store.getRun(run.id) ?? run };
-  }
-
   store.addReviewItems(run.id, run.jobs[0]?.id ?? "run", [
     {
       id: "recruit2-start-error",
       jobId: run.jobs[0]?.id ?? "run",
-      label: "Recruit2 engine unavailable",
+      label: "Application engine unavailable",
       value: recruit2.reason,
       kind: "low_confidence",
     },
   ]);
   return { ok: false, reason: recruit2.reason, status: recruit2.status };
-}
-
-function seedDevReviewState(runId: string, batch: NormalizedApplyBatch): void {
-  const store = getApplyRunStore();
-  for (const job of batch.jobs) {
-    store.addReviewItems(runId, job.id, [
-      {
-        id: `${job.id}:profile-fields`,
-        jobId: job.id,
-        label: "Profile-backed fields",
-        value: "Name, email, phone, links, work authorization, and resume are ready for Recruit2.",
-        kind: "low_confidence",
-      },
-    ]);
-  }
 }
