@@ -7,6 +7,11 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
+import {
+  buildAllowedHosts,
+  buildTrustedOrigins,
+  stripTrailingSlash,
+} from "../lib/auth-origin";
 
 const query = queryGeneric;
 
@@ -22,19 +27,6 @@ function isActionCtx(
   runQuery: (...args: any[]) => Promise<any>;
 } {
   return "scheduler" in ctx && "runQuery" in ctx;
-}
-
-function stripTrailingSlash(value: string) {
-  return value.replace(/\/+$/, "");
-}
-
-function splitCsv(value: string | undefined) {
-  return (
-    value
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean) ?? []
-  );
 }
 
 function getConvexSiteUrl() {
@@ -55,39 +47,6 @@ function getDefaultAppOrigin() {
       process.env.NEXT_PUBLIC_SITE_URL ??
       "http://localhost:3000"
   );
-}
-
-function hostPatternFromOriginPattern(value: string) {
-  try {
-    return new URL(value).host;
-  } catch {
-    return value
-      .replace(/^https?:\/\//, "")
-      .replace(/\/.*$/, "")
-      .trim();
-  }
-}
-
-function unique(values: string[]) {
-  return [...new Set(values.filter(Boolean))];
-}
-
-function buildTrustedOrigins(defaultAppOrigin: string) {
-  return unique([
-    defaultAppOrigin,
-    "http://localhost:3000",
-    "http://localhost:3020",
-    ...splitCsv(process.env.ADDITIONAL_TRUSTED_ORIGINS),
-  ]);
-}
-
-function buildAllowedHosts(defaultAppOrigin: string) {
-  return unique([
-    "localhost:*",
-    "127.0.0.1:*",
-    ...buildTrustedOrigins(defaultAppOrigin).map(hostPatternFromOriginPattern),
-    ...splitCsv(process.env.AUTH_ALLOWED_HOSTS),
-  ]);
 }
 
 async function requireOwner(
@@ -174,7 +133,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     };
   }
 
-  const trustedOrigins = buildTrustedOrigins(defaultAppOrigin);
   const allowedHosts = buildAllowedHosts(defaultAppOrigin);
 
   return betterAuth({
@@ -182,7 +140,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       allowedHosts,
       fallback: defaultAppOrigin,
     },
-    trustedOrigins,
+    trustedOrigins: (request) => buildTrustedOrigins(defaultAppOrigin, request),
     advanced: {
       trustedProxyHeaders: true,
     },

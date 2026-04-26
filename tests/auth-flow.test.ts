@@ -10,6 +10,10 @@ import {
   safeRedirectPath,
 } from "../lib/auth-flow";
 import { installFetchStub, withEnvAsync } from "./helpers";
+import {
+  buildAllowedHosts,
+  buildTrustedOrigins,
+} from "../lib/auth-origin";
 
 async function main() {
   assert.equal(
@@ -48,6 +52,40 @@ async function main() {
   assert.equal(
     authNewUserRedirectPath("sign-in", "/dashboard"),
     "/dashboard"
+  );
+
+  const forwardedAppRequest = new Request(
+    "https://knowing-lark-334.convex.site/api/auth/sign-in/social",
+    {
+      headers: {
+        "x-forwarded-host": "preview.recruit.example",
+        "x-forwarded-proto": "https",
+      },
+    }
+  );
+  assert.deepEqual(
+    buildTrustedOrigins("https://recruit-main-beryl.vercel.app", forwardedAppRequest),
+    [
+      "https://recruit-main-beryl.vercel.app",
+      "https://preview.recruit.example",
+      "http://localhost:3000",
+      "http://localhost:3020",
+    ]
+  );
+  assert.deepEqual(
+    buildAllowedHosts("https://recruit-main-beryl.vercel.app", {
+      ADDITIONAL_TRUSTED_ORIGINS: "https://preview.recruit.example",
+      AUTH_ALLOWED_HOSTS: "custom.example",
+    }),
+    [
+      "localhost:*",
+      "127.0.0.1:*",
+      "recruit-main-beryl.vercel.app",
+      "localhost:3000",
+      "localhost:3020",
+      "preview.recruit.example",
+      "custom.example",
+    ]
   );
 
   let streamPulled = 0;
