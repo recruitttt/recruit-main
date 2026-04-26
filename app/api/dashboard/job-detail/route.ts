@@ -4,15 +4,15 @@ import { getConvexClient } from "@/lib/convex-http";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const client = await getConvexClient();
-  if (!client) {
-    return Response.json({ error: "missing_convex_url" }, { status: 503 });
-  }
-
   const url = new URL(req.url);
   const jobId = url.searchParams.get("jobId");
   if (!jobId) {
     return Response.json({ error: "missing_job_id" }, { status: 400 });
+  }
+
+  const client = await getConvexClient();
+  if (!client) {
+    return Response.json({ error: "missing_convex_url" }, { status: 503 });
   }
 
   try {

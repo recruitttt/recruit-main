@@ -63,7 +63,18 @@ import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
 type LiveRunSummary = {
   _id: string;
+  provider?: string;
   status: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+  originalStatus?: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+  stale?: boolean;
+  staleReason?: string;
+  suppressedLatestRun?: {
+    _id: string;
+    provider?: string;
+    status: "fetching" | "fetched" | "ranking" | "completed" | "failed";
+    startedAt: string;
+    stale?: boolean;
+  };
   startedAt: string;
   completedAt?: string;
   sourceCount: number;
@@ -1798,6 +1809,24 @@ function buildDashboardSeed(
   const activeRun = mapRunToActiveRun(run);
   const progress = run.status === "completed" ? 100 : run.status === "ranking" ? 72 : run.status === "fetched" ? 52 : run.status === "fetching" ? 28 : 100;
   const hasErrors = run.errorCount > 0 || run.status === "failed";
+  const activity = [
+    ...(run.suppressedLatestRun
+      ? [{
+          time: formatTime(run.suppressedLatestRun.startedAt),
+          type: "decision" as const,
+          title: `${labelProvider(run.suppressedLatestRun.provider)} run not shown as primary`,
+          detail: `${run.suppressedLatestRun.status}${run.suppressedLatestRun.stale ? " · stale" : ""}. Showing latest successful Ashby run instead.`,
+          evidence: "provider preview",
+        }]
+      : []),
+    {
+      time: formatTime(run.startedAt),
+      type: run.status === "failed" ? "decision" as const : run.status === "completed" ? "success" as const : "tool" as const,
+      title: `${labelProvider(run.provider) || "Ashby"} ingestion ${run.stale ? "stale" : run.status}`,
+      detail: run.staleReason ?? `${run.fetchedCount}/${run.sourceCount} sources fetched, ${run.rawJobCount} jobs scraped, ${run.recommendedCount} recommendations ranked.`,
+      evidence: run.scoringMode ?? "live",
+    },
+  ];
 
   return {
     generatedAt: formatTime(run.completedAt ?? run.startedAt),
@@ -1825,15 +1854,7 @@ function buildDashboardSeed(
           },
         ]
       : [],
-    activity: [
-      {
-        time: formatTime(run.startedAt),
-        type: run.status === "failed" ? "decision" : run.status === "completed" ? "success" : "tool",
-        title: `Ashby ingestion ${run.status}`,
-        detail: `${run.fetchedCount}/${run.sourceCount} sources fetched, ${run.rawJobCount} jobs scraped, ${run.recommendedCount} recommendations ranked.`,
-        evidence: run.scoringMode ?? "live",
-      },
-    ],
+    activity,
     artifacts: mapArtifacts(run, sortedRecommendations),
   };
 }
@@ -1923,10 +1944,15 @@ function mapProviders(run: LiveRunSummary): ProviderCoverage[] {
       tone: run.status === "failed" ? "danger" : run.status === "completed" ? "success" : "active",
       detail: `${run.fetchedCount}/${run.sourceCount} sources fetched`,
     },
-    { provider: "Greenhouse", status: "not run", tone: "neutral", detail: "validation pending" },
-    { provider: "Lever", status: "not run", tone: "neutral", detail: "validation pending" },
-    { provider: "Workday", status: "not run", tone: "neutral", detail: "validation pending" },
+    { provider: "Greenhouse", status: "preview", tone: "neutral", detail: "requires explicit run" },
+    { provider: "Lever", status: "preview", tone: "neutral", detail: "requires explicit run" },
+    { provider: "Workday", status: "preview", tone: "neutral", detail: "requires explicit run" },
   ];
+}
+
+function labelProvider(provider?: string) {
+  if (!provider) return "Unknown provider";
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
 function mapApplications(recommendations: LiveRecommendation[]): ApplicationRow[] {

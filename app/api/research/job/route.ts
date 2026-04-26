@@ -21,11 +21,11 @@ export async function POST(req: Request) {
   }
 
   const job = body.job;
-  if (!job || typeof job.id !== "string" || typeof job.company !== "string" || typeof job.role !== "string") {
-    return Response.json({ ok: false, reason: "missing_job_fields" }, { status: 400 });
-  }
-  if (typeof job.jobUrl !== "string" || job.jobUrl.length === 0) {
+  if (!job || typeof job.jobUrl !== "string" || job.jobUrl.trim().length === 0) {
     return Response.json({ ok: false, reason: "missing_job_url" }, { status: 400 });
+  }
+  if (typeof job.id !== "string" || typeof job.company !== "string" || typeof job.role !== "string") {
+    return Response.json({ ok: false, reason: "missing_job_fields" }, { status: 400 });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;

@@ -144,3 +144,19 @@ export const markResolved = mutation({
     });
   },
 });
+
+export const resetDemoQueueItem = mutation({
+  args: {
+    itemId: v.string(),
+    demoUserId: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
+    const existing = await findDecision(ctx, demoUserId, args.itemId);
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+    return { itemId: args.itemId, status: "open" };
+  },
+});

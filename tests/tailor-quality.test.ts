@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { renderResumeHtml } from "../lib/resume-html";
+import { textToPdf } from "../lib/pdf";
+import { extractPdfTextForEvidence } from "../lib/pdf-text";
 import { computeTailoringScore } from "../lib/tailor/score";
+import { resumeFallbackText } from "../lib/tailor/resume-fallback-text";
 import { normalizeResume, validateResumeQuality } from "../lib/tailor/tailor";
 import type { JobResearch, TailoredResume } from "../lib/tailor/types";
 import type { UserProfile } from "../lib/profile";
@@ -118,6 +121,7 @@ function goodResume(): TailoredResume {
   );
 }
 
+async function main() {
 const normalized = normalizeResume({ links: {}, tailoringNotes: {} }, profile);
 assert.equal(normalized.name, "Ada Lovelace");
 assert.equal(normalized.email, "ada@example.com");
@@ -170,6 +174,22 @@ assert.equal(html.includes("<h2>Summary</h2>"), false);
 assert.equal(html.includes("<h2>Why this role</h2>"), false);
 assert.equal(html.includes("Ignored in strict PDF rendering."), false);
 
+const fallbackText = resumeFallbackText(goodResume());
+assert.ok(fallbackText.includes("Ada Lovelace"));
+assert.ok(fallbackText.includes("ada@example.com"));
+assert.ok(fallbackText.includes("https://linkedin.com/in/ada"));
+assert.ok(fallbackText.includes("Analytical Engines"));
+assert.ok(fallbackText.includes("TypeScript"));
+
+const pdfBytes = textToPdf(fallbackText);
+assert.ok(Buffer.from(pdfBytes).toString("latin1").startsWith("%PDF"));
+assert.ok(pdfBytes.byteLength > 0);
+const pdfText = await extractPdfTextForEvidence(pdfBytes);
+assert.ok(pdfText.includes("Ada Lovelace"));
+assert.ok(pdfText.includes("ada@example.com"));
+assert.ok(pdfText.includes("TypeScript"));
+assert.ok(pdfText.includes("Analytical Engines"));
+
 const cleanScore = computeTailoringScore(goodResume(), research).score;
 const penalizedScore = computeTailoringScore(
   {
@@ -182,3 +202,10 @@ const penalizedScore = computeTailoringScore(
   research
 ).score;
 assert.ok(cleanScore > penalizedScore);
+console.log("Tailor quality tests passed");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

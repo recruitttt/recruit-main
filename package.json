@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "ingest:smoke": "tsx scripts/ingest-smoke.ts",
+    "e2e:prod-smoke": "tsx scripts/prod-e2e-smoke.ts",
+    "ats:download": "tsx scripts/ats-download.ts",
+    "ats:normalize": "tsx scripts/ats-normalize.ts",
+    "ats:benchmark": "tsx scripts/ats-benchmark.ts",
     "ci:quality": "npm run lint && npm run test:core && npm run test:api && npm run build",
     "test:core": "npm run test:profile && npm run test:ranking && npm run test:ats && npm run test:tailor && npm run test:followups && npm run test:ingestion && npm run test:ashby && npm run test:form-engine",
     "test:api": "tsx tests/api-contracts.test.ts",
@@ -18,7 +22,8 @@
     "test:form-engine": "tsx tests/form-engine.test.ts",
     "test:ranking": "tsx tests/job-ranking.test.ts",
     "test:ats": "tsx tests/ats-ingestion.test.ts",
-    "test:tailor": "tsx tests/tailor-quality.test.ts"
+    "test:tailor": "tsx tests/tailor-quality.test.ts",
+    "test:ats-benchmark": "tsx tests/ats-benchmark.test.ts"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.0",

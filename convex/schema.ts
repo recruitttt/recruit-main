@@ -75,6 +75,15 @@ export default defineSchema({
 
   ingestionRuns: defineTable({
     demoUserId: v.string(),
+    provider: v.optional(
+      v.union(
+        v.literal("ashby"),
+        v.literal("greenhouse"),
+        v.literal("lever"),
+        v.literal("workday"),
+        v.literal("workable")
+      )
+    ),
     status: v.union(
       v.literal("fetching"),
       v.literal("fetched"),

@@ -5,6 +5,7 @@ import { DEMO_PROFILE, isProfileUsable } from "@/lib/demo-profile";
 import type { UserProfile } from "@/lib/profile";
 import { htmlToPdf, textToPdf, toBase64 } from "@/lib/pdf";
 import { pickPageSize, renderResumeHtml } from "@/lib/resume-html";
+import { resumeFallbackText } from "@/lib/tailor/resume-fallback-text";
 import { researchJob } from "@/lib/tailor/research";
 import { computeTailoringScore } from "@/lib/tailor/score";
 import { tailorResume } from "@/lib/tailor/tailor";
@@ -138,37 +139,4 @@ async function markFailed(client: ConvexHttpClient, jobId: string, job: Job, err
 function pdfName(company: string): string {
   const safeCompany = company.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
   return `Resume_${safeCompany || "Tailored"}.pdf`;
-}
-
-function resumeFallbackText(resume: {
-  summary?: string;
-  skills?: string[];
-  experience?: Array<{
-    company?: string;
-    title?: string;
-    bullets?: string[];
-  }>;
-  projects?: Array<{
-    name?: string;
-    bullets?: string[];
-  }>;
-}): string {
-  return [
-    "Tailored Resume",
-    "",
-    resume.summary,
-    "",
-    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : undefined,
-    "",
-    ...(resume.experience ?? []).flatMap((item) => [
-      [item.title, item.company].filter(Boolean).join(" - "),
-      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
-      "",
-    ]),
-    ...(resume.projects ?? []).flatMap((item) => [
-      item.name,
-      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
-      "",
-    ]),
-  ].filter((line): line is string => typeof line === "string").join("\n");
 }
