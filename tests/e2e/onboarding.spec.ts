@@ -134,7 +134,7 @@ function stubLaunchPipeline(page: Page) {
  * progress label to appear.
  */
 async function waitForStep(page: Page, stepNumber: number) {
-  await expect(page.getByText(`Step ${stepNumber} of 5`)).toBeVisible({
+  await expect(page.getByText(`Step ${stepNumber} of 5`).first()).toBeVisible({
     timeout: 8_000,
   });
 }
@@ -296,7 +296,7 @@ test.describe("Onboarding: happy-path smoke", () => {
     await waitForStep(page, 5);
   });
 
-  test("step 5 (activate): 'Confirm and start' button is visible", async ({
+  test("step 5 (activate): 'Confirm and continue' button is visible", async ({
     page,
   }) => {
     // We need at least one role selected or the activate button is disabled.
@@ -305,34 +305,118 @@ test.describe("Onboarding: happy-path smoke", () => {
     await waitForStep(page, 5);
 
     await expect(
-      page.getByRole("button", { name: /Confirm and start/i }),
+      page.getByRole("button", { name: /Confirm and continue/i }),
     ).toBeVisible();
   });
 
-  test("step 5 (activate): clicking 'Confirm and start' calls launch-pipeline and triggers redirect", async ({
+  test("step 5 (activate): confirm does not collapse or reset the onboarding scroll area", async ({
     page,
   }) => {
-    await seedSession(page, { prefs: { roles: ["Software Engineer"], workAuth: "", location: "Remote" } });
-
-    let launchCalled = false;
-    await page.route("**/api/onboarding/launch-pipeline", (route) => {
-      launchCalled = true;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.unroute("**/api/auth/get-session");
+    await page.route("**/api/auth/get-session", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ ok: true, status: "started" }),
+        body: JSON.stringify(null),
       });
+    });
+    await seedSession(page, {
+      resumeFilename: "resume.pdf",
+      links: {
+        github: "https://github.com/test-user",
+        linkedin: "https://www.linkedin.com/in/test-user",
+        twitter: "",
+        devpost: "https://devpost.com/test-user",
+        website: "https://test-user.dev",
+      },
+      prefs: {
+        roles: ["Software Engineer", "Founding Engineer", "ML / AI"],
+        workAuth: "US citizen",
+        location: "Remote, San Francisco",
+      },
     });
 
     await page.goto("/onboarding?step=5");
     await waitForStep(page, 5);
+    await page.evaluate(() => {
+      const originalSetTimeout = window.setTimeout.bind(window) as Window["setTimeout"];
+      const acceleratedSetTimeout = (...args: Parameters<Window["setTimeout"]>) => {
+        const [handler, timeout, ...rest] = args;
+        return originalSetTimeout(
+          handler,
+          typeof timeout === "number" && timeout >= 700 ? 10_000 : timeout,
+          ...rest,
+        );
+      };
+      window.setTimeout = acceleratedSetTimeout as typeof window.setTimeout;
+    });
 
-    await page.getByRole("button", { name: /Confirm and start/i }).click();
+    const scrollArea = page.locator('section [class*="overflow-y-auto"]').first();
+    await scrollArea.evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    const confirmButton = page.getByRole("button", {
+      name: /Confirm and continue/i,
+    });
+    await expect(confirmButton).toBeVisible();
 
-    // After ~900 ms the page triggers SceneTransition which calls onComplete
-    // → router.push("/dashboard/room"). Wait for the navigation.
-    await page.waitForURL(/\/dashboard/, { timeout: 10_000 });
-    expect(launchCalled).toBe(true);
+    const before = await scrollArea.evaluate((node) => ({
+      scrollHeight: node.scrollHeight,
+      scrollTop: node.scrollTop,
+    }));
+
+    await confirmButton.click({ force: true });
+    await expect(
+      page.getByRole("status", { name: /Activating your squad/i }),
+    ).toBeVisible();
+    await page.waitForTimeout(400);
+
+    const after = await scrollArea.evaluate((node) => ({
+      scrollHeight: node.scrollHeight,
+      scrollTop: node.scrollTop,
+    }));
+
+    expect(after.scrollHeight).toBeGreaterThanOrEqual(before.scrollHeight - 24);
+    expect(after.scrollTop).toBeGreaterThanOrEqual(before.scrollTop - 8);
+  });
+
+  test("step 5 (activate): clicking confirm shows the Ready Room handoff", async ({
+    page,
+  }) => {
+    await page.unroute("**/api/auth/get-session");
+    await page.route("**/api/auth/get-session", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(null),
+      });
+    });
+    await seedSession(page, { prefs: { roles: ["Software Engineer"], workAuth: "", location: "Remote" } });
+
+    await page.goto("/onboarding?step=5");
+    await waitForStep(page, 5);
+    await page.evaluate(() => {
+      const originalSetTimeout = window.setTimeout.bind(window) as Window["setTimeout"];
+      const acceleratedSetTimeout = (...args: Parameters<Window["setTimeout"]>) => {
+        const [handler, timeout, ...rest] = args;
+        return originalSetTimeout(
+          handler,
+          typeof timeout === "number" && timeout >= 700 ? 10_000 : timeout,
+          ...rest,
+        );
+      };
+      window.setTimeout = acceleratedSetTimeout as typeof window.setTimeout;
+    });
+
+    await page.getByRole("button", { name: /Confirm and continue/i }).click();
+
+    await expect(
+      page.getByRole("status", { name: /Activating your squad/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Loading/i }),
+    ).toBeVisible();
   });
 });
 

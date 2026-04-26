@@ -37,15 +37,19 @@ export const disconnectSource = mutation({
     await requireOwner(ctx, args.userId);
 
     if (args.kind === "github") {
-      await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
-        input: {
-          model: "account",
-          where: [
-            { field: "userId", operator: "eq", value: args.userId },
-            { field: "providerId", operator: "eq", value: "github" },
-          ],
-        },
-      });
+      await ctx.runMutation(
+        (components.betterAuth.adapter as any).deleteMany,
+        {
+          input: {
+            model: "account",
+            where: [
+              { field: "userId", operator: "eq", value: args.userId },
+              { field: "providerId", operator: "eq", value: "github" },
+            ],
+          },
+          paginationOpts: { cursor: null, numItems: 1000 },
+        }
+      );
       await deleteByUser(ctx, "githubSnapshots", "by_user", args.userId);
       await deleteByUser(ctx, "repoSourceFiles", "by_user_repo", args.userId);
       await deleteByUser(ctx, "repoSummaries", "by_user_repo", args.userId);

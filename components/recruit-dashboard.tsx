@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { isProfileUsable } from "@/lib/demo-profile";
+import { resolveCompanyLogoAsset } from "@/lib/company-logos";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
 import { downloadPdf } from "@/lib/tailor/client";
@@ -59,6 +60,7 @@ import type {
 } from "@/components/dashboard/dashboard-types";
 
 type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | "error";
+type TemplateId = "minimalist" | "classic" | "compact";
 
 const FAST_INTERVAL_MS = 2500;
 const SLOW_INTERVAL_MS = 8000;
@@ -106,6 +108,7 @@ function ConnectedRecruitDashboard() {
   const [commandError, setCommandError] = useState<string | null>(null);
   const [commandResult, setCommandResult] = useState<DashboardCommandResult | null>(null);
   const [commandHistory, setCommandHistory] = useState<DashboardCommandHistory>(EMPTY_COMMAND_HISTORY);
+  const [templateId] = useState<TemplateId>("minimalist");
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
     message: "Select an application to inspect and tailor.",
@@ -500,7 +503,7 @@ function ConnectedRecruitDashboard() {
       const response = await fetch("/api/dashboard/tailor-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: selected.jobId, profile }),
+        body: JSON.stringify({ jobId: selected.jobId, profile, templateId }),
       });
       const body = await response.json().catch(() => null) as
         | { ok: true; application: TailoredApplication; profileSource?: "browser" | "demo" }
@@ -566,7 +569,7 @@ function ConnectedRecruitDashboard() {
     label: runButtonLabel(liveData?.run),
     message: runMessage ?? runGuardMessage(liveData?.run),
     error: runError ?? liveError,
-    onRunFirst3: () => void runFirstThreeSources(),
+    onRunPipeline: () => void runFirstThreeSources(),
   };
   const readyCount = boardRows.filter((row) => row.statusLabel === "Ready").length;
   const needsReviewCount = boardRows.filter((row) => row.statusLabel === "Needs review").length;
@@ -629,7 +632,7 @@ function ConnectedRecruitDashboard() {
 
           <ThinAction
             disabled={!controls.canRun || controls.busy}
-            onClick={controls.onRunFirst3}
+            onClick={controls.onRunPipeline}
             className="self-start border-[var(--dashboard-action-border)] text-[var(--dashboard-action-fg)] hover:border-[var(--color-fg)] hover:text-[var(--color-fg)] lg:self-end"
           >
             {controls.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -663,18 +666,20 @@ function ConnectedRecruitDashboard() {
         </div>
 
         <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:items-start">
-          <JobList
-            rows={animatedDisplayRows}
-            selectedJobId={selection.selectedJobId}
-            loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-            reduceMotion={Boolean(reduceMotion)}
-            sorting={listSorting || listSettling}
-            commandLabel={commandPatch ? commandResultTitle(commandPatch) : undefined}
-            highlightedJobIds={highlightedJobIds}
-            onSelect={selectRecommendation}
-          />
+          <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+            <JobList
+              rows={animatedDisplayRows}
+              selectedJobId={selection.selectedJobId}
+              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+              reduceMotion={Boolean(reduceMotion)}
+              sorting={listSorting || listSettling}
+              commandLabel={commandPatch ? commandResultTitle(commandPatch) : undefined}
+              highlightedJobIds={highlightedJobIds}
+              onSelect={selectRecommendation}
+            />
+          </div>
 
-          <aside className="lg:sticky lg:top-6">
+          <aside className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selected ? (
                 <JobStatsPanel
@@ -1358,7 +1363,7 @@ function CompanyLogo({
   organization?: OrganizationLogo | null;
   size?: "sm" | "md" | "lg";
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
   const brand = companyBrand(company, organization);
   const boxClass = {
     sm: "h-8 w-8",
@@ -1366,19 +1371,20 @@ function CompanyLogo({
     lg: "h-12 w-12",
   }[size];
   const textClass = size === "lg" ? "text-lg" : "text-sm";
+  const logoFailed = Boolean(brand.logoUrl && failedLogoUrl === brand.logoUrl);
 
   return (
     <div
       className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--dashboard-card-bg)] ring-1 ring-[var(--dashboard-card-border)]", boxClass)}
-      style={{ backgroundColor: failed ? brand.bg : undefined }}
+      style={{ backgroundColor: logoFailed ? brand.bg : undefined }}
     >
-      {!failed ? (
+      {brand.logoUrl && !logoFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={brand.logoUrl ?? `https://logo.clearbit.com/${brand.domain}`}
+          src={brand.logoUrl}
           alt={brand.logoAlt ?? `${company} logo`}
           className="h-[72%] w-[72%] object-contain"
-          onError={() => setFailed(true)}
+          onError={() => setFailedLogoUrl(brand.logoUrl ?? null)}
         />
       ) : (
         <span className={cn("font-semibold", textClass)} style={{ color: brand.color }}>
@@ -1680,133 +1686,36 @@ function sourceLabel(selected: LiveRecommendation, detail: JobDetail | null | un
 }
 
 function companyBrand(company: string, organization?: OrganizationLogo | null) {
+  const registered = resolveCompanyLogoAsset(organization?.company ?? company);
+
   if (organization) {
     return {
-      domain: organization.domain,
-      logoUrl: organization.logoUrl,
-      logoAlt: organization.logoAlt,
-      color: organization.brandColor ?? "#234B32",
-      bg: organization.backgroundColor ?? "#E8F2E2",
-      tag: organization.prestigeTag ?? "Prestige",
+      domain: organization.domain || registered?.domain || "",
+      logoUrl: organization.logoUrl || registered?.logoUrl,
+      logoAlt: organization.logoAlt || registered?.logoAlt,
+      color: organization.brandColor ?? registered?.brandColor ?? "#234B32",
+      bg: organization.backgroundColor ?? registered?.backgroundColor ?? "#E8F2E2",
+      tag: organization.prestigeTag ?? registered?.prestigeTag ?? "Prestige",
       initials: companyInitials(organization.company || company),
     };
   }
 
-  const normalized = company.trim().toLowerCase();
-  const known: Record<string, { domain: string; logoUrl?: string; logoAlt?: string; color: string; bg: string; tag: string; initials: string }> = {
-    "google deepmind": {
-      domain: "google.com",
-      logoUrl: "https://logo.clearbit.com/google.com",
-      logoAlt: "Google logo",
-      color: "#4285F4",
-      bg: "#EAF2FF",
-      tag: "AI Lab",
-      initials: "G",
-    },
-    apple: {
-      domain: "apple.com",
-      logoUrl: "https://logo.clearbit.com/apple.com",
-      logoAlt: "Apple logo",
-      color: "#111827",
-      bg: "#F2F4F7",
-      tag: "Platform",
-      initials: "A",
-    },
-    nvidia: {
-      domain: "nvidia.com",
-      logoUrl: "https://logo.clearbit.com/nvidia.com",
-      logoAlt: "NVIDIA logo",
-      color: "#76B900",
-      bg: "#EDF8DF",
-      tag: "AI Compute",
-      initials: "NV",
-    },
-    openai: {
-      domain: "openai.com",
-      logoUrl: "https://logo.clearbit.com/openai.com",
-      logoAlt: "OpenAI logo",
-      color: "#111827",
-      bg: "#ECEFED",
-      tag: "Frontier AI",
-      initials: "O",
-    },
-    meta: {
-      domain: "meta.com",
-      logoUrl: "https://logo.clearbit.com/meta.com",
-      logoAlt: "Meta logo",
-      color: "#0668E1",
-      bg: "#E8F1FF",
-      tag: "AI Platform",
-      initials: "M",
-    },
-    "microsoft ai": {
-      domain: "microsoft.com",
-      logoUrl: "https://logo.clearbit.com/microsoft.com",
-      logoAlt: "Microsoft logo",
-      color: "#5E5E5E",
-      bg: "#EEF2F6",
-      tag: "Copilot",
-      initials: "MS",
-    },
-    "amazon agi": {
-      domain: "amazon.com",
-      logoUrl: "https://logo.clearbit.com/amazon.com",
-      logoAlt: "Amazon logo",
-      color: "#FF9900",
-      bg: "#FFF4DF",
-      tag: "AGI",
-      initials: "AM",
-    },
-    anthropic: {
-      domain: "anthropic.com",
-      logoUrl: "https://logo.clearbit.com/anthropic.com",
-      logoAlt: "Anthropic logo",
-      color: "#CC785C",
-      bg: "#F5E9E2",
-      tag: "Safety Lab",
-      initials: "A",
-    },
-    tesla: {
-      domain: "tesla.com",
-      logoUrl: "https://logo.clearbit.com/tesla.com",
-      logoAlt: "Tesla logo",
-      color: "#E82127",
-      bg: "#FCEBEC",
-      tag: "Autonomy",
-      initials: "T",
-    },
-    cohere: {
-      domain: "cohere.com",
-      color: "#21473A",
-      bg: "#E4EFE8",
-      tag: "Frontier AI",
-      initials: "CO",
-    },
-    "aleph alpha": {
-      domain: "aleph-alpha.com",
-      color: "#1D3557",
-      bg: "#E6EDF4",
-      tag: "Sovereign AI",
-      initials: "AA",
-    },
-    "clay labs": {
-      domain: "clay.com",
-      color: "#5A3B1C",
-      bg: "#F0E7DB",
-      tag: "GTM AI",
-      initials: "CL",
-    },
-    causaly: {
-      domain: "causaly.com",
-      color: "#273F7A",
-      bg: "#E8ECF7",
-      tag: "Bio AI",
-      initials: "CA",
-    },
-  };
+  if (registered) {
+    return {
+      domain: registered.domain,
+      logoUrl: registered.logoUrl,
+      logoAlt: registered.logoAlt,
+      color: registered.brandColor,
+      bg: registered.backgroundColor,
+      tag: registered.prestigeTag,
+      initials: companyInitials(registered.company),
+    };
+  }
 
-  return known[normalized] ?? {
-    domain: `${normalized.replace(/[^a-z0-9]+/g, "")}.com`,
+  return {
+    domain: "",
+    logoUrl: undefined,
+    logoAlt: undefined,
     color: "#234B32",
     bg: "#E8F2E2",
     tag: "Priority",

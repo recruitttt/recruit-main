@@ -112,6 +112,10 @@ export function buildOAuthCompletionURL(origin: string, redirectPath: string) {
   return url.toString();
 }
 
+export function buildOAuthLinkCallbackURL(origin: string, redirectPath: string) {
+  return new URL(safeRedirectPath(redirectPath, DEFAULT_REDIRECT), origin).toString();
+}
+
 export function authSuccessRedirectPath(
   mode: AuthMode,
   raw: string | null | undefined
