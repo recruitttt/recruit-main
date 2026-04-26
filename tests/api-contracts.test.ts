@@ -221,7 +221,9 @@ await withEnvAsync({
     company?: string;
     title?: string;
     score?: number;
+    jobUrl?: string;
     organization?: { logoUrl?: string; prestigeTag?: string };
+    job?: { jobUrl?: string; applyUrl?: string };
   }>;
   const firstRecommendation = demoRecommendations[0];
   assert.ok(firstRecommendation?.jobId, "first demo recommendation should have a job id");
@@ -235,6 +237,9 @@ await withEnvAsync({
   );
   assert.equal(deepMindRecommendation?.organization?.logoUrl, "/company-logos/google-deepmind.png");
   assert.equal(deepMindRecommendation?.organization?.prestigeTag, "AI Lab");
+  assert.equal(deepMindRecommendation?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(deepMindRecommendation?.job?.jobUrl, "https://recruit-company-pages.vercel.app/google-deepmind");
+  assert.equal(deepMindRecommendation?.job?.applyUrl, "https://recruit-company-pages.vercel.app/google-deepmind?apply=1");
 
   const omDetailJson = await assertJsonResponse(
     await getJobDetail(new Request(`http://test.local/api/dashboard/job-detail?jobId=${firstRecommendation.jobId}`)),

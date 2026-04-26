@@ -6,6 +6,8 @@ export const metadata = {
 };
 
 export default function ThreeDPreviewPage() {
+  const convexConfigured = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL);
+
   return (
     <main className="min-h-screen bg-[#F2EEE5] px-4 py-4 md:px-6">
       <div className="mx-auto flex h-[calc(100vh-32px)] min-h-[560px] max-w-[1500px] flex-col">
@@ -18,7 +20,13 @@ export default function ThreeDPreviewPage() {
           </h1>
         </div>
         <div className="min-h-0 flex-1">
-          <RoomCanvasClient userId={null} />
+          {convexConfigured ? (
+            <RoomCanvasClient userId={null} />
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-3xl border border-[#D8D1C2] bg-white/70 p-8 text-center text-sm text-[#6B7A90]">
+              Set NEXT_PUBLIC_CONVEX_URL to preview the live 3D room.
+            </div>
+          )}
         </div>
       </div>
     </main>

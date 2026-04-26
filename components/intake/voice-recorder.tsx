@@ -101,53 +101,7 @@ export function VoiceRecorder({
     setPhase("idle");
   }, [stopMediaTracks, stopTimer]);
 
-  const start = useCallback(async () => {
-    setError(null);
-    setEvents([]);
-    setElapsedMs(0);
-    if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
-      setError("Microphone access isn't available in this browser.");
-      setPhase("error");
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mime = pickSupportedMime();
-      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      recorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        void uploadCurrent();
-      };
-      recorder.start();
-      startedAtRef.current = Date.now();
-      tickRef.current = setInterval(() => {
-        setElapsedMs(Date.now() - startedAtRef.current);
-      }, 200);
-      setPhase("recording");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not start recorder";
-      setError(msg);
-      setPhase("error");
-      stopMediaTracks();
-    }
-    // uploadCurrent is defined below; declared with useCallback that depends on
-    // the current closure's `extractTargets` and `onComplete`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopMediaTracks]);
-
-  const stop = useCallback(() => {
-    if (recorderRef.current && recorderRef.current.state !== "inactive") {
-      recorderRef.current.stop();
-    }
-    stopTimer();
-  }, [stopTimer]);
-
-  const uploadCurrent = useCallback(async () => {
+  async function uploadCurrent() {
     stopMediaTracks();
     const chunks = chunksRef.current;
     if (chunks.length === 0) {
@@ -216,7 +170,53 @@ export function VoiceRecorder({
       setError(msg);
       setPhase("error");
     }
-  }, [extractTargets, onComplete, stopMediaTracks]);
+  }
+
+  const start = useCallback(async () => {
+    setError(null);
+    setEvents([]);
+    setElapsedMs(0);
+    if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+      setError("Microphone access isn't available in this browser.");
+      setPhase("error");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = pickSupportedMime();
+      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        void uploadCurrent();
+      };
+      recorder.start();
+      startedAtRef.current = Date.now();
+      tickRef.current = setInterval(() => {
+        setElapsedMs(Date.now() - startedAtRef.current);
+      }, 200);
+      setPhase("recording");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not start recorder";
+      setError(msg);
+      setPhase("error");
+      stopMediaTracks();
+    }
+    // uploadCurrent is intentionally a local function so MediaRecorder.onstop
+    // can call the current render's extractor targets and completion handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopMediaTracks]);
+
+  const stop = useCallback(() => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    stopTimer();
+  }, [stopTimer]);
 
   const isBusy = phase === "recording" || phase === "uploading";
 

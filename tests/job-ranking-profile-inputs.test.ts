@@ -66,7 +66,7 @@ const assembledProfile = {
       },
     ],
   },
-} as UserProfile;
+} as unknown as UserProfile;
 
 const richAssembled = toRichRankingProfile(assembledProfile);
 assert.match(

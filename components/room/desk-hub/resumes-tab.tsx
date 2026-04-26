@@ -16,8 +16,8 @@ type TailoredAppRow = {
 
 export function ResumesTab({ userId }: Props) {
   const apps = useQuery(
-    api.tailoredApplications.listForUser,
-    userId ? { userId, limit: 25 } : "skip",
+    (api as unknown as { tailoredApplications?: { listForUser?: unknown } }).tailoredApplications?.listForUser as never,
+    (userId ? { userId, limit: 25 } : "skip") as never,
   ) as TailoredAppRow[] | undefined;
 
   if (!userId) return <div className="text-gray-500">Sign in.</div>;

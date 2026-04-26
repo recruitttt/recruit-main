@@ -30,6 +30,7 @@ import {
 } from "@/components/dashboard/leaderboard-helpers";
 import { IntakeProgressBanner } from "@/components/dashboard/intake-progress-banner";
 import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
+import { ApplyHub } from "@/components/dashboard/apply-hub";
 import { AnimatedNumber, AnimatedProgressBar } from "@/components/dashboard/metric-animation";
 import { useRankedListMotion } from "@/components/dashboard/ranked-list-motion";
 import {
@@ -708,6 +709,25 @@ function ConnectedRecruitDashboard() {
               />
             ) : null}
           </AnimatePresence>
+        </div>
+
+        <div className="mb-6">
+          <ApplyHub
+            rows={displayRows}
+            selected={selected}
+            selectedJobId={selection.selectedJobId}
+            tailoredResume={
+              selected?.jobId && viewerPdfBase64
+                ? {
+                    jobId: selected.jobId,
+                    filename: pdfState.filename ?? `Resume_${selected.company.replace(/[^a-z0-9]+/gi, "-") || "Tailored"}.pdf`,
+                    base64: viewerPdfBase64,
+                    byteLength: jobDetail?.tailoredApplication?.pdfByteLength,
+                    source: "convex",
+                  }
+                : null
+            }
+          />
         </div>
 
         <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)] lg:items-start">

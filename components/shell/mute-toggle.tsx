@@ -14,11 +14,9 @@ import { ActionButton } from "@/components/design-system";
 import { isMuted, setMuted, subscribeMuted } from "@/lib/sounds";
 
 export function MuteToggle({ className = "" }: { className?: string }) {
-  const [muted, setMutedState] = useState(false);
+  const [muted, setMutedState] = useState(() => isMuted());
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    setMutedState(isMuted());
     return subscribeMuted((next) => setMutedState(next));
   }, []);
 
