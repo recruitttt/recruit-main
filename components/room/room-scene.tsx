@@ -13,6 +13,7 @@ import { RoomFurniture } from "./room-furniture";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
+import { JobConveyor } from "./job-conveyor";
 
 export type RoomSceneProps = {
   introPhase?: RoomIntroPhase;
@@ -56,6 +57,7 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         <RoomFloor />
         <RoomFurniture />
         <RoomStations />
+        <JobConveyor />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
         {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows

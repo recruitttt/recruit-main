@@ -7,6 +7,11 @@ import { RoundedBox } from "@react-three/drei";
 import { STATIONS } from "@/lib/room/stations";
 import { InteractiveHotspot } from "./interactive-hotspot";
 import { useRoomStore } from "./room-store";
+import {
+  CalendarPin,
+  SubmitLaunch,
+  TailoringCraft,
+} from "./station-effects";
 
 function StationHoverRing({ stationKey, accent }: { stationKey: string; accent: string }) {
   const hoveredKey = useRoomStore((s) => s.hoveredObjectKey);
@@ -30,6 +35,9 @@ export function RoomStations() {
       <ReviewPanel />
       <SubmitTerminal />
       <CalendarDesk />
+      <TailoringCraft />
+      <SubmitLaunch />
+      <CalendarPin />
     </group>
   );
 }
