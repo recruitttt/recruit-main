@@ -216,6 +216,11 @@ function main() {
   );
   assert.match(authModule, /disconnectGithub/);
   assert.match(authModule, /findGithubAccounts/);
+  assert.equal(
+    /findMany,[\s\S]{0,120}input:\s*{\s*model:\s*"account"/.test(authModule),
+    false,
+    "Better Auth adapter.findMany expects model at the top level"
+  );
   assert.match(authModule, /components\.betterAuth\.adapter as any\)\.deleteMany/);
 
   const sourceConnections = readFileSync(
@@ -229,7 +234,22 @@ function main() {
     "utf8"
   );
   assert.match(authGithub, /findMany/);
+  assert.equal(
+    /findMany,[\s\S]{0,120}input:\s*{\s*model:\s*"account"/.test(authGithub),
+    false,
+    "GitHub token lookup must call adapter.findMany with top-level model"
+  );
   assert.match(authGithub, /find\(\s*\(row\)/);
+
+  const authAdmin = readFileSync(
+    new URL("../convex/authAdmin.ts", import.meta.url),
+    "utf8"
+  );
+  assert.equal(
+    /findMany,[\s\S]{0,120}input:\s*{\s*model:\s*"jwks"/.test(authAdmin),
+    false,
+    "Better Auth admin diagnostics must call adapter.findMany with top-level model"
+  );
 }
 
 main();
