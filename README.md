@@ -1,33 +1,129 @@
-# Recruit — Autonomous job-application agent
+# Recruit
 
-Unified profile inference engine + onboarding flow for job seekers. Merges data from GitHub, LinkedIn, résumé, and user input via a pluggable intake adapter contract. Real-time progress streaming to the dashboard.
+### AI agents for the job hunt.
 
-## What's new
+Recruit is an autonomous job-application system for turning one candidate
+profile into a supervised application pipeline: enrich the profile, discover
+roles, rank fit, tailor the resume, fill application forms where safe, and stop
+when the answer requires human truth.
 
-The codebase recently absorbed the **gh-applicant** project, adding a real Convex backend with six intake adapters (GitHub, LinkedIn, Resume, Web, Chat). See [specs/2026-04-25-recruit-merge-design.md](docs/superpowers/specs/2026-04-25-recruit-merge-design.md) for the architecture.
+![Recruit brand cover](public/readme/brand-cover.png)
 
-## Routes
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind%20CSS-v4-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Convex](https://img.shields.io/badge/Convex-Realtime%20Backend-orange?style=for-the-badge)](https://www.convex.dev)
+[![OpenAI](https://img.shields.io/badge/OpenAI-Agent%20Reasoning-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Profile%20Intake-191919?style=for-the-badge)](https://www.anthropic.com)
+[![Better Auth](https://img.shields.io/badge/Better%20Auth-Auth-black?style=for-the-badge)](https://www.better-auth.com)
+[![Three.js](https://img.shields.io/badge/Three.js-Agent%20Room-black?style=for-the-badge&logo=three.js)](https://threejs.org)
+[![Ashby](https://img.shields.io/badge/Ashby-ATS%20Automation-2D6CDF?style=for-the-badge)](#provider-status)
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Landing page — hero, live agent ticker, demo dashboard preview |
-| `/onboarding` | 6-step intake flow: role → resume → links → email → connect → prefs |
-| `/profile?view=data\|graph` | Dual-view dashboard: data grid (7 sections, 8 live subscriptions) or knowledge graph |
-| `/sign-in`, `/sign-up` | Auth flows with GitHub OAuth + email/password |
-| `/pricing` | Pricing tiers (Free/Standard/Pro mockup) |
-| `/api/intake/linkedin` | LinkedIn scraping via Browserbase + Playwright (SSE streaming) |
+## Demo
 
-## Stack
+These clips are regenerated from the Remotion demo assets. They show the
+intended loop without performing a real ATS submit.
 
-- **Framework**: Next.js 16 (App Router, Turbopack, TypeScript)
-- **Database**: Convex (real-time DB + better-auth with GitHub OAuth)
-- **Auth**: better-auth 1.x (email/password + GitHub OAuth `read:user user:email read:org`; account linking enabled)
-- **UI**: React 19, Tailwind v4, motion (Framer Motion successor), lucide-react
-- **Data ingest**: Octokit REST + GraphQL, Browserbase + playwright-core, Anthropic AI SDK v6 (Claude Haiku/Sonnet)
-- **Scraping**: Browserbase sessions for LinkedIn, per-session PIN file in `/tmp`, encrypted cookies (AES-256-GCM)
-- **Fonts**: Inter (UI), Instrument Serif (hero), JetBrains Mono (metrics)
+| Discover | Tailor | Apply |
+| :---: | :---: | :---: |
+| ![Discover and rank jobs](public/readme/discover.gif) | ![Tailor a resume](public/readme/tailor.gif) | ![Fill an application](public/readme/apply.gif) |
+| Ingest jobs and rank the best fits. | Research the role and produce a tailored PDF. | Map ATS questions and stop before unsafe guesses. |
 
-## Local dev
+## Architecture
+
+The diagrams below are static architecture references for the current system.
+They replace the earlier Mermaid sketches so the README matches the project
+architecture artifacts directly.
+
+### Platform Architecture
+
+![Recruit platform architecture](public/readme/architecture-platform.png)
+
+### Automation Pipeline
+
+![Recruit automation pipeline](public/readme/architecture-pipeline.png)
+
+### Provider And Function Call Map
+
+![Recruit provider and function call map](public/readme/architecture-providers.png)
+
+## Why It Exists
+
+Job applications are repetitive, lossy, and easy to abandon. A useful agent
+cannot guess its way through employment history, work authorization, legal
+questions, compensation expectations, or demographic fields.
+
+Recruit is built around a supervised loop:
+
+- One profile becomes reusable job-search memory.
+- Intake adapters enrich the profile from resume, GitHub, LinkedIn, web links,
+  and chat.
+- Jobs are ingested and ranked before time is spent tailoring.
+- Resume tailoring is checked against the candidate profile to avoid invented
+  employers, skills, projects, or degrees.
+- ATS answers are mapped from safe profile facts, approved cached answers, and
+  explicit human review.
+- Sensitive or unknown answers go to the review queue instead of being guessed.
+
+## What It Does
+
+| Surface | Purpose |
+| --- | --- |
+| `/` | Product overview and animated landing surface. |
+| `/onboarding` | Five-step profile intake: account, resume, connected sources, preferences, activation. |
+| `/profile?view=data\|graph` | Candidate profile dashboard with data and graph views. |
+| `/dashboard` | Command center for ingestion, ranking, tailoring, artifacts, and follow-ups. |
+| `/3d` | 3D room view of the parallel agent squad. |
+| `/dlq` | Human review queue for questions the agent will not answer on its own. |
+| `/pricing` | Test or mock checkout surface for plan selection. |
+| `/settings` | Browser-side profile and preference management. |
+
+## How The Agents Fill Applications
+
+The agents are parallel workers, not narrow specialists. Each one can run the
+full application loop for one target: source the role, inspect fit, tailor
+artifacts, map form answers, stage submission evidence, and report back.
+
+The fill policy is intentionally conservative:
+
+- Safe profile facts can be filled from the candidate profile.
+- Approved cached answers can be reused when the prompt and scope match.
+- LLM drafts are allowed only for appropriate custom narrative fields.
+- Work authorization, sponsorship, compensation, legal, demographic, and unknown
+  required fields go to DLQ or human review.
+- Ashby is the live form-fill path today. Greenhouse, Lever, Workday, and job
+  board integrations remain ingestion or preview paths unless verified for fill.
+- Final submit is gated. Dry runs and staged evidence are the default posture.
+
+## Provider Status
+
+| Provider | Current role | Status |
+| --- | --- | --- |
+| Ashby | Job ingestion, direct application URLs, form fill/stage, evidence capture | Live primary path |
+| GitHub | OAuth, profile enrichment, repository/activity intake | Live intake path |
+| LinkedIn | Browserbase-assisted profile intake | Preview path |
+| Greenhouse | Public job ingestion | Preview |
+| Lever | Public job ingestion and benchmark work | Preview |
+| Workday | Report-feed ingestion with configured credentials | Preview |
+| Stripe | Test-mode or mock checkout | Demo billing surface |
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+| --- | --- | --- |
+| App | Next.js 16, React 19, TypeScript | App Router UI, route handlers, auth-gated app shell. |
+| Styling | Tailwind CSS v4, local design-system components, lucide-react | Dashboard UI, controls, status badges, icons. |
+| Motion and 3D | motion, Three.js, React Three Fiber, Drei, Zustand | Onboarding animation and 3D agent room. |
+| Backend | Convex, Convex HTTP client | Pipeline state, actions, scheduling, artifacts, DLQ, follow-ups. |
+| Auth | Better Auth, `@convex-dev/better-auth` | Email/GitHub auth and Convex session propagation. |
+| AI | OpenAI, Anthropic AI SDK, MiniSearch | Profile extraction, ranking support, research, tailoring, answer drafts. |
+| Intake | Octokit, Browserbase, Playwright Core, resume parsing | GitHub, LinkedIn, resume, web, and chat enrichment. |
+| ATS automation | Puppeteer-compatible page layer, Ashby adapter, form engine | Form discovery, answer mapping, safety checks, staged evidence. |
+| Documents | PDF rendering helpers, `unpdf`, `pdfjs-dist` | Resume parsing and tailored PDF artifacts. |
+| Deployment | Vercel-compatible Next.js runtime | App hosting and route execution. |
+
+## Local Development
 
 ```bash
 npm install
@@ -35,92 +131,48 @@ npm run dev
 # open http://localhost:3000
 ```
 
-## Required environment variables
+Useful optional environment variables:
+
+| Capability | Variables |
+| --- | --- |
+| Convex app data | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_DEPLOYMENT` |
+| Better Auth | `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, `ADDITIONAL_TRUSTED_ORIGINS` |
+| GitHub intake | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_OWNER` |
+| AI paths | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAILOR_MODEL`, `OPENAI_RANKING_MODEL`, `OPENAI_ASHBY_FILL_MODEL`, `RESEARCH_MODEL` |
+| LinkedIn/browser intake | `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `COOKIE_ENCRYPTION_KEY` |
+| Scraping fallbacks | `FIRECRAWL_API_KEY`, `PROXYCURL_API_KEY` |
+| Checkout | `STRIPE_SECRET_KEY`, `STRIPE_CHECKOUT_MOCK`, `NEXT_PUBLIC_APP_URL` |
+| Browser/PDF runtime | `LOCAL_CHROME_PATH`, `LOCAL_CHROME_HEADLESS`, `LOCAL_CHROME_USER_DATA_DIR`, `CHROMIUM_PACK_URL` |
+
+Do not commit `.env*`, local auth files, API keys, browser profiles, or generated
+production evidence.
+
+## Validation
 
 ```bash
-# Convex
-NEXT_PUBLIC_CONVEX_URL=https://...
-NEXT_PUBLIC_CONVEX_SITE_URL=https://...
-CONVEX_DEPLOYMENT=prod
-
-# Auth
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-BETTER_AUTH_SECRET=...
-NEXT_PUBLIC_SITE_URL=https://your-app.example.com  # production fallback
-ADDITIONAL_TRUSTED_ORIGINS=                       # optional previews, comma-separated
-
-# AI
-ANTHROPIC_API_KEY=...
-
-# LinkedIn scraping
-BROWSERBASE_API_KEY=...
-BROWSERBASE_PROJECT_ID=...
-COOKIE_ENCRYPTION_KEY=...  # 32-byte hex for AES-256-GCM
-
-# Optional
-NEXT_PUBLIC_GITHUB_OWNER=...  # For private repo scraping
+npm run lint
+npm run test:core
+npm run test:api
+npm run build
 ```
 
-## Convex env setup
-
-Set secrets in the Convex deployment:
+The combined quality gate is:
 
 ```bash
-npx convex env set GITHUB_CLIENT_ID <id>
-npx convex env set GITHUB_CLIENT_SECRET <secret>
-npx convex env set SITE_URL <https://your-app.example.com>
-npx convex env set ANTHROPIC_API_KEY <key>
+npm run ci:quality
 ```
 
-LinkedIn scraping runs in the Next.js route, not Convex, so configure
-`BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `LINKEDIN_EMAIL`, and
-`LINKEDIN_PASSWORD` in the Next/Vercel runtime environment.
+Production-like smoke testing lives in
+[`PRODUCTION_E2E_TEST_PROMPT.md`](PRODUCTION_E2E_TEST_PROMPT.md). That runbook
+keeps ATS submit dry-run by default and requires an explicit test-only submit
+gate before any real final submit.
 
-## GitHub OAuth callback
+## Roadmap
 
-Register this URL with GitHub as your authorized callback:
-
-```
-https://<NEXT_PUBLIC_CONVEX_SITE_URL>/api/auth/callback/github
-```
-
-The app always asks GitHub to return to the Convex callback URL, then exchanges a one-time token through `/api/auth/complete-oauth` so cookies are set on the active app origin (`localhost`, production, or an allowed preview). Keep the GitHub OAuth app callback pointed at the Convex URL above; add any non-local preview hosts to `ADDITIONAL_TRUSTED_ORIGINS`.
-
-The `session.create.after` hook auto-fires a GitHub intake run (deduped, allows retry on failed status).
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ UI Layer (React components + Convex subscriptions)      │
-├─────────────────────────────────────────────────────────┤
-│ Intake Adapters (GitHub, LinkedIn, Resume, Web, Chat)   │
-│ Implement IntakeAdapter<TInput> → AsyncIterable<Event>  │
-├─────────────────────────────────────────────────────────┤
-│ runIntake driver (merges patches + persists events)     │
-├─────────────────────────────────────────────────────────┤
-│ Convex Tables:                                          │
-│  • userProfiles (canonical blob + provenance log)       │
-│  • intakeRuns (live event stream per adapter)           │
-│  • githubSnapshots, repoSummaries, repoSourceFiles      │
-│  • linkedinSnapshots, linkedinCookies (encrypted)       │
-│  • experienceSummaries, aiReports                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Data flow**: Each adapter yields `IntakeProgressEvent` (stage, message, patch, provenance, data). The `runIntake` driver iterates the adapter, persists sanitized events to `intakeRuns` for UI streaming, and merges `patch` fields into the canonical `userProfiles` doc. Provenance is tracked per field path to support multi-source disambiguation.
-
-## Adding a new intake adapter
-
-1. Create a new module in `lib/intake/<source>/`
-2. Implement `IntakeAdapter<TInput>` from `lib/intake/shared/types.ts`:
-   - `name: IntakeAdapterName` — the adapter's kind (e.g., `"github"`)
-   - `run(input, ctx)` — async generator yielding `IntakeProgressEvent`s
-3. Yield events with `stage`, `message`, optional `done`/`total`, `patch` (partial profile update), `provenance` (field-path → source), and structured `data` (for UI)
-4. Call `ctx.runMutation`/`ctx.runQuery` to interact with Convex (never write directly)
-5. Register the adapter in the driver (see `lib/intake/runIntake.ts`)
-
-**Example**: GitHub adapter pre-fetches repo source files via Octokit (40 files / 250 KB per repo), generates Haiku summaries per repo (cached by tree-SHA), and yields events for each stage (fetch, summarize, persist).
-
-LinkedIn scraping runs as a Next.js API route (`app/api/intake/linkedin/route.ts`) because Convex's Node bundler cannot analyze playwright-core. It streams SSE events and persists the same `intakeRuns` table.
+- Keep Ashby as the primary verified fill provider.
+- Promote Greenhouse, Lever, Workday, and other ATS paths from preview to
+  verified fill only after targeted provider evidence exists.
+- Expand DLQ approval UX and answer-cache auditing.
+- Add hosted demo links and fresh README media after each major demo pass.
+- Continue tightening resume-quality checks around fabricated or unsupported
+  claims.

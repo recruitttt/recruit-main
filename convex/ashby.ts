@@ -73,10 +73,7 @@ export const startOnboardingPipeline = mutation({
   args: {
     demoUserId: v.optional(v.string()),
     profile: v.any(),
-    mode: v.optional(v.union(v.literal("ashby"), v.literal("mixed"))),
     limitSources: v.optional(v.number()),
-    targetJobs: v.optional(v.number()),
-    maxJobs: v.optional(v.number()),
     tailorLimit: v.optional(v.number()),
   },
   returns: v.object({
@@ -88,10 +85,7 @@ export const startOnboardingPipeline = mutation({
   handler: async (ctx, args) => {
     const demoUserId = await scopedDemoUserId(ctx, args.demoUserId);
     const now = new Date().toISOString();
-    const mode = args.mode ?? "ashby";
     const limitSources = args.limitSources ?? 3;
-    const targetJobs = args.targetJobs ?? 150;
-    const maxJobs = args.maxJobs ?? 175;
     const tailorLimit = args.tailorLimit ?? 3;
     const profile = normalizeConvexObjectKeys(args.profile);
     const existing = await ctx.db
@@ -111,10 +105,10 @@ export const startOnboardingPipeline = mutation({
 
     const runId = await ctx.db.insert("ingestionRuns", {
       demoUserId,
-      provider: mode === "mixed" ? "mixed" : "ashby",
+      provider: "ashby",
       status: "fetching",
       startedAt: now,
-      sourceCount: mode === "mixed" ? 0 : limitSources,
+      sourceCount: limitSources,
       fetchedCount: 0,
       rawJobCount: 0,
       filteredCount: 0,
@@ -139,18 +133,15 @@ export const startOnboardingPipeline = mutation({
       runId,
       stage: "queue",
       level: "info",
-      message: `Started async ${mode} onboarding pipeline. Tailoring top ${tailorLimit} jobs in the background.`,
-      payload: { mode, limitSources, targetJobs, maxJobs, tailorLimit },
+      message: `Started async onboarding pipeline. Tailoring top ${tailorLimit} jobs in the background.`,
+      payload: { limitSources, tailorLimit },
       createdAt: now,
     });
 
     await ctx.scheduler.runAfter(0, anyApi.ashbyActions.runOnboardingPipeline, {
       demoUserId,
       runId,
-      mode,
       limitSources,
-      targetJobs,
-      maxJobs,
       tailorLimit,
     });
 
@@ -924,7 +915,6 @@ export const createIngestionRun = internalMutation({
         v.literal("ashby"),
         v.literal("greenhouse"),
         v.literal("lever"),
-        v.literal("mixed"),
         v.literal("workday"),
         v.literal("workable")
       )
@@ -1495,7 +1485,7 @@ export const markRunFailed = internalMutation({
   },
 });
 
-type RunProvider = "ashby" | "greenhouse" | "lever" | "mixed" | "workday" | "workable";
+type RunProvider = "ashby" | "greenhouse" | "lever" | "workday" | "workable";
 
 const DASHBOARD_STALE_RUN_MS = 20 * 60 * 1000;
 
@@ -1519,12 +1509,11 @@ async function preferredDashboardRun(ctx: any, demoUserId: string) {
   }
 
   const latest = classified[0];
-  const latestMixed = classified.find((item) => item.provider === "mixed");
   const latestCompletedAshby = classified.find((item) =>
     item.provider === "ashby" && item.run.status === "completed"
   );
   const latestAshby = classified.find((item) => item.provider === "ashby");
-  const selected = latestMixed ?? latestCompletedAshby ?? latestAshby ?? latest;
+  const selected = latestCompletedAshby ?? latestAshby ?? latest;
 
   return {
     run: selected.run,
@@ -1565,7 +1554,7 @@ async function inferRunProvider(ctx: any, run: any): Promise<RunProvider | undef
 
 function isRunProvider(value: unknown): value is RunProvider {
   return typeof value === "string" &&
-    ["ashby", "greenhouse", "lever", "mixed", "workday", "workable"].includes(value);
+    ["ashby", "greenhouse", "lever", "workday", "workable"].includes(value);
 }
 
 function decorateRunForDashboard(run: any, provider: RunProvider | undefined) {
