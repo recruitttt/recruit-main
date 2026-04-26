@@ -345,34 +345,6 @@ function OnboardingChatContent() {
     });
   }, [githubConnected, githubRun, runGithubIntake, userId]);
 
-  // GitHub OAuth fast-path: when the user lands on step 3 with a github run
-  // already populated, the actual GitHub account is linked, and the run did
-  // not fail, auto-skip Connect and advance straight to Preferences. A stale
-  // historical run without a live account token no longer counts as connected.
-  useEffect(() => {
-    if (step !== "connect") return;
-    if (!githubConnected || !githubRun || githubRun.status === "failed") return;
-    // Defer one tick so the chat thread reads naturally; the user sees the
-    // "Connect" prompt briefly before the auto-advance.
-    const id = window.setTimeout(() => {
-      setStep("prefs");
-      setMessages((current) => [
-        ...current,
-        {
-          id: `u-auto-${current.length}-connect`,
-          kind: "user",
-          text: "GitHub already connected — skipping ahead",
-        },
-        {
-          id: `a-auto-${current.length + 1}-prefs`,
-          kind: "agent",
-          text: STEP_PROMPTS.prefs,
-        },
-      ]);
-    }, 1200);
-    return () => window.clearTimeout(id);
-  }, [step, githubConnected, githubRun]);
-
   // ---------------------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------------------
