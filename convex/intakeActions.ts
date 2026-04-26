@@ -56,7 +56,22 @@ export const runGithubIntake = action({
         { userId: args.userId, kind: "github" }
       )) as { _id?: string; status?: string; events?: unknown[] } | null;
 
-      if (existingRun && existingRun.status !== "failed") {
+      if (
+        existingRun?.status === "queued" ||
+        existingRun?.status === "running"
+      ) {
+        return {
+          runId: String(existingRun._id ?? ""),
+          events: Array.isArray(existingRun.events) ? existingRun.events.length : 0,
+        };
+      }
+
+      const hasGitHubSnapshot = Boolean(
+        await ctx.runQuery(anyApi.githubSnapshots.latestForUserInternal, {
+          userId: args.userId,
+        })
+      );
+      if (existingRun && existingRun.status !== "failed" && hasGitHubSnapshot) {
         return {
           runId: String(existingRun._id ?? ""),
           events: Array.isArray(existingRun.events) ? existingRun.events.length : 0,
@@ -89,9 +104,7 @@ function resolveAICredentials(): AICredentials {
   if (gateway) return { source: "gateway", apiKey: gateway };
   const anthropic = process.env.ANTHROPIC_API_KEY;
   if (anthropic) return { source: "anthropic", apiKey: anthropic };
-  throw new Error(
-    "No AI credentials configured. Set ANTHROPIC_API_KEY or AI_GATEWAY_API_KEY in the Convex deployment.",
-  );
+  return { source: "anthropic", apiKey: "" };
 }
 
 // ---------------------------------------------------------------------------

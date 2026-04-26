@@ -69,6 +69,9 @@ export interface SourceStatus {
 export interface IntakeStatusPanelProps {
   snapshot: ReadonlyArray<SourceStatus>;
   onRetry?: (kind: IntakeKind) => void;
+  onConfigure?: (kind: IntakeKind) => void;
+  onDisconnect?: (kind: IntakeKind) => void;
+  disconnecting?: IntakeKind | null;
 }
 
 interface SourceMeta {
@@ -119,6 +122,9 @@ const SOURCE_BY_KIND: Record<IntakeKind, SourceMeta> = READY_SOURCES.reduce(
 export function IntakeStatusPanel({
   snapshot,
   onRetry,
+  onConfigure,
+  onDisconnect,
+  disconnecting,
 }: IntakeStatusPanelProps): React.ReactElement {
   const ready = snapshot.filter((s) => s.status === "complete").length;
   const counted = snapshot.filter((s) => s.status !== "skipped").length;
@@ -141,6 +147,9 @@ export function IntakeStatusPanel({
               meta={meta}
               entry={entry}
               onRetry={onRetry}
+              onConfigure={onConfigure}
+              onDisconnect={onDisconnect}
+              disconnecting={disconnecting === entry.kind}
             />
           );
         })}
@@ -153,12 +162,20 @@ function SourceCard({
   meta,
   entry,
   onRetry,
+  onConfigure,
+  onDisconnect,
+  disconnecting,
 }: {
   meta: SourceMeta;
   entry: SourceStatus;
   onRetry?: (kind: IntakeKind) => void;
+  onConfigure?: (kind: IntakeKind) => void;
+  onDisconnect?: (kind: IntakeKind) => void;
+  disconnecting?: boolean;
 }): React.ReactElement {
   const Icon = meta.icon;
+  const configurable = entry.kind !== "chat";
+  const canDisconnect = configurable && entry.status !== "skipped";
   return (
     <motion.div
       layout
@@ -187,15 +204,41 @@ function SourceCard({
           {entry.caption}
         </p>
       </div>
-      {entry.status === "failed" && onRetry && (
-        <ActionButton
-          variant="secondary"
-          size="sm"
-          onClick={() => onRetry(meta.kind)}
-          aria-label={`Retry ${meta.name}`}
-        >
-          <RefreshCw className="h-3 w-3" /> Retry
-        </ActionButton>
+      {configurable && (
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          {entry.status === "failed" && onRetry && (
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              onClick={() => onRetry(meta.kind)}
+              aria-label={`Retry ${meta.name}`}
+            >
+              <RefreshCw className="h-3 w-3" /> Retry
+            </ActionButton>
+          )}
+          {onConfigure && (
+            <ActionButton
+              variant={entry.status === "skipped" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => onConfigure(meta.kind)}
+              aria-label={`Configure ${meta.name}`}
+            >
+              Configure
+            </ActionButton>
+          )}
+          {canDisconnect && onDisconnect && (
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              loading={disconnecting}
+              disabled={disconnecting}
+              onClick={() => onDisconnect(meta.kind)}
+              aria-label={`Disconnect ${meta.name}`}
+            >
+              Disconnect
+            </ActionButton>
+          )}
+        </div>
       )}
     </motion.div>
   );

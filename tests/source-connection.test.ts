@@ -47,6 +47,30 @@ function main() {
   );
   assert.equal(
     shouldAutoStartGithubIntake({
+      connected: true,
+      run: { status: "completed" },
+      hasImportedGithub: false,
+    }),
+    true
+  );
+  assert.equal(
+    shouldAutoStartGithubIntake({
+      connected: true,
+      run: { status: "completed" },
+      hasImportedGithub: true,
+    }),
+    false
+  );
+  assert.equal(
+    shouldAutoStartGithubIntake({
+      connected: true,
+      run: { status: "running" },
+      hasImportedGithub: false,
+    }),
+    false
+  );
+  assert.equal(
+    shouldAutoStartGithubIntake({
       connected: false,
       run: null,
     }),
@@ -135,6 +159,48 @@ function main() {
   const profilePage = readFileSync(profilePageUrl, "utf8");
   assert.match(profilePage, /<Topnav \/>/);
   assert.match(profilePage, /not hidden by the onboarding cookie/);
+
+  const readyRoom = readFileSync(
+    new URL("../app/(app)/ready/_client.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(readyRoom, /handleConfigureSource/);
+  assert.match(readyRoom, /handleDisconnectSource/);
+  assert.match(readyRoom, /api\.sourceConnections\.disconnectSource/);
+
+  const readyStatus = readFileSync(
+    new URL("../components/ready/intake-status.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(readyStatus, /Configure/);
+  assert.match(readyStatus, /Disconnect/);
+
+  const githubAdapter = readFileSync(
+    new URL("../lib/intake/github/adapter.ts", import.meta.url),
+    "utf8"
+  );
+  const mapperIndex = githubAdapter.indexOf('stage: "mapper"');
+  const reportIndex = githubAdapter.indexOf("runReport({");
+  assert.ok(mapperIndex > -1, "GitHub adapter yields a mapper patch");
+  assert.ok(reportIndex > -1, "GitHub adapter still attempts repo summaries");
+  assert.ok(
+    mapperIndex < reportIndex,
+    "GitHub profile patch is emitted before optional AI repo summaries"
+  );
+  assert.match(githubAdapter, /GitHub repo summaries skipped/);
+
+  const intakeActions = readFileSync(
+    new URL("../convex/intakeActions.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(intakeActions, /hasGitHubSnapshot/);
+
+  const authModule = readFileSync(
+    new URL("../convex/auth.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(authModule, /disconnectGithub/);
+  assert.match(authModule, /components\.betterAuth\.adapter\.deleteOne/);
 }
 
 main();

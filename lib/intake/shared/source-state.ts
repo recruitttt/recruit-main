@@ -1,6 +1,6 @@
 export type SourceRunLike = {
   status?: string | null;
-} | null;
+} | null | undefined;
 
 export type SourceConnectionStatus =
   | "loading"
@@ -34,11 +34,18 @@ export function isGithubConnected(connection: GithubConnectionLike): boolean {
 export function shouldAutoStartGithubIntake({
   connected,
   run,
+  hasImportedGithub,
 }: {
   connected: boolean;
   run: SourceRunLike;
+  hasImportedGithub?: boolean;
 }): boolean {
-  return connected && !run;
+  if (!connected) return false;
+  if (!run) return true;
+  if (isActiveSourceRun(run)) return false;
+  if (run.status === "failed") return true;
+  if (run.status === "completed" && hasImportedGithub === false) return true;
+  return false;
 }
 
 export function getSourceConnectionStatus({

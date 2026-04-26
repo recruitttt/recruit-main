@@ -2,7 +2,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
-import { anyApi, queryGeneric } from "convex/server";
+import { anyApi, mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
@@ -14,6 +14,7 @@ import {
 } from "../lib/auth-origin";
 
 const query = queryGeneric;
+const mutation = mutationGeneric;
 
 export const authComponent = createClient<DataModel>(
   (components as { betterAuth: Parameters<typeof createClient<DataModel>>[0] })
@@ -88,6 +89,23 @@ export const connectedAccounts = query({
           : {}),
       },
     };
+  },
+});
+
+export const disconnectGithub = mutation({
+  args: { userId: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
+    return await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+      input: {
+        model: "account",
+        where: [
+          { field: "userId", operator: "eq", value: args.userId },
+          { field: "providerId", operator: "eq", value: "github" },
+        ],
+      },
+    });
   },
 });
 
@@ -204,14 +222,27 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
               );
               if (!githubAccount) return;
 
-              // De-dupe: only skip when a prior github intake run exists AND
-              // it did not fail. A failed run should be retryable on next
-              // sign-in, so we let the scheduler fire again in that case.
+              // De-dupe: running/queued imports stay untouched. Completed
+              // rows only count when a GitHub snapshot exists; earlier broken
+              // flows could create a terminal run without importing the
+              // account, and those must be retried on the next GitHub sign-in.
               const existingRun = (await ctx.runQuery(
                 anyApi.intakeRuns.latestForUserKindInternal,
                 { userId, kind: "github" }
               )) as { status?: string } | null;
-              if (existingRun && existingRun.status !== "failed") return;
+              if (
+                existingRun?.status === "queued" ||
+                existingRun?.status === "running"
+              ) {
+                return;
+              }
+              if (existingRun && existingRun.status !== "failed") {
+                const snapshot = await ctx.runQuery(
+                  anyApi.githubSnapshots.latestForUserInternal,
+                  { userId }
+                );
+                if (snapshot) return;
+              }
 
               // TODO Phase 4 wire-up — `runGithubIntake` is created by
               // subagent C. Reference via anyApi so we don't depend on the

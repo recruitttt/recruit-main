@@ -12,8 +12,9 @@
 // ship — see comments in convex/intakeActions.ts).
 //
 
-import { useCallback, useMemo, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "motion/react";
 
 import { api } from "@/convex/_generated/api";
@@ -21,7 +22,11 @@ import {
   cx,
   mistClasses,
 } from "@/components/design-system";
-import { isGithubConnected } from "@/lib/intake/shared/source-state";
+import { authClient } from "@/lib/auth-client";
+import {
+  isGithubConnected,
+  shouldAutoStartGithubIntake,
+} from "@/lib/intake/shared/source-state";
 import { logProfileEvent } from "@/lib/profile";
 import {
   buildSnapshot,
@@ -41,6 +46,8 @@ export function ReadyRoom({
   userId,
   fallbackName,
 }: ReadyRoomProps): React.ReactElement {
+  const router = useRouter();
+  const githubAutoStartRef = useRef<string | null>(null);
   const githubRun = useQuery(api.intakeRuns.byUserKind, {
     userId,
     kind: "github",
@@ -70,16 +77,49 @@ export function ReadyRoom({
   const accountConnections = useQuery(api.auth.connectedAccounts, {
     userId,
   });
+  const githubSnapshot = useQuery(api.githubSnapshots.latest, {
+    userId,
+  });
 
   const profile = profileRow?.profile;
   const githubConnected = isGithubConnected(accountConnections);
+  const hasImportedGithub = Boolean(githubSnapshot);
+
+  const runGithubIntake = useAction(api.intakeActions.runGithubIntake);
+  const runWebIntake = useAction(api.intakeActions.runWebIntake);
+  const disconnectSource = useMutation(api.sourceConnections.disconnectSource);
+  const [retrying, setRetrying] = useState<IntakeKind | null>(null);
+  const [disconnecting, setDisconnecting] = useState<IntakeKind | null>(null);
+
+  useEffect(() => {
+    if (
+      !shouldAutoStartGithubIntake({
+        connected: githubConnected,
+        run: githubRun,
+        hasImportedGithub,
+      })
+    ) {
+      return;
+    }
+
+    const key = `${userId}:github:${hasImportedGithub ? "imported" : "missing"}`;
+    if (githubAutoStartRef.current === key) return;
+    githubAutoStartRef.current = key;
+
+    void runGithubIntake({ userId }).catch((err) => {
+      githubAutoStartRef.current = null;
+      logProfileEvent("github", "GitHub intake failed to start", "error", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, [githubConnected, githubRun, hasImportedGithub, runGithubIntake, userId]);
 
   // Whether the user actually attempted each source. A source they never
   // linked renders as `Skipped` rather than indefinite `Pending`.
   const attempted: Record<IntakeKind, boolean> = useMemo(() => {
     const links = profile?.links ?? {};
     return {
-      github: githubConnected || Boolean(links.github),
+      github: githubConnected || Boolean(links.github) || hasImportedGithub,
       linkedin: Boolean(links.linkedin?.trim()),
       resume: Boolean(profile?.resume?.filename?.trim()),
       web: Boolean(links.website?.trim() || links.devpost?.trim()),
@@ -87,7 +127,7 @@ export function ReadyRoom({
       // so it shows `Pending` (not `Skipped`) until the first answer lands.
       chat: true,
     };
-  }, [profile, githubConnected]);
+  }, [profile, githubConnected, hasImportedGithub]);
 
   const snapshot = useMemo(
     () =>
@@ -107,10 +147,6 @@ export function ReadyRoom({
   // ---------------------------------------------------------------------------
   // Retry handlers
   // ---------------------------------------------------------------------------
-
-  const runGithubIntake = useAction(api.intakeActions.runGithubIntake);
-  const runWebIntake = useAction(api.intakeActions.runWebIntake);
-  const [retrying, setRetrying] = useState<IntakeKind | null>(null);
 
   const handleRetry = useCallback(
     async (kind: IntakeKind) => {
@@ -168,6 +204,67 @@ export function ReadyRoom({
     [retrying, githubConnected, profile, runGithubIntake, runWebIntake, userId],
   );
 
+  const handleConfigureSource = useCallback(
+    async (kind: IntakeKind) => {
+      if (kind === "github") {
+        try {
+          await authClient.linkSocial({
+            provider: "github",
+            callbackURL: new URL("/ready", window.location.origin).toString(),
+            errorCallbackURL: new URL(
+              "/ready?github_error=oauth",
+              window.location.origin
+            ).toString(),
+          });
+        } catch (err) {
+          logProfileEvent("github", "GitHub reconnect failed to start", "error", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+        return;
+      }
+
+      if (kind === "resume") {
+        router.push("/onboarding?step=2");
+        return;
+      }
+
+      if (kind === "linkedin" || kind === "web") {
+        router.push("/onboarding?step=3");
+      }
+    },
+    [router],
+  );
+
+  const handleDisconnectSource = useCallback(
+    async (kind: IntakeKind) => {
+      if (kind === "chat" || disconnecting) return;
+      const confirmed = window.confirm(
+        `Disconnect ${kind}? This removes the saved connection and clears its intake status.`
+      );
+      if (!confirmed) return;
+      setDisconnecting(kind);
+      try {
+        await disconnectSource({ userId, kind });
+        logProfileEvent(
+          kind === "github" ? "github" : kind === "linkedin" ? "linkedin" : "chat",
+          `Disconnected ${kind}`,
+          "success",
+        );
+      } catch (err) {
+        logProfileEvent(
+          kind === "github" ? "github" : kind === "linkedin" ? "linkedin" : "chat",
+          `Disconnect of ${kind} failed`,
+          "error",
+          { message: err instanceof Error ? err.message : String(err) },
+        );
+      } finally {
+        setDisconnecting(null);
+      }
+    },
+    [disconnectSource, disconnecting, userId],
+  );
+
   // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
@@ -213,6 +310,9 @@ export function ReadyRoom({
         <IntakeStatusPanel
           snapshot={snapshot}
           onRetry={(kind) => void handleRetry(kind)}
+          onConfigure={(kind) => void handleConfigureSource(kind)}
+          onDisconnect={(kind) => void handleDisconnectSource(kind)}
+          disconnecting={disconnecting}
         />
 
         <EnrichmentChat userId={userId} />
