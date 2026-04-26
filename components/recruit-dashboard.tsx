@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";
+import { track } from "@vercel/analytics";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -323,6 +324,7 @@ function ConnectedRecruitDashboard() {
 
   async function runFirstThreeSources() {
     if (busy || !canStartRun(liveData?.run)) return;
+    track("pipeline_run_clicked", { source: "dashboard" });
 
     try {
       setRunError(undefined);
@@ -483,6 +485,12 @@ function ConnectedRecruitDashboard() {
     setTailorState({
       running: false,
       message: "Inspect the role, then tailor this job when ready.",
+    });
+    track("recommendation_selected", {
+      jobId: recommendation.jobId,
+      company: recommendation.company,
+      rank: recommendation.rank,
+      score: recommendation.score,
     });
   }
 
@@ -690,9 +698,25 @@ function ConnectedRecruitDashboard() {
                   tailorState={tailorState}
                   pdf={pdfState}
                   transition={calmTransition}
-                  onTailor={() => void tailorSelectedJob()}
-                  onOpenPdf={() => setPdfViewerOpen(true)}
-                  onDownload={downloadTailoredPdf}
+                  onTailor={() => {
+                    track("tailor_job_clicked", {
+                      jobId: selected.jobId ?? "unknown",
+                      company: selected.company,
+                    });
+                    void tailorSelectedJob();
+                  }}
+                  onOpenPdf={() => {
+                    track("tailored_pdf_opened", {
+                      jobId: selected.jobId ?? "unknown",
+                    });
+                    setPdfViewerOpen(true);
+                  }}
+                  onDownload={() => {
+                    track("tailored_pdf_downloaded", {
+                      jobId: selected.jobId ?? "unknown",
+                    });
+                    downloadTailoredPdf();
+                  }}
                   onClear={() => setSelectedJobId(null)}
                 />
               ) : (

@@ -1,3 +1,4 @@
+import { track } from "@vercel/analytics/server";
 import { getConvexClient } from "@/lib/convex-http";
 import type { UserProfile } from "@/lib/profile";
 import { tailorPersistedJob } from "@/lib/tailor/persisted-job";
@@ -38,8 +39,14 @@ export async function POST(req: Request) {
     pageSize: body.pageSize,
   });
   if (!result.ok) {
+    await track("tailor_job_failed", { jobId, reason: result.reason }).catch(() => {});
     return Response.json({ ok: false, reason: result.reason }, { status: result.status });
   }
+
+  await track("tailor_job_completed", {
+    jobId,
+    profileSource: result.profileSource ?? "unknown",
+  }).catch(() => {});
 
   return Response.json({
     ok: true,

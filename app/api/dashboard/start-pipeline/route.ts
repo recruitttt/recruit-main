@@ -1,4 +1,5 @@
 import { makeFunctionReference } from "convex/server";
+import { track } from "@vercel/analytics/server";
 
 import { getConvexClient } from "@/lib/convex-http";
 
@@ -44,13 +45,22 @@ export async function POST(request: Request) {
       tailorLimit: 3,
     }) as { runId?: string; status?: "started" };
 
+    await track("pipeline_run_started", {
+      runId: started.runId ?? "unknown",
+      mode: "mixed",
+      targetJobs: 150,
+      tailorLimit: 3,
+    }).catch(() => {});
+
     return Response.json({
       ok: true,
       runId: started.runId,
       status: "started",
     });
   } catch (err) {
-    return jsonError(err instanceof Error ? err.message : String(err), 500);
+    const message = err instanceof Error ? err.message : String(err);
+    await track("pipeline_run_failed", { reason: message }).catch(() => {});
+    return jsonError(message, 500);
   }
 }
 

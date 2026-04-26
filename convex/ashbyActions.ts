@@ -15,6 +15,7 @@ import {
   type RankingProfile,
 } from "../lib/job-ranking";
 import { toRichRankingProfile, type RepoSummaryDigest } from "../lib/intake/shared/toRankingProfile";
+import { resolveOpenAiAuth, withOpenAiModelPrefix } from "../lib/llm-routing";
 import {
   fetchJsonWithRetry,
   extractWorkableJobs,
@@ -1932,9 +1933,9 @@ async function scoreCandidatesWithLlm(
   profile: RankingProfile,
   candidates: Candidate[]
 ): Promise<{ mode: string; model?: string; scores: LlmScore[] }> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const auth = resolveOpenAiAuth(process.env.OPENAI_API_KEY);
   const model = process.env.OPENAI_RANKING_MODEL ?? "gpt-4o-mini";
-  if (!apiKey || candidates.length === 0) {
+  if (!auth.apiKey || candidates.length === 0) {
     return {
       mode: "heuristic_fallback",
       model,
@@ -1961,15 +1962,15 @@ async function scoreCandidatesWithLlm(
   let res: Response;
   try {
     res = await fetchWithTimeout(
-      "https://api.openai.com/v1/chat/completions",
+      `${auth.baseUrl}/chat/completions`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${auth.apiKey}`,
         },
         body: JSON.stringify({
-          model,
+          model: withOpenAiModelPrefix(model, auth),
           temperature: 0,
           response_format: { type: "json_object" },
           messages: [
