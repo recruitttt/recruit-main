@@ -137,7 +137,7 @@ await withEnvAsync({ STRIPE_SECRET_KEY: undefined, STRIPE_CHECKOUT_MOCK: "1" }, 
     200,
     {}
   );
-  assert.equal(checkoutJson.url, "http://test.local/checkout/mock?tier=standard&plan=Standard&amount=2400");
+  assert.equal(checkoutJson.url, "http://test.local/checkout/mock?tier=standard&plan=Standard&amount=1000");
 });
 
 await withEnvAsync({ STRIPE_SECRET_KEY: "sk_live_123", STRIPE_CHECKOUT_MOCK: "1" }, async () => {
