@@ -331,4 +331,103 @@ export default defineSchema({
   })
     .index("by_run", ["runId", "createdAt"])
     .index("by_demo_user", ["demoUserId", "createdAt"]),
+
+  // ---------------------------------------------------------------------------
+  // Intake tables (gh-applicant merge — see specs/2026-04-25-recruit-merge-design.md §4)
+  // All keyed by userId (better-auth user id).
+  // ---------------------------------------------------------------------------
+
+  // Canonical UserProfile blob (lib/profile.ts shape) plus provenance + log.
+  userProfiles: defineTable({
+    userId: v.string(),
+    profile: v.any(),
+    provenance: v.record(v.string(), v.string()),
+    log: v.array(v.any()),
+    updatedAt: isoString,
+  }).index("by_user", ["userId"]),
+
+  // Latest raw GitHub snapshot (RawGithubSnapshot — excludes per-repo source files).
+  githubSnapshots: defineTable({
+    userId: v.string(),
+    fetchedAt: isoString,
+    raw: v.any(),
+  }).index("by_user", ["userId"]),
+
+  // Bulk pre-fetched repo source files (sharded out to avoid 1MB doc limit).
+  repoSourceFiles: defineTable({
+    userId: v.string(),
+    repoFullName: v.string(),
+    files: v.array(v.any()),
+    fetchedAt: isoString,
+  }).index("by_user_repo", ["userId", "repoFullName"]),
+
+  // Per-repo Haiku summaries with content-hash cache invalidation.
+  repoSummaries: defineTable({
+    userId: v.string(),
+    repoFullName: v.string(),
+    sourceContentHash: v.string(),
+    summary: v.any(),
+    generatedByModel: v.string(),
+    generatedAt: isoString,
+  }).index("by_user_repo", ["userId", "repoFullName"]),
+
+  // Latest LinkedIn snapshot (raw scrape result + main profile URL).
+  linkedinSnapshots: defineTable({
+    userId: v.string(),
+    fetchedAt: isoString,
+    profileUrl: v.string(),
+    raw: v.any(),
+  }).index("by_user", ["userId"]),
+
+  // LinkedIn auth cookies for re-runs (see TODO in convex/linkedinCookies.ts re: encryption).
+  linkedinCookies: defineTable({
+    userId: v.string(),
+    liAt: v.string(),
+    jsessionId: v.optional(v.string()),
+    capturedAt: isoString,
+    expiresAt: v.optional(isoString),
+  }).index("by_user", ["userId"]),
+
+  // Per-experience Haiku summaries (LinkedIn experience entries).
+  experienceSummaries: defineTable({
+    userId: v.string(),
+    experienceKey: v.string(),
+    sourceContentHash: v.string(),
+    summary: v.any(),
+    generatedByModel: v.string(),
+    generatedAt: isoString,
+  }).index("by_user_exp", ["userId", "experienceKey"]),
+
+  // Sonnet consolidated AI report (one per user, replaces on regeneration).
+  aiReports: defineTable({
+    userId: v.string(),
+    report: v.any(),
+    generatedByModel: v.string(),
+    generatedAt: isoString,
+  }).index("by_user", ["userId"]),
+
+  // Live progress stream for every adapter run (UI subscribes for real-time events).
+  intakeRuns: defineTable({
+    userId: v.string(),
+    kind: v.union(
+      v.literal("github"),
+      v.literal("linkedin"),
+      v.literal("resume"),
+      v.literal("web"),
+      v.literal("chat"),
+      v.literal("ai-report")
+    ),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    events: v.array(v.any()),
+    startedAt: isoString,
+    completedAt: v.optional(isoString),
+    error: v.optional(v.string()),
+  })
+    .index("by_user_kind", ["userId", "kind"])
+    .index("by_user_status", ["userId", "status"]),
 });
