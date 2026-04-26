@@ -201,6 +201,10 @@ export const runApplicationJob = action({
         browserbaseEnabled: isBrowserbaseConfigured(),
         browserbaseCaptchaSolving: isBrowserbaseCaptchaSolvingEnabled(),
       });
+
+      await page.goto(normalizedUrl, { waitUntil: "networkidle2", timeout: 30_000 }).catch(() => {});
+      await captureAndStoreScreenshot(ctx, page, args.jobId, "page_loaded");
+
       await checkpoint(ctx, args.jobId, "fill_started", "fill_in_progress", {
         llmMode: jobInput.llmMode,
         repairLimit: jobInput.repairLimit,
@@ -220,6 +224,7 @@ export const runApplicationJob = action({
       });
       const raw = automation.rawResult as any;
 
+      await captureAndStoreScreenshot(ctx, page, args.jobId, "form_discovered");
       await checkpoint(ctx, args.jobId, "form_discovered", "form_discovered", {
         questionCount: automation.formIR.questions.length,
         controlCount: automation.formIR.controls.length,
@@ -229,6 +234,7 @@ export const runApplicationJob = action({
         mappedCount: raw?.plan?.mapping_decisions?.filter((decision: any) => decision.canonical_key).length ?? null,
         pendingReviewCount: raw?.plan?.pending_review?.length ?? null,
       });
+      await captureAndStoreScreenshot(ctx, page, args.jobId, "fields_filled");
       await checkpoint(ctx, args.jobId, "fields_verified", "filled_verified", {
         fillOperationCount: raw?.fillOperations?.length ?? null,
         blockerCount: raw?.blockers?.length ?? null,
@@ -308,6 +314,27 @@ async function checkpoint(
     status,
     payload: toConvexValue(payload ?? {}),
   });
+}
+
+async function captureAndStoreScreenshot(
+  ctx: any,
+  page: any,
+  jobId: string,
+  label: string
+): Promise<void> {
+  if (!page?.screenshot) return;
+  try {
+    const raw = await page.screenshot({ fullPage: true, encoding: "base64" });
+    const base64 = typeof raw === "string" ? raw : Buffer.from(raw).toString("base64");
+    if (!base64) return;
+    await ctx.runMutation(anyApi.applicationJobs.recordApplicationEvidence, {
+      jobId,
+      kind: "live_screenshot",
+      payload: { label, pngBase64: base64 },
+    });
+  } catch {
+    // Screenshot capture is best-effort — never block the fill flow.
+  }
 }
 
 async function finalize(

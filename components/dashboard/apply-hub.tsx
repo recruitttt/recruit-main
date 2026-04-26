@@ -193,6 +193,37 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
     };
   }, [run?.id, run?.remoteRunId]);
 
+  // Screenshot poller for the Convex engine path. When the recruit2 SSE
+  // stream isn't providing screenshots (Convex-based runs), poll the
+  // latest captured screenshot from Convex evidence for the active job.
+  React.useEffect(() => {
+    if (!run?.id || !selectedLiveJob?.id) return;
+    // If we already have a screenshot via SSE, skip polling.
+    if (selectedLiveJob.screenshotPng || selectedLiveJob.annotatedScreenshotPng) return;
+    if (focusedShot?.jobId === selectedLiveJob.id) return;
+
+    let cancelled = false;
+    async function pollScreenshot() {
+      if (cancelled || !run?.id || !selectedLiveJob?.id) return;
+      try {
+        const response = await fetch(
+          `/api/applications/runs/${encodeURIComponent(run!.id)}/jobs/${encodeURIComponent(selectedLiveJob!.id)}/screenshot`,
+          { cache: "no-store" },
+        );
+        if (!response.ok || cancelled) return;
+        const body = await response.json() as { ok: boolean; screenshotPng?: string };
+        if (body.ok && body.screenshotPng && !cancelled) {
+          setFocusedShot({ jobId: selectedLiveJob!.id, png: body.screenshotPng });
+        }
+      } catch {
+        // Best-effort polling.
+      }
+    }
+    void pollScreenshot();
+    const timer = window.setInterval(() => void pollScreenshot(), 3000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [run?.id, selectedLiveJob?.id, selectedLiveJob?.screenshotPng, selectedLiveJob?.annotatedScreenshotPng, focusedShot?.jobId]);
+
   async function startBatch() {
     if (pending || plannedCount === 0) return;
     setPending(true);

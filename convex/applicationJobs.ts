@@ -323,6 +323,26 @@ export const listJobEvidence = query({
       .collect(),
 });
 
+export const getLatestScreenshot = query({
+  args: { jobId: v.id("applicationJobs") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("applicationJobEvidence")
+      .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("kind"), "live_screenshot"))
+      .first();
+    if (!row) return null;
+    const payload = row.payload as { label?: string; pngBase64?: string } | undefined;
+    return {
+      label: payload?.label ?? "screenshot",
+      pngBase64: payload?.pngBase64 ?? null,
+      createdAt: row.createdAt,
+    };
+  },
+});
+
 export const getApplicationJobForAction = internalQuery({
   args: { jobId: v.id("applicationJobs") },
   returns: v.any(),
