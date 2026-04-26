@@ -209,6 +209,212 @@ export default defineSchema({
     .index("by_job", ["jobId"])
     .index("by_run", ["runId"]),
 
+  ashbyFormFillRuns: defineTable({
+    demoUserId: v.string(),
+    jobId: v.optional(v.id("ingestedJobs")),
+    targetUrl: v.string(),
+    finalUrl: v.optional(v.string()),
+    organizationSlug: v.optional(v.string()),
+    status: v.union(
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    outcome: v.optional(
+      v.union(
+        v.literal("confirmed"),
+        v.literal("rejected_validation"),
+        v.literal("rejected_spam"),
+        v.literal("ambiguous"),
+        v.literal("unsupported_gate"),
+        v.literal("blocked_before_submit")
+      )
+    ),
+    submitAttempted: v.boolean(),
+    submitCompleted: v.boolean(),
+    profileIdentity: v.any(),
+    runGrade: v.optional(v.any()),
+    evidence: v.optional(v.any()),
+    error: v.optional(v.string()),
+    startedAt: isoString,
+    completedAt: v.optional(isoString),
+    updatedAt: isoString,
+  })
+    .index("by_demo_user_started", ["demoUserId", "startedAt"])
+    .index("by_job", ["jobId"])
+    .index("by_status", ["status"]),
+
+  ashbyPromptAliases: defineTable({
+    demoUserId: v.optional(v.string()),
+    provider: v.literal("ashby"),
+    scopeKind: v.union(v.literal("global"), v.literal("organization")),
+    scopeValue: v.string(),
+    promptHash: v.string(),
+    normalizedPrompt: v.string(),
+    controlKind: v.string(),
+    optionSignature: v.optional(v.string()),
+    canonicalKey: v.string(),
+    confidence: v.union(
+      v.literal("exact"),
+      v.literal("strong"),
+      v.literal("weak"),
+      v.literal("none")
+    ),
+    source: v.string(),
+    approved: v.boolean(),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_lookup", [
+      "provider",
+      "scopeKind",
+      "scopeValue",
+      "promptHash",
+    ])
+    .index("by_scope", ["provider", "scopeKind", "scopeValue"]),
+
+  ashbyApprovedAnswers: defineTable({
+    demoUserId: v.string(),
+    provider: v.literal("ashby"),
+    scopeKind: v.union(v.literal("global"), v.literal("organization")),
+    scopeValue: v.string(),
+    canonicalKey: v.string(),
+    promptHash: v.optional(v.string()),
+    answerValue: v.string(),
+    answerKind: v.union(
+      v.literal("text"),
+      v.literal("choice"),
+      v.literal("file")
+    ),
+    source: v.string(),
+    approved: v.boolean(),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_demo_user_scope", [
+      "demoUserId",
+      "provider",
+      "scopeKind",
+      "scopeValue",
+    ])
+    .index("by_demo_user_key", ["demoUserId", "provider", "canonicalKey"]),
+
+  ashbyPendingReviews: defineTable({
+    demoUserId: v.string(),
+    runId: v.id("ashbyFormFillRuns"),
+    organizationSlug: v.optional(v.string()),
+    promptHash: v.string(),
+    questionText: v.string(),
+    normalizedPrompt: v.string(),
+    controlKind: v.string(),
+    widgetFamily: v.string(),
+    canonicalKeyCandidate: v.optional(v.string()),
+    answerCandidate: v.optional(v.string()),
+    reason: v.string(),
+    payload: v.any(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("dismissed")
+    ),
+    createdAt: isoString,
+    updatedAt: isoString,
+  })
+    .index("by_demo_user_status", ["demoUserId", "status"])
+    .index("by_run", ["runId"]),
+
+  ashbyTargetHistory: defineTable({
+    demoUserId: v.string(),
+    provider: v.literal("ashby"),
+    organizationSlug: v.string(),
+    targetUrl: v.string(),
+    lastStatus: v.union(
+      v.literal("submitted"),
+      v.literal("spam_flagged"),
+      v.literal("rejected"),
+      v.literal("blocked"),
+      v.literal("ambiguous")
+    ),
+    spamFlagged: v.boolean(),
+    lastRunId: v.id("ashbyFormFillRuns"),
+    lastRunAt: isoString,
+    artifactSummary: v.optional(v.any()),
+  })
+    .index("by_target", ["demoUserId", "provider", "targetUrl"])
+    .index("by_demo_user", ["demoUserId", "lastRunAt"]),
+
+  applicationJobs: defineTable({
+    demoUserId: v.string(),
+    profileId: v.optional(v.string()),
+    jobId: v.optional(v.id("ingestedJobs")),
+    targetUrl: v.string(),
+    canonicalTargetUrl: v.string(),
+    providerHint: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    company: v.optional(v.string()),
+    title: v.optional(v.string()),
+    submitPolicy: v.union(v.literal("dry_run"), v.literal("submit")),
+    llmMode: v.union(
+      v.literal("off"),
+      v.literal("review_only"),
+      v.literal("best_effort")
+    ),
+    repairLimit: v.number(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("claimed"),
+      v.literal("browser_started"),
+      v.literal("form_discovered"),
+      v.literal("answers_resolved"),
+      v.literal("fill_in_progress"),
+      v.literal("filled_verified"),
+      v.literal("waiting_for_user_input"),
+      v.literal("submit_attempted"),
+      v.literal("submitted_confirmed"),
+      v.literal("submitted_probable"),
+      v.literal("failed_repairable"),
+      v.literal("failed_user_input_required"),
+      v.literal("failed_unsupported_widget"),
+      v.literal("failed_auth_required"),
+      v.literal("failed_captcha_or_bot_challenge"),
+      v.literal("failed_browser_crash"),
+      v.literal("failed_network"),
+      v.literal("duplicate_or_already_applied"),
+      v.literal("archived")
+    ),
+    attemptCount: v.number(),
+    repairAttemptCount: v.number(),
+    idempotencyKey: v.string(),
+    lockOwner: v.optional(v.string()),
+    lockExpiresAt: v.optional(isoString),
+    lastCheckpoint: v.optional(v.string()),
+    finalOutcome: v.optional(v.any()),
+    evidenceSummary: v.optional(v.any()),
+    error: v.optional(v.string()),
+    createdAt: isoString,
+    updatedAt: isoString,
+    completedAt: v.optional(isoString),
+  })
+    .index("by_status", ["status", "updatedAt"])
+    .index("by_demo_user_status", ["demoUserId", "status", "updatedAt"])
+    .index("by_idempotency", ["idempotencyKey"])
+    .index("by_lock", ["lockOwner", "lockExpiresAt"]),
+
+  applicationJobCheckpoints: defineTable({
+    jobId: v.id("applicationJobs"),
+    status: v.string(),
+    checkpoint: v.string(),
+    payload: v.optional(v.any()),
+    createdAt: isoString,
+  }).index("by_job", ["jobId", "createdAt"]),
+
+  applicationJobEvidence: defineTable({
+    jobId: v.id("applicationJobs"),
+    kind: v.string(),
+    payload: v.any(),
+    createdAt: isoString,
+  }).index("by_job", ["jobId", "createdAt"]),
+
   applications: defineTable({
     demoUserId: v.string(),
     jobId: v.optional(v.id("ingestedJobs")),
