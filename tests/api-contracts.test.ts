@@ -4,7 +4,6 @@ import { GET as getCheckoutConfig, POST as postCheckout } from "../app/api/check
 import { POST as postResearchJob } from "../app/api/research/job/route";
 import { POST as postTailorJob } from "../app/api/tailor/job/route";
 import { POST as postParseResume } from "../app/api/parse/resume/route";
-import { GET as getDashboardLive } from "../app/api/dashboard/live/route";
 import { POST as postRunFirst3 } from "../app/api/dashboard/run-first-3/route";
 import { POST as postStartPipeline } from "../app/api/dashboard/start-pipeline/route";
 import {
