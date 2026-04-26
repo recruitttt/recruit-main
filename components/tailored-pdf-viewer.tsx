@@ -32,7 +32,7 @@ export function TailoredPdfViewer({
   sizeKb,
   pdfBase64,
 }: TailoredPdfViewerProps) {
-  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
 
   const blobUrl = useMemo(() => {
     if (!open || !pdfBase64) return null;
@@ -46,10 +46,7 @@ export function TailoredPdfViewer({
   }, [blobUrl]);
 
   useEffect(() => {
-    if (!open) {
-      setIframeLoaded(false);
-      return;
-    }
+    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
@@ -69,6 +66,7 @@ export function TailoredPdfViewer({
     ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(jobId)}`
     : null;
   const src = blobUrl ?? apiUrl;
+  const iframeLoaded = Boolean(src) && loadedSrc === src;
   const displayName = filename ?? "Tailored resume.pdf";
 
   function handleDownload() {
@@ -156,7 +154,7 @@ export function TailoredPdfViewer({
                   src={src}
                   title={displayName}
                   className="h-full w-full border-0"
-                  onLoad={() => setIframeLoaded(true)}
+                  onLoad={() => setLoadedSrc(src)}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm text-[var(--color-fg-muted)]">

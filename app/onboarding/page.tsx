@@ -144,7 +144,7 @@ function OnboardingChatContent() {
   }, []);
 
   useEffect(() => {
-    router.prefetch("/dashboard/room");
+    router.prefetch("/3d");
   }, [router]);
 
   useEffect(() => {

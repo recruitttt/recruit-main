@@ -7,10 +7,8 @@ import { Mark } from "@/components/ui/logo";
 import { cx, mistClasses, StatusBadge } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
 import {
-  Box,
   ChevronDown,
   CreditCard,
-  LayoutGrid,
   LogIn,
   LogOut,
   Menu,
@@ -26,8 +24,6 @@ export function Topnav() {
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const showRoomToggle =
-    pathname === "/dashboard" || pathname === "/dashboard/room";
   const initials = useMemo(() => {
     const name = user?.name || user?.email || "";
     const parts = name
@@ -110,38 +106,6 @@ export function Topnav() {
             );
           })}
         </nav>
-
-        {showRoomToggle && (
-          <div className="hidden items-center gap-0.5 rounded-full border border-white/55 bg-white/24 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] lg:flex">
-            <Link
-              href="/dashboard"
-              className={cx(
-                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold transition",
-                pathname === "/dashboard"
-                  ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                  : "text-slate-500 hover:bg-white/34 hover:text-slate-800",
-              )}
-            >
-              <LayoutGrid className="h-3 w-3" />
-              <span>2D</span>
-            </Link>
-            <Link
-              href="/dashboard/room"
-              className={cx(
-                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold transition",
-                pathname === "/dashboard/room"
-                  ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                  : "text-slate-500 hover:bg-white/34 hover:text-slate-800",
-              )}
-            >
-              <Box className="h-3 w-3" />
-              <span>3D</span>
-            </Link>
-            <span className="ml-1 mr-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-slate-400">
-              beta
-            </span>
-          </div>
-        )}
 
         <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
           {isPending ? (

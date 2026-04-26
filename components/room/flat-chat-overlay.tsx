@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Box, Loader2, X } from "lucide-react";
+import { ArrowRight, Box, Loader2 } from "lucide-react";
 import { useRoomStore } from "./room-store";
 import { Button } from "@/components/ui/button";
 
