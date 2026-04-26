@@ -81,6 +81,23 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     return runs.get(runId)?.events.map(clone) ?? [];
   }
 
+  function advanceLocalRun(runId: string): ApplyRun | null {
+    const run = runs.get(runId);
+    if (!run) return null;
+    if (run.source !== "mock" || run.remoteRunId) return cloneRun(run);
+
+    const startedAt = Date.parse(run.createdAt);
+    const elapsedMs = Number.isFinite(startedAt) ? Math.max(0, now() - startedAt) : 0;
+    for (const [index, job] of run.jobs.entries()) {
+      advanceLocalJob(run, job, Math.max(0, elapsedMs - index * 350));
+    }
+    if (run.jobs.every((job) => job.status === "review_ready" || job.status === "submitted_dev" || job.status === "cancelled")) {
+      run.status = run.jobs.some((job) => job.status === "submitted_dev") ? run.status : "review_ready";
+    }
+    touch(run, now());
+    return cloneRun(run);
+  }
+
   function recordDeferredQuestion(runId: string, question: DeferredQuestion): DeferredQuestionGroup[] {
     const run = requireRun(runId);
     const existing = pendingQuestions.get(runId) ?? [];
@@ -203,6 +220,7 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     createRun,
     getRun,
     listEvents,
+    advanceLocalRun,
     recordDeferredQuestion,
     getQuestionGroups,
     resolveQuestionBatch,
@@ -232,6 +250,216 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     if (!run) throw new Error("run_not_found");
     return run;
   }
+
+  function advanceLocalJob(run: ApplyRun, job: ApplyJob, elapsedMs: number): void {
+    const fields = localFieldPlan(run, job);
+    const screenshot = localScreenshot(job, fields, Math.min(fields.length, elapsedMs >= 1_800 ? fields.length : elapsedMs >= 900 ? 3 : 0));
+
+    if (!hasLocalStage(run, job.id, "snapshot")) {
+      job.screenshotPng = screenshot;
+      emitLocalLiveEvent(run, job.id, "snapshot", "Captured live form screenshot.", {
+        kind: "snapshot_taken",
+        jobSlug: job.id,
+        fieldCount: fields.length,
+        url: job.job.applicationUrl ?? job.job.url,
+        title: `${job.job.company} application`,
+        annotatedScreenshotPng: screenshot,
+      });
+      fields.forEach((field) => {
+        emitLocalLiveEvent(run, job.id, `field-${field.fieldId}-set`, `Detected ${field.label}.`, {
+          kind: "field_set",
+          jobSlug: job.id,
+          fieldId: field.fieldId,
+          label: field.label,
+          selector: field.selector,
+          role: field.role,
+          required: field.required,
+        });
+      });
+      emitLocalLiveEvent(run, job.id, "note-start", `AI is inspecting ${job.job.company}'s application form.`, {
+        kind: "agent_note",
+        jobSlug: job.id,
+        stepIndex: 1,
+        message: "Started from the selected job URL, captured the form, and identified required fields from the live page.",
+      });
+    }
+
+    if (elapsedMs >= 900) {
+      for (const field of fields.slice(0, 3)) {
+        if (hasLocalStage(run, job.id, `field-${field.fieldId}-filled`)) continue;
+        emitLocalLiveEvent(run, job.id, `field-${field.fieldId}-filled`, `Filled ${field.label}.`, {
+          kind: "field_filled",
+          jobSlug: job.id,
+          fieldId: field.fieldId,
+          label: field.label,
+          value: field.value,
+          note: field.note,
+          via: "computer",
+        });
+      }
+      job.screenshotPng = localScreenshot(job, fields, 3);
+    }
+
+    if (elapsedMs >= 1_800) {
+      for (const field of fields.slice(3)) {
+        if (hasLocalStage(run, job.id, `field-${field.fieldId}-filled`)) continue;
+        emitLocalLiveEvent(run, job.id, `field-${field.fieldId}-filled`, `Filled ${field.label}.`, {
+          kind: "field_filled",
+          jobSlug: job.id,
+          fieldId: field.fieldId,
+          label: field.label,
+          value: field.value,
+          note: field.note,
+          via: "computer",
+        });
+      }
+      job.screenshotPng = localScreenshot(job, fields, fields.length);
+      emitLocalLiveEvent(run, job.id, "note-review", "AI prepared the final review packet.", {
+        kind: "agent_note",
+        jobSlug: job.id,
+        stepIndex: 2,
+        message: "Profile-backed facts and the selected resume are staged. Final submit remains gated in development mode.",
+      });
+    }
+
+    if (elapsedMs >= 2_500 && job.status === "filling") {
+      job.status = "review_ready";
+      job.updatedAt = iso(now());
+      emitLocalLiveEvent(run, job.id, "final-approval", `Review ready for ${job.job.company}.`, {
+        kind: "awaiting_final_approval",
+        jobSlug: job.id,
+        screenshotPng: job.screenshotPng,
+        snapshot: fields.map((field) => ({ label: field.label, value: field.value })),
+      });
+      emit(run.id, "review_ready", `Review ready for ${job.job.company}.`, { itemCount: job.reviewItems.length }, job.id);
+    }
+  }
+
+  function emitLocalLiveEvent(
+    run: ApplyRun,
+    jobId: string,
+    localStage: string,
+    message: string,
+    liveEvent: Record<string, unknown>,
+  ): void {
+    if (hasLocalStage(run, jobId, localStage)) return;
+    emit(run.id, "field_progress", message, { ...liveEvent, localStage }, jobId);
+  }
+
+  function hasLocalStage(run: ApplyRun, jobId: string, localStage: string): boolean {
+    return run.events.some((event) => event.jobId === jobId && isRecord(event.payload) && event.payload.localStage === localStage);
+  }
+}
+
+type LocalField = {
+  fieldId: number;
+  label: string;
+  selector: string;
+  role: string;
+  required: boolean;
+  value: string;
+  note: string;
+};
+
+function localFieldPlan(run: ApplyRun, job: ApplyJob): LocalField[] {
+  return [
+    {
+      fieldId: 1,
+      label: "Name",
+      selector: "#candidate-name",
+      role: "textbox",
+      required: true,
+      value: "Profile name",
+      note: "Profile-backed identity field.",
+    },
+    {
+      fieldId: 2,
+      label: "Email",
+      selector: "#candidate-email",
+      role: "textbox",
+      required: true,
+      value: "Profile email",
+      note: "Profile-backed contact field.",
+    },
+    {
+      fieldId: 3,
+      label: "Resume",
+      selector: "#resume-upload",
+      role: "file",
+      required: true,
+      value: job.tailoredResume?.filename ?? "Selected resume",
+      note: "Resume file staged for upload.",
+    },
+    {
+      fieldId: 4,
+      label: "Application URL",
+      selector: "#application-url",
+      role: "link",
+      required: false,
+      value: job.job.applicationUrl ?? job.job.url,
+      note: "Loaded from selected job record.",
+    },
+    {
+      fieldId: 5,
+      label: "Work authorization",
+      selector: "#work-authorization",
+      role: "radio",
+      required: true,
+      value: "Authorized to work; no sponsorship needed",
+      note: "Profile-backed work authorization.",
+    },
+    {
+      fieldId: 6,
+      label: "Final submission",
+      selector: "#submit-application",
+      role: "button",
+      required: true,
+      value: run.settings.devSkipRealSubmit ? "Held for development approval" : "Held for final consent",
+      note: "Submit remains gated.",
+    },
+  ];
+}
+
+function localScreenshot(job: ApplyJob, fields: LocalField[], filledCount: number): string {
+  const rows = fields.map((field, index) => {
+    const filled = index < filledCount;
+    const y = 220 + index * 72;
+    const value = escapeXml(filled ? field.value : "");
+    const border = filled ? "#4f46e5" : "#cbd5e1";
+    const fill = filled ? "#eef2ff" : "#ffffff";
+    return [
+      `<text x="150" y="${y - 12}" font-family="Inter, Arial" font-size="18" font-weight="700" fill="#334155">${escapeXml(field.label)}${field.required ? " *" : ""}</text>`,
+      `<rect x="150" y="${y}" width="900" height="44" rx="8" fill="${fill}" stroke="${border}" stroke-width="2"/>`,
+      `<text x="170" y="${y + 29}" font-family="Inter, Arial" font-size="16" fill="#475569">${value || "Waiting for AI action..."}</text>`,
+    ].join("");
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820">
+<rect width="1200" height="820" fill="#f8fafc"/>
+<rect x="96" y="64" width="1008" height="692" rx="18" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="150" y="130" font-family="Inter, Arial" font-size="34" font-weight="800" fill="#0f172a">${escapeXml(job.job.company)}</text>
+<text x="150" y="166" font-family="Inter, Arial" font-size="22" fill="#475569">${escapeXml(job.job.title)}</text>
+<rect x="150" y="188" width="160" height="8" rx="4" fill="#4f46e5"/>
+${rows}
+<text x="150" y="730" font-family="Inter, Arial" font-size="14" fill="#64748b">Server-rendered live application preview from Recruit Main.</text>
+</svg>`;
+  return encodeBase64(svg);
+}
+
+function encodeBase64(value: string): string {
+  if (typeof Buffer !== "undefined") return Buffer.from(value, "utf8").toString("base64");
+  return btoa(unescape(encodeURIComponent(value)));
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function patchJob(run: ApplyRun, jobId: string, patch: Partial<ApplyJob>): void {

@@ -12,12 +12,17 @@ export async function POST(
   const parsed = await readJson(req);
   if (!parsed.ok) return parsed.response;
 
+  getApplyRunStore().advanceLocalRun(runId);
   const run = getApplyRunStore().getRun(runId);
   if (!run) return Response.json({ ok: false, reason: "run_not_found" }, { status: 404 });
   const job = run.jobs.find((item) => item.id === jobId);
   if (!job) return Response.json({ ok: false, reason: "job_not_found" }, { status: 404 });
   if (!job.remoteRunId || !job.remoteJobSlug) {
-    return Response.json({ ok: false, reason: "remote_job_not_ready" }, { status: 409 });
+    return Response.json({
+      ok: true,
+      screenshotPng: job.screenshotPng,
+      local: true,
+    });
   }
 
   const baseUrl = recruit2ApplyApiBaseUrl();
