@@ -10,18 +10,13 @@ import { RoomStations } from "./room-stations";
 import { RoomAgents } from "./room-agents";
 import { RoomCamera } from "./room-camera";
 import { RoomFurniture } from "./room-furniture";
-import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
-import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
 
 export type RoomSceneProps = {
-  introPhase?: RoomIntroPhase;
   onReady?: () => void;
 };
 
-export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
-  const activeIntroPhase = introPhase && introPhase !== "done" ? introPhase : null;
-
+export default function RoomScene({ onReady }: RoomSceneProps) {
   useEffect(() => {
     onReady?.();
   }, [onReady]);
@@ -52,33 +47,21 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         <Environment preset="apartment" background={false} environmentIntensity={0.55} />
       </Suspense>
       <RoomLighting />
-      <IntroRevealGroup phase={introPhase}>
-        <RoomFloor />
-        <RoomFurniture />
-        <RoomStations />
-        <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
-        {activeIntroPhase ? null : <PlayerCharacter />}
-        <ContactShadows
-          position={[0, 0.004, -0.4]}
-          opacity={0.38}
-          scale={28}
-          blur={2.8}
-          far={5.5}
-          resolution={1024}
-          color="#2B2620"
-        />
-      </IntroRevealGroup>
-      {activeIntroPhase ? (
-        <>
-          <RoomIntroScout phase={activeIntroPhase} />
-          <RoomIntroCamera phase={activeIntroPhase} />
-        </>
-      ) : (
-        <>
-          <RoomCamera />
-          <ScoutSpeechBubble />
-        </>
-      )}
+      <RoomFloor />
+      <RoomFurniture />
+      <RoomStations />
+      <RoomAgents />
+      <PlayerCharacter />
+      <ContactShadows
+        position={[0, 0.004, -0.4]}
+        opacity={0.38}
+        scale={28}
+        blur={2.8}
+        far={5.5}
+        resolution={1024}
+        color="#2B2620"
+      />
+      <RoomCamera />
     </Canvas>
   );
 }

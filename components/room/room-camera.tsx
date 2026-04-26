@@ -13,11 +13,6 @@ const OVERVIEW = {
   look: [0, 1.6, -2.0] as const,
 };
 
-const SCOUT_INTAKE = {
-  pos: [0, 2.6, 6.4] as const,
-  look: [0, 1.4, 1.0] as const,
-};
-
 const FIXED_AZIMUTH = 0;
 const FOLLOW_DAMP = 3;
 const FOLLOW_X_LIMIT = 6;
@@ -28,10 +23,6 @@ export function RoomCamera() {
   const controls = useRef<CameraControls>(null);
   const focusTarget = useRoomStore((s) => s.focusTarget);
   const playerMode = useRoomStore((s) => s.playerMode);
-  const intakePhase = useRoomStore((s) => s.intakePhase);
-  const chatMode = useRoomStore((s) => s.chatMode);
-  const intakeFocused =
-    chatMode === "3d" && (intakePhase === "waving" || intakePhase === "questioning");
 
   useEffect(() => {
     const c = controls.current;
@@ -43,12 +34,6 @@ export function RoomCamera() {
         framing.look[0], framing.look[1], framing.look[2],
         true,
       );
-    } else if (intakeFocused) {
-      c.setLookAt(
-        SCOUT_INTAKE.pos[0], SCOUT_INTAKE.pos[1], SCOUT_INTAKE.pos[2],
-        SCOUT_INTAKE.look[0], SCOUT_INTAKE.look[1], SCOUT_INTAKE.look[2],
-        true,
-      );
     } else {
       c.setLookAt(
         OVERVIEW.pos[0], OVERVIEW.pos[1], OVERVIEW.pos[2],
@@ -56,7 +41,7 @@ export function RoomCamera() {
         true,
       );
     }
-  }, [focusTarget, intakeFocused]);
+  }, [focusTarget]);
 
   useFrame((_, delta) => {
     const c = controls.current;

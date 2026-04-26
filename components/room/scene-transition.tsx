@@ -6,9 +6,8 @@ import { motion, AnimatePresence } from "motion/react";
 import dynamic from "next/dynamic";
 import { Topnav } from "@/components/shell/topnav";
 import { RoomCanvasClient } from "./room-canvas-client";
-import type { RoomIntroPhase } from "./room-intro";
 
-export type TransitionPhase = "enter" | "wave" | "exit" | RoomIntroPhase;
+export type TransitionPhase = "enter" | "wave" | "exit" | "fall" | "land" | "done";
 
 const TransitionCanvas = dynamic(() => import("./scene-transition-canvas"), {
   ssr: false,
@@ -18,7 +17,7 @@ const TransitionCanvas = dynamic(() => import("./scene-transition-canvas"), {
 type Props = { onComplete: () => void };
 
 export function SceneTransition({ onComplete }: Props) {
-  const [phase, setPhase] = useState<RoomIntroPhase>("wave");
+  const [phase, setPhase] = useState<TransitionPhase>("wave");
   const [sceneReady, setSceneReady] = useState(false);
   const handleSceneReady = useCallback(() => setSceneReady(true), []);
 
@@ -73,7 +72,7 @@ export function SceneTransition({ onComplete }: Props) {
           animate={{ y: phase === "wave" ? "19vh" : 0, scale: phase === "wave" ? 0.96 : 1 }}
           transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
         >
-          <RoomCanvasClient introPhase={phase} showDetailPanel={false} onSceneReady={handleSceneReady} />
+          <RoomCanvasClient showDetailPanel={false} onSceneReady={handleSceneReady} />
         </motion.div>
       </main>
 

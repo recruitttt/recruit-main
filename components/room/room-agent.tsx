@@ -6,8 +6,6 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { AGENTS, type AgentId } from "@/lib/agents";
 import {
   agentHomePosition,
-  frontStagePosition,
-  FRONT_STAGE_FACING,
   pickWanderTarget,
   stationForAgent,
 } from "@/lib/room/app-agent-map";
@@ -28,12 +26,6 @@ export function RoomAgent({ agentId }: Props) {
   const selected = useRoomStore((s) => s.selectedAgentId === agentId);
   const setHovered = useRoomStore((s) => s.setHovered);
   const setSelected = useRoomStore((s) => s.setSelected);
-  const intakePhase = useRoomStore((s) => s.intakePhase);
-  const setIntakePhase = useRoomStore((s) => s.setIntakePhase);
-  const finishIntake = useRoomStore((s) => s.finishIntake);
-
-  const isScout = agentId === "scout";
-  const scoutInterlude = isScout && intakePhase !== "inactive";
 
   const initialPos = useMemo(() => agentHomePosition(agentId), [agentId]);
   const wanderState = useRef({
@@ -41,7 +33,6 @@ export function RoomAgent({ agentId }: Props) {
     nextRollAt: Math.random() * 4 + 2,
     lastIdle: 0,
   });
-  const waveStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (refs.group.current) {
@@ -49,32 +40,13 @@ export function RoomAgent({ agentId }: Props) {
     }
   }, [initialPos, refs.group]);
 
-  useEffect(() => {
-    if (!isScout) return;
-    if (intakePhase !== "waving") return;
-    const timer = window.setTimeout(() => {
-      setIntakePhase("questioning");
-    }, 1200);
-    return () => window.clearTimeout(timer);
-  }, [intakePhase, isScout, setIntakePhase]);
-
   useFrame(({ clock }, delta) => {
     const g = refs.group.current;
     if (!g) return;
     const t = clock.elapsedTime;
     const station = stationForAgent(agentId);
 
-    if (scoutInterlude) {
-      const goingForward =
-        intakePhase === "walking-forward" ||
-        intakePhase === "waving" ||
-        intakePhase === "questioning";
-      const homePos = initialPos;
-      const stagePos = frontStagePosition();
-      const target = goingForward ? stagePos : homePos;
-      wanderState.current.target = target.clone();
-      wanderState.current.nextRollAt = t + 999;
-    } else if (t > wanderState.current.nextRollAt) {
+    if (t > wanderState.current.nextRollAt) {
       const bucket = Math.floor(t / 3);
       wanderState.current.target = pickWanderTarget(agentId, bucket);
       wanderState.current.nextRollAt = t + 3 + Math.random() * 3;
@@ -86,20 +58,10 @@ export function RoomAgent({ agentId }: Props) {
     toTarget.y = 0;
     const dist = toTarget.length();
 
-    if (scoutInterlude && intakePhase === "walking-forward" && dist < 0.08) {
-      setIntakePhase("waving");
-      waveStartRef.current = t;
-    }
-    if (scoutInterlude && intakePhase === "walking-back" && dist < 0.08) {
-      finishIntake();
-      waveStartRef.current = null;
-    }
-
     if (dist > 0.06) {
       toTarget.normalize().multiplyScalar(Math.min(WALK_SPEED * delta, dist));
       pos.add(toTarget);
-      const yawTarget = scoutInterlude ? Math.atan2(toTarget.x, toTarget.z) : station.facing;
-      g.rotation.y = dampYaw(g.rotation.y, yawTarget, delta);
+      g.rotation.y = dampYaw(g.rotation.y, station.facing, delta);
 
       if (refs.body.current) {
         refs.body.current.position.y = 0.47 + phase(t) * BOB_AMPLITUDE;
@@ -119,9 +81,7 @@ export function RoomAgent({ agentId }: Props) {
       if (refs.wristL.current) { refs.wristL.current.rotation.x = 0; refs.wristL.current.rotation.z = 0; }
       if (refs.wristR.current) { refs.wristR.current.rotation.x = 0; refs.wristR.current.rotation.z = 0; }
     } else {
-      const interludeFront =
-        scoutInterlude && (intakePhase === "waving" || intakePhase === "questioning");
-      const facing = interludeFront ? FRONT_STAGE_FACING : selected ? -0.55 : station.facing;
+      const facing = selected ? -0.55 : station.facing;
       g.rotation.y = dampYaw(g.rotation.y, facing, delta);
       wanderState.current.lastIdle += delta;
 
@@ -135,9 +95,7 @@ export function RoomAgent({ agentId }: Props) {
       if (refs.legL.current) refs.legL.current.rotation.x = THREE.MathUtils.damp(refs.legL.current.rotation.x, 0, 5, delta);
       if (refs.legR.current) refs.legR.current.rotation.x = THREE.MathUtils.damp(refs.legR.current.rotation.x, 0, 5, delta);
 
-      const stationIdle = interludeFront
-        ? scoutInterludeIdle(t, intakePhase === "waving")
-        : stationIdleFor(station.id, t, agentId);
+      const stationIdle = stationIdleFor(station.id, t, agentId);
       if (refs.armL.current) {
         refs.armL.current.rotation.x = THREE.MathUtils.damp(refs.armL.current.rotation.x, stationIdle.armL, 5, delta);
         refs.armL.current.rotation.z = THREE.MathUtils.damp(refs.armL.current.rotation.z, stationIdle.armLz ?? 0, 4, delta);
@@ -165,8 +123,6 @@ export function RoomAgent({ agentId }: Props) {
   const handleOut = (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHovered(null); document.body.style.cursor = ""; };
   const handleClick = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); setSelected(selected ? null : agentId); };
 
-  const showJobCard = !scoutInterlude;
-
   return (
     <AgentFigure
       agentId={agentId}
@@ -177,26 +133,9 @@ export function RoomAgent({ agentId }: Props) {
       onPointerOut={handleOut}
       onClick={handleClick}
     >
-      {showJobCard ? <AgentJobCard agentId={agentId} /> : null}
+      <AgentJobCard agentId={agentId} />
     </AgentFigure>
   );
-}
-
-function scoutInterludeIdle(t: number, waving: boolean): StationIdle {
-  if (waving) {
-    const swing = Math.sin(t * 8.2) * 0.22;
-    return {
-      armL: -0.04, armLz: 0, armR: 0, armRz: Math.PI * 0.82 + swing,
-      wristRz: Math.sin(t * 8.2 + 0.6) * 0.2,
-      headYaw: 0, headPitch: -0.04,
-    };
-  }
-  const listen = Math.sin(t * 1.1) * 0.08;
-  return {
-    armL: Math.sin(t * 1.3) * 0.03, armLz: 0,
-    armR: Math.sin(t * 1.3 + 0.5) * 0.03, armRz: 0,
-    headYaw: listen, headPitch: 0.06,
-  };
 }
 
 function seedVal(id: AgentId): number {

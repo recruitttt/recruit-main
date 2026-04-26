@@ -2,13 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Footprints, Maximize2, MessageSquare, Minimize2 } from "lucide-react";
+import { Footprints, Maximize2, Minimize2 } from "lucide-react";
 import { FocusPanel } from "./focus-panel";
-import { FlatChatOverlay } from "./flat-chat-overlay";
-import { ScoutIntakeInput } from "./scout-intake-input";
-import { useRoomStore, hasCompletedRoomIntake, markRoomIntakeDone } from "./room-store";
+import { useRoomStore } from "./room-store";
 import type { RoomSceneProps } from "./room-scene";
-import type { RoomIntroPhase } from "./room-intro";
 
 const loadRoomScene = () => import("./room-scene");
 
@@ -29,33 +26,15 @@ export function preloadRoomScene() {
 }
 
 type Props = {
-  introPhase?: RoomIntroPhase;
   showDetailPanel?: boolean;
   onSceneReady?: () => void;
 };
 
-export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneReady }: Props) {
-  const startIntake = useRoomStore((s) => s.startIntake);
-  const intakePhase = useRoomStore((s) => s.intakePhase);
-  const intakeActive = intakePhase !== "inactive";
+export function RoomCanvasClient({ showDetailPanel = true, onSceneReady }: Props) {
   const playerMode = useRoomStore((s) => s.playerMode);
   const togglePlayerMode = useRoomStore((s) => s.togglePlayerMode);
-  const chatMode = useRoomStore((s) => s.chatMode);
-  const setChatMode = useRoomStore((s) => s.setChatMode);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    if (introPhase) return;
-    if (hasCompletedRoomIntake()) return;
-    startIntake();
-  }, [introPhase, startIntake]);
-
-  useEffect(() => {
-    if (intakePhase === "walking-back") {
-      markRoomIntakeDone();
-    }
-  }, [intakePhase]);
 
   useEffect(() => {
     const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
@@ -82,31 +61,10 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
           : "relative h-[calc(100vh-180px)] min-h-[520px] w-full overflow-hidden rounded-[24px] border border-white/50 bg-[#F2EEE5] shadow-[0_30px_80px_-40px_rgba(15,23,42,0.18),0_10px_30px_-20px_rgba(15,23,42,0.10)]"
       }
     >
-      <RoomScene introPhase={introPhase} onReady={onSceneReady} />
+      <RoomScene onReady={onSceneReady} />
       <div className={`pointer-events-none absolute inset-0 ${isFullscreen ? "" : "rounded-[24px]"} ring-1 ring-inset ring-white/20`} />
-      {showDetailPanel && !intakeActive ? <FocusPanel /> : null}
-      {!introPhase ? <ScoutIntakeInput /> : null}
+      {showDetailPanel ? <FocusPanel /> : null}
       <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2">
-        {intakeActive ? (
-          <button
-            type="button"
-            onClick={() => setChatMode(chatMode === "3d" ? "flat" : "3d")}
-            aria-pressed={chatMode === "flat"}
-            aria-label={chatMode === "flat" ? "Back to 3D room" : "Open flat chat"}
-            title={chatMode === "flat" ? "Back to 3D room" : "Switch to flat chat"}
-            className={
-              (chatMode === "flat"
-                ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-                : "border-white/55 bg-[#F8FBFF]/82 text-[#101827]") +
-              " pointer-events-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
-            }
-          >
-            <MessageSquare className="h-4 w-4" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
-              {chatMode === "flat" ? "3D room" : "flat chat"}
-            </span>
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={togglePlayerMode}
@@ -136,7 +94,6 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
         </button>
       </div>
       {playerMode === "walking" ? <WasdHint /> : null}
-      <FlatChatOverlay />
     </div>
   );
 }
