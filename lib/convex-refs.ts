@@ -123,4 +123,43 @@ export const convexRefs = {
       "followups:recordResponse"
     ),
   },
+  recruiters: {
+    listForUser: makeFunctionReference<"query">("recruiters:listForUser"),
+    getById: makeFunctionReference<"query">("recruiters:getById"),
+    findByJobId: makeFunctionReference<"query">("recruiters:findByJobId"),
+    upsertRecruiter: makeFunctionReference<"mutation">(
+      "recruiters:upsertRecruiter"
+    ),
+    setRecruiterStatus: makeFunctionReference<"mutation">(
+      "recruiters:setRecruiterStatus"
+    ),
+    setCompanyContext: makeFunctionReference<"mutation">(
+      "recruiters:setCompanyContext"
+    ),
+    getConversation: makeFunctionReference<"query">(
+      "recruiters:getConversation"
+    ),
+    appendMessage: makeFunctionReference<"mutation">(
+      "recruiters:appendMessage"
+    ),
+    appendBrainstormedAnswer: makeFunctionReference<"mutation">(
+      "recruiters:appendBrainstormedAnswer"
+    ),
+  },
+  recruiterActions: {
+    sendMessage: makeFunctionReference<"action">(
+      "recruiterActions:sendMessage"
+    ),
+    seedRecruiters: makeFunctionReference<"action">(
+      "recruiterActions:seedRecruiters"
+    ),
+    applyThroughRecruiter: makeFunctionReference<"action">(
+      "recruiterActions:applyThroughRecruiter"
+    ),
+  },
+  personalizationAgent: {
+    respondToUser: makeFunctionReference<"action">(
+      "personalizationAgent:respondToUser"
+    ),
+  },
 };
