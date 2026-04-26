@@ -26,6 +26,7 @@ export function TopLine({
   className,
   innerClassName,
 }: TopLineProps) {
+  const isMist = variant === "mist";
   return (
     <header
       className={cx(
@@ -33,6 +34,7 @@ export function TopLine({
         variant === "hero"
           ? "absolute inset-x-0 z-40 text-white"
           : "sticky border-b border-white/35 bg-[#D5E0D0]/78 text-[#102016] backdrop-blur-2xl",
+        isMist && "relative",
         className,
       )}
     >
@@ -40,8 +42,9 @@ export function TopLine({
         className={cx(
           "mx-auto flex min-h-14 items-center gap-1 px-1.5 py-2 md:gap-3 md:px-3",
           maxWidthClassName,
-          variant === "mist" && "border",
-          variant === "mist" && mistClasses.panel,
+          isMist && "border",
+          isMist && mistClasses.panel,
+          "animate-fade-up motion-reduce:animate-none",
           innerClassName,
         )}
       >
@@ -51,6 +54,12 @@ export function TopLine({
           <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>
         ) : null}
       </div>
+      {isMist ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent_0%,rgba(63,122,86,0.0)_15%,rgba(63,122,86,0.45)_50%,rgba(63,122,86,0.0)_85%,transparent_100%)] bg-[length:200%_100%] animate-shimmer motion-reduce:animate-none"
+        />
+      ) : null}
       {bottomSlot}
     </header>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cx, StatusBadge } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
 import { clearLocalUserData } from "@/lib/local-data";
@@ -15,6 +16,7 @@ import {
   Menu,
   UserCircle,
 } from "lucide-react";
+import { fastEaseOut } from "@/lib/motion-presets";
 import { MobileNav, navItems } from "./mobile-nav";
 import {
   RecruitBrandLink,
@@ -23,9 +25,13 @@ import {
   topLinePillClass,
 } from "./top-line";
 
+const MotionLink = motion.create(Link);
+const ACTIVE_PILL_LAYOUT_ID = "topnav-active-pill";
+
 export function Topnav() {
   const pathname = usePathname();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
@@ -88,20 +94,32 @@ export function Topnav() {
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
-              <Link
+              <MotionLink
                 key={item.href}
                 href={item.href}
                 className={cx(
-                  "flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold text-slate-600 transition sm:gap-1.5 sm:px-2.5 sm:text-[12px] md:px-3 md:text-[13px]",
+                  "relative flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold transition-colors sm:gap-1.5 sm:px-2.5 sm:text-[12px] md:px-3 md:text-[13px]",
                   active
-                    ? "border border-white/70 bg-white/68 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_24px_rgba(15,23,42,0.06)]"
-                    : "border border-transparent hover:bg-white/34 hover:text-slate-900",
+                    ? "text-slate-950"
+                    : "text-slate-600 hover:text-slate-900",
                 )}
                 aria-current={active ? "page" : undefined}
+                whileHover={reduceMotion || active ? undefined : { y: -1 }}
+                transition={fastEaseOut}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {item.label}
-              </Link>
+                {active && (
+                  <motion.span
+                    layoutId={reduceMotion ? undefined : ACTIVE_PILL_LAYOUT_ID}
+                    className="absolute inset-0 rounded-full border border-white/70 bg-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_24px_rgba(15,23,42,0.06)]"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 32 }}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1 sm:gap-1.5">
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </span>
+              </MotionLink>
             );
           })}
           </nav>
@@ -163,40 +181,46 @@ export function Topnav() {
                       />
                     </button>
 
-                    {profileOpen && (
-                      <div
-                        role="menu"
-                        className="absolute right-0 top-12 z-50 w-72 overflow-hidden rounded-[18px] border border-white/65 bg-white/88 p-1.5 text-slate-800 shadow-[0_22px_54px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl"
-                      >
-                        <div className="px-3 py-2.5">
-                          <div className="truncate text-sm font-semibold text-slate-950">
-                            {user.name || "Recruit user"}
-                          </div>
-                          <div className="truncate text-xs text-slate-500">
-                            {user.email}
-                          </div>
-                        </div>
-                        <div className="my-1 h-px bg-slate-900/8" />
-                        <Link
-                          role="menuitem"
-                          href="/settings"
-                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-900/6 hover:text-slate-950"
-                          onClick={() => setProfileOpen(false)}
+                    <AnimatePresence>
+                      {profileOpen && (
+                        <motion.div
+                          role="menu"
+                          className="absolute right-0 top-12 z-50 w-72 origin-top-right overflow-hidden rounded-[18px] border border-white/65 bg-white/88 p-1.5 text-slate-800 shadow-[0_22px_54px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl"
+                          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+                          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+                          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+                          transition={reduceMotion ? { duration: 0 } : fastEaseOut}
                         >
-                          <UserCircle className="h-4 w-4 text-slate-500" />
-                          Profile settings
-                        </Link>
-                        <Link
-                          role="menuitem"
-                          href="/pricing"
-                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-900/6 hover:text-slate-950"
-                          onClick={() => setProfileOpen(false)}
-                        >
-                          <CreditCard className="h-4 w-4 text-slate-500" />
-                          Billing
-                        </Link>
-                      </div>
-                    )}
+                          <div className="px-3 py-2.5">
+                            <div className="truncate text-sm font-semibold text-slate-950">
+                              {user.name || "Recruit user"}
+                            </div>
+                            <div className="truncate text-xs text-slate-500">
+                              {user.email}
+                            </div>
+                          </div>
+                          <div className="my-1 h-px bg-slate-900/8" />
+                          <Link
+                            role="menuitem"
+                            href="/settings"
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-900/6 hover:text-slate-950"
+                            onClick={() => setProfileOpen(false)}
+                          >
+                            <UserCircle className="h-4 w-4 text-slate-500" />
+                            Profile settings
+                          </Link>
+                          <Link
+                            role="menuitem"
+                            href="/pricing"
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-900/6 hover:text-slate-950"
+                            onClick={() => setProfileOpen(false)}
+                          >
+                            <CreditCard className="h-4 w-4 text-slate-500" />
+                            Billing
+                          </Link>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <button
                     type="button"
