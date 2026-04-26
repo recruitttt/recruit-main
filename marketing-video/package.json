@@ -6,6 +6,10 @@
   "scripts": {
     "start": "remotion studio",
     "build": "remotion render HeroVideo out/hero.mp4",
+    "build:discover": "remotion render DiscoverClip out/discover.mp4",
+    "build:tailor": "remotion render TailorClip out/tailor.mp4",
+    "build:apply": "remotion render ApplyClip out/apply.mp4",
+    "build:clips": "npm run build:discover && npm run build:tailor && npm run build:apply",
     "build-4k": "remotion render HeroVideo out/hero-4k.mp4 --width=3840 --height=2160",
     "build-webm": "remotion render HeroVideo out/hero.webm --codec=vp8"
   },

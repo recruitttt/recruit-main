@@ -65,7 +65,7 @@ export const Cursor: React.FC<Props> = ({ keyframes, visible = true }) => {
           height: 56,
           borderRadius: "50%",
           border: `3px solid ${theme.accent}`,
-          opacity: clickPulse * 0.7,
+          opacity: clickPulse * 0.62,
           transform: `scale(${1 + (1 - clickPulse) * 1.4})`,
         }}
       />
@@ -74,14 +74,14 @@ export const Cursor: React.FC<Props> = ({ keyframes, visible = true }) => {
         height="32"
         viewBox="0 0 28 32"
         style={{
-          filter: "drop-shadow(0 4px 6px rgba(34,32,28,0.35))",
+          filter: "drop-shadow(0 8px 14px rgba(15,23,42,0.28))",
           transform: `scale(${1 - clickPulse * 0.18})`,
           transformOrigin: "top left",
         }}
       >
         <path
           d="M2 2 L2 24 L8 19 L12 28 L16 26 L12 17 L20 17 Z"
-          fill={theme.ink}
+          fill={theme.text}
           stroke={theme.white}
           strokeWidth="1.5"
           strokeLinejoin="round"
