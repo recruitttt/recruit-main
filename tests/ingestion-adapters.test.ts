@@ -195,7 +195,10 @@ const ingestionRunsSchema = schemaSource.slice(
   schemaSource.indexOf("ingestionRuns: defineTable"),
   schemaSource.indexOf("ingestedJobs: defineTable")
 );
-assert.match(ingestionRunsSchema, /provider: v\.optional\(v\.string\(\)\)/);
+assert.match(ingestionRunsSchema, /provider:\s*v\.optional\(\s*v\.union\(/);
+for (const provider of ["ashby", "greenhouse", "lever", "mixed", "workday", "workable"]) {
+  assert.match(ingestionRunsSchema, new RegExp(`v\\.literal\\("${provider}"\\)`));
+}
 
 console.log("Local ingestion adapter tests passed");
 }
