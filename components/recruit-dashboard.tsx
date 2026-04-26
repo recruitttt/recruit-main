@@ -18,7 +18,6 @@ import {
 } from "@/components/dashboard/leaderboard-helpers";
 import { IntakeProgressBanner } from "@/components/dashboard/intake-progress-banner";
 import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
-import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -351,7 +350,7 @@ function ConnectedRecruitDashboard() {
         <div className="space-y-6">
           <IntakeProgressBanner />
 
-          <div data-tour="status-strip">
+          <div>
             <DashboardStatusStrip
               run={liveData?.run}
               recommendationCount={boardRows.length}
@@ -361,7 +360,7 @@ function ConnectedRecruitDashboard() {
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(380px,0.88fr)]">
-            <div data-tour="leaderboard">
+            <div>
               <DashboardLeaderboard
                 rows={boardRows}
                 displayRows={renderedRows}
@@ -384,7 +383,7 @@ function ConnectedRecruitDashboard() {
               />
             </div>
 
-            <div data-tour="inspector" className="hidden xl:block">
+            <div className="hidden xl:block">
               <DashboardJobInspector
                 selected={selected}
                 detail={jobDetail}
@@ -408,8 +407,6 @@ function ConnectedRecruitDashboard() {
         sizeKb={pdfState.sizeKb}
         pdfBase64={viewerPdfBase64}
       />
-
-      <DashboardTour />
     </main>
   );
 }
