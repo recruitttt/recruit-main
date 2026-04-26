@@ -31,6 +31,7 @@ import {
   scrapeAndExtract,
   scrapeLinkedIn,
 } from "@/lib/scrapers";
+import { SceneTransition, useSceneTransition } from "@/components/room/scene-transition";
 
 type InputKind = "name" | "email" | "resume" | "links" | "prefs";
 
@@ -108,6 +109,7 @@ const POST_MESSAGE_PAUSE = 520;
 
 export default function OnboardingChatPage() {
   const router = useRouter();
+  const { active: transitionActive, trigger: triggerTransition, handleComplete } = useSceneTransition();
   const [data, setData] = useState<Data>(EMPTY);
   const [rendered, setRendered] = useState<Rendered[]>([]);
   const [typing, setTyping] = useState<AgentId | null>(null);
@@ -129,7 +131,7 @@ export default function OnboardingChatPage() {
   }, []);
 
   useEffect(() => {
-    router.prefetch("/dashboard");
+    router.prefetch("/dashboard/room");
   }, [router]);
 
   const toggleMute = () => {
@@ -256,7 +258,7 @@ export default function OnboardingChatPage() {
     } else if (beat.k === "activate") {
       setActivating(true);
       playActivate();
-      after(900, () => router.push("/dashboard"));
+      after(3000, triggerTransition);
     }
 
     return () => {
@@ -265,7 +267,7 @@ export default function OnboardingChatPage() {
       intervals.forEach((i) => window.clearInterval(i));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, beatTick, data, router]);
+  }, [phase, beatTick, data, triggerTransition]);
 
   // auto-scroll on new content
   useEffect(() => {
@@ -429,6 +431,10 @@ export default function OnboardingChatPage() {
   const progress = awake.size / AGENT_ORDER.length;
 
   return (
+    <>
+    <AnimatePresence>
+      {transitionActive && <SceneTransition onComplete={handleComplete} />}
+    </AnimatePresence>
     <motion.div animate={shakeCtrl} className={cx("flex min-h-screen flex-col overflow-x-hidden", mistClasses.page)}>
       {/* header */}
       <header className="flex items-center justify-between px-5 py-4 md:px-8">
@@ -513,6 +519,7 @@ export default function OnboardingChatPage() {
         </div>
       </div>
     </motion.div>
+    </>
   );
 }
 
