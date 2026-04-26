@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { AnimatePresence, motion } from "motion/react";
 import {
   Activity,
-  AlertTriangle,
   Ban,
   BriefcaseBusiness,
   CalendarClock,
@@ -26,7 +25,6 @@ import {
   Play,
   Power,
   Reply,
-  Settings,
   ShieldCheck,
   Sparkles,
   Terminal,
@@ -327,14 +325,6 @@ const emptyDashboardSeed: DashboardSeed = {
   artifacts: [],
 };
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
-  { href: "#applications", label: "Applications", icon: BriefcaseBusiness, active: false },
-  { href: "/dlq", label: "DLQ", icon: AlertTriangle, active: false },
-  { href: "#artifacts", label: "Artifacts", icon: FileText, active: false },
-  { href: "/settings", label: "Settings", icon: Settings, active: false },
-] as const;
-
 function ProgressBar({ value, tone }: { value: number; tone: StatusTone }) {
   const color = getStatusColor(tone);
 
@@ -377,43 +367,7 @@ function DashboardShell({
         <div className="absolute right-[8%] top-[16%] h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: `${mistColors.accent}16` }} />
         <div className="absolute bottom-[4%] left-[36%] h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: `${mistColors.neutral}12` }} />
       </div>
-      <div className="relative mx-auto grid min-w-0 max-w-[1520px] gap-5 lg:grid-cols-[220px_1fr]">
-        <aside className={cx("hidden border p-3 lg:block", mistClasses.panel)}>
-          <Link href="/dashboard" className="flex items-center gap-3 px-2 py-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[20px] border border-sky-400/40 text-2xl font-serif text-sky-500">r</span>
-            <span>
-              <span className="block text-sm font-semibold text-slate-950">recruit</span>
-              <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">agent console</span>
-            </span>
-          </Link>
-          <nav className="mt-6 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  href={item.href}
-                  key={item.label}
-                  className={cx(
-                    "flex h-10 w-full items-center gap-3 rounded-full px-3 text-sm font-semibold transition",
-                    item.active ? "bg-white/58 text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.07)]" : "text-slate-600 hover:bg-white/28",
-                  )}
-                  aria-current={item.active ? "page" : undefined}
-                >
-                  <Icon className={cx("h-4 w-4", item.active ? "text-sky-500" : "text-slate-500")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <GlassCard density="compact" className="mt-6">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">mode</div>
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <Pill tone="neutral">{seed.mode}</Pill>
-              <span className="font-mono text-[10px] text-slate-500">{seed.generatedAt}</span>
-            </div>
-          </GlassCard>
-        </aside>
-
+      <div className="relative mx-auto min-w-0 max-w-[1520px]">
         <section className="min-w-0 space-y-5">
           <header className={cx("flex flex-col gap-4 border px-4 py-3 md:flex-row md:items-center md:justify-between", mistClasses.panel)}>
             <div className="min-w-0">
