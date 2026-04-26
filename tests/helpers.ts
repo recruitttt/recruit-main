@@ -109,9 +109,11 @@ export async function assertJsonResponse(
   return json;
 }
 
-export function installFetchStub(handler: typeof fetch) {
+export function installFetchStub(
+  handler: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>
+) {
   const previous = globalThis.fetch;
-  globalThis.fetch = handler;
+  globalThis.fetch = handler as typeof fetch;
   return () => {
     globalThis.fetch = previous;
   };

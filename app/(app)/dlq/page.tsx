@@ -237,7 +237,7 @@ function QueueMetric({
           className="h-full rounded-full"
           style={{
             width: `${Math.min(100, Math.max(16, value * 18))}%`,
-            backgroundColor: tone === "success" ? "#16A34A" : tone === "warning" ? "#F59E0B" : "#0EA5E9",
+            backgroundColor: tone === "success" ? "var(--color-success)" : tone === "warning" ? "#F59E0B" : "var(--color-accent)",
           }}
         />
       </div>
@@ -305,7 +305,7 @@ function DLQCard({
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className={mistClasses.sectionLabel}>Answer</div>
               {item.suggestedAnswer && draft === item.suggestedAnswer ? (
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-600">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
                   Suggested
                 </span>
               ) : null}
@@ -315,7 +315,7 @@ function DLQCard({
               onChange={(event) => setDraft(event.target.value)}
               placeholder={item.suggestedAnswer || "Type your answer..."}
               rows={4}
-              className="min-h-28 w-full resize-none rounded-[18px] border border-white/55 bg-white/36 px-4 py-2.5 text-sm leading-snug text-slate-800 outline-none placeholder:leading-snug placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-sky-400/30"
+              className="min-h-28 w-full resize-none rounded-[18px] border border-white/55 bg-white/36 px-4 py-2.5 text-sm leading-snug text-slate-800 outline-none placeholder:leading-snug placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)]"
             />
           </div>
         </div>

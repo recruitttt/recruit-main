@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── warm paper: light theme ─────────────────────────────── */
-  --color-bg: #F9F7F3;            /* warm ivory */
+  /* ── sage paper: light theme ─────────────────────────────── */
+  --color-bg: #F5F8F1;            /* pale sage paper */
   --color-surface: #FFFFFF;        /* cards, prompt box */
-  --color-surface-1: #F3F1EC;      /* subtle surfaces */
-  --color-surface-2: #EDEBE4;      /* hover states */
-  --color-border: #E5E2DB;         /* hairline */
-  --color-border-strong: #CFCBBF;  /* elevated border */
+  --color-surface-1: #EFF5EA;      /* subtle surfaces */
+  --color-surface-2: #E3ECDD;      /* hover states */
+  --color-border: #D6E2CE;         /* hairline */
+  --color-border-strong: #B7C9AD;  /* elevated border */
 
-  --color-fg: #0F0F12;             /* warm near-black */
-  --color-fg-muted: #585861;
-  --color-fg-subtle: #8E8C93;
+  --color-fg: #101813;             /* green-black */
+  --color-fg-muted: #4B5F50;
+  --color-fg-subtle: #7A887B;
 
-  --color-accent: #0891B2;         /* cyan-600 */
-  --color-accent-soft: rgba(8, 145, 178, 0.1);
-  --color-accent-glow: rgba(8, 145, 178, 0.32);
+  --color-accent: #3F7A56;         /* sage green */
+  --color-accent-soft: rgba(63, 122, 86, 0.12);
+  --color-accent-glow: rgba(63, 122, 86, 0.28);
 
-  --color-success: #059669;        /* emerald-600 */
-  --color-warn:    #D97706;        /* amber-600 */
+  --color-success: #2F8F57;        /* mint-forest */
+  --color-warn:    #B86D12;        /* warm amber */
   --color-danger:  #DC2626;        /* red-600 */
 
   --font-sans: var(--font-inter);

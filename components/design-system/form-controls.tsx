@@ -3,8 +3,8 @@ import { Check, ChevronDown, FileText, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStatusColor, mistClasses, mistRadii, type StatusTone } from "./mist-tokens";
 
-const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-sky-400/30 focus-visible:ring-offset-1";
-const FOCUS_WITHIN_RING = "focus-within:ring-2 focus-within:ring-sky-400/30 focus-within:ring-offset-1";
+const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-1";
+const FOCUS_WITHIN_RING = "focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)] focus-within:ring-offset-1";
 const DISABLED_OPACITY = "opacity-65";
 
 export function TextField({
@@ -159,7 +159,7 @@ export function Toggle({
       )}
     >
       <span className="font-semibold leading-none">{label}</span>
-      <span className={cn("relative h-6 w-11 rounded-full transition", checked ? "bg-[#0EA5E9]" : "bg-slate-400/30")}>
+      <span className={cn("relative h-6 w-11 rounded-full transition", checked ? "bg-[var(--color-accent)]" : "bg-slate-400/30")}>
         <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white transition", checked ? "right-1" : "left-1")} />
       </span>
     </label>
@@ -196,8 +196,12 @@ export function ChoiceChip({
       )}
       style={{
         borderColor: selected ? `${color}55` : "rgba(255,255,255,0.62)",
-        background: selected ? `linear-gradient(180deg, rgba(255,255,255,0.64), ${color}18)` : "linear-gradient(180deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24))",
-        boxShadow: selected ? `inset 0 1px 0 rgba(255,255,255,0.82), 0 10px 22px ${color}10` : "inset 0 1px 0 rgba(255,255,255,0.72), 0 8px 18px rgba(15,23,42,0.04)",
+        background: selected
+          ? `linear-gradient(180deg, ${color}24, ${color}0c)`
+          : "linear-gradient(180deg, rgba(255,255,255,0.50), rgba(255,255,255,0.24))",
+        boxShadow: selected
+          ? `inset 0 2px 4px rgba(15,23,42,0.10), inset 0 0 0 1px ${color}20`
+          : "inset 0 1px 0 rgba(255,255,255,0.72), 0 8px 18px rgba(15,23,42,0.04)",
         color: selected ? color : "#465568",
       }}
     >
@@ -262,7 +266,7 @@ export function FileUploadControl({
         onClick={onBrowse}
         aria-label={ariaLabel ?? "Upload resume"}
         className={cn(
-          "flex w-full items-center gap-3 border border-dashed border-white/70 bg-white/34 px-4 py-5 text-left leading-none text-slate-700 transition hover:border-sky-400/55 hover:bg-white/48",
+          "flex w-full items-center gap-3 border border-dashed border-white/70 bg-white/34 px-4 py-5 text-left leading-none text-slate-700 transition hover:border-[var(--color-accent)] hover:bg-white/48",
           FOCUS_RING,
           mistRadii.nested,
         )}
@@ -280,13 +284,13 @@ export function FileUploadControl({
 
   return (
     <div className={cn("flex items-center gap-3 border border-white/55 bg-white/34 px-4 py-3 leading-none", mistRadii.nested)}>
-      <FileText className="h-4 w-4 shrink-0 text-sky-500" />
+      <FileText className="h-4 w-4 shrink-0 text-[var(--color-accent)]" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold leading-none text-slate-800">{fileName}</div>
         <div className="mt-1 font-mono text-[11px] leading-none text-slate-500">{parsing ? "Parsing resume..." : "Ready"}</div>
       </div>
       {parsing ? (
-        <div className="h-3 w-3 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
+        <div className="h-3 w-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
       ) : (
         <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
       )}
@@ -313,7 +317,7 @@ export function ProgressMeter({ value, label, className = "" }: { value: number;
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className="h-1.5 w-24 overflow-hidden rounded-full border border-white/45 bg-white/36 shadow-inner">
-        <div className="h-full rounded-full bg-sky-500 shadow-[0_0_18px_rgba(14,165,233,0.45)] transition-[width] duration-500" style={{ width }} />
+        <div className="h-full rounded-full bg-[var(--color-accent)] shadow-[0_0_18px_rgba(63,122,86,0.35)] transition-[width] duration-500" style={{ width }} />
       </div>
       {label && <span className="font-mono text-[11px] leading-none tabular-nums text-slate-500">{label}</span>}
     </div>

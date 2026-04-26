@@ -3,14 +3,14 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap leading-none rounded-md text-sm font-medium tracking-tight transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap leading-none rounded-md text-sm font-medium tracking-tight transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
   {
     variants: {
       variant: {
         primary:
           "bg-[var(--color-fg)] text-[var(--color-bg)] hover:bg-black shadow-[0_1px_0_0_rgba(255,255,255,0.1)_inset]",
         accent:
-          "bg-[var(--color-accent)] text-[var(--color-bg)] hover:brightness-110 hover:shadow-[0_8px_20px_-8px_rgba(8,145,178,0.4)] glow-accent",
+          "bg-[var(--color-accent)] text-[var(--color-bg)] hover:brightness-110 hover:shadow-[0_8px_20px_-8px_rgba(63,122,86,0.34)] glow-accent",
         secondary:
           "bg-[var(--color-surface-1)] text-[var(--color-fg)] border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-border-strong)]",
         ghost:

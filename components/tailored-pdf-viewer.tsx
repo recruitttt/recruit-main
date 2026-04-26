@@ -66,7 +66,7 @@ export function TailoredPdfViewer({
     ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(jobId)}`
     : null;
   const src = blobUrl ?? apiUrl;
-  const iframeLoaded = Boolean(src && loadedSrc === src);
+  const iframeLoaded = Boolean(src) && loadedSrc === src;
   const displayName = filename ?? "Tailored resume.pdf";
 
   function handleDownload() {

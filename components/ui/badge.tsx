@@ -9,7 +9,7 @@ const stageStyles: Record<Stage, string> = {
   reviewing:
     "bg-violet-500/10 text-violet-700 border-violet-500/30",
   submitting:
-    "bg-cyan-500/10 text-cyan-700 border-cyan-500/30",
+    "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]",
   submitted:
     "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
   blocked:
