@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Mark } from "@/components/ui/logo";
 import { cx, mistClasses, StatusBadge } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
+import { clearLocalUserData } from "@/lib/local-data";
 import {
   Box,
   ChevronDown,
@@ -35,6 +36,10 @@ export function Topnav() {
     return (parts[0]?.[0] ?? "U") + (parts[1]?.[0] ?? "");
   }, [user?.name, user?.email]);
   const signOut = () => {
+    // Wipe per-user localStorage + onboarding cookie BEFORE the auth call
+    // so even if the network signOut fails, the next person on this device
+    // doesn't inherit the previous user's resume / chat / prefs.
+    clearLocalUserData();
     void authClient.signOut({
       fetchOptions: {
         onSuccess: () => router.push("/"),
