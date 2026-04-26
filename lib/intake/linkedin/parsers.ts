@@ -66,7 +66,58 @@ const SDUI_SECTION_END_PATTERNS: ReadonlyArray<RegExp> = [
   /^why am i seeing this ad/i,
   /^people also viewed/i,
   /^you might like/i,
+  /^similar profiles?/i,
+  /^suggested for you/i,
+  /^people you may know/i,
+  /^other people named/i,
+  /^more activity from/i,
+  /^mutual connections/i,
+  /^recommended for you/i,
+  /^promoted$/i,
+  /^sponsored$/i,
+  /^other similar profiles?/i,
 ];
+
+/**
+ * Patterns for headings/aria-labels that mark recommendation widgets we must
+ * NEVER scrape experience/education entries from. Used to detect contaminated
+ * regions inside the raw HTML before `<p>` extraction even runs.
+ */
+const RECOMMENDATION_HEADING_PATTERNS: ReadonlyArray<RegExp> = [
+  /people also viewed/i,
+  /similar profiles?/i,
+  /other similar profiles?/i,
+  /suggested for you/i,
+  /people you may know/i,
+  /other people named/i,
+  /more activity from/i,
+  /mutual connections/i,
+  /recommended for you/i,
+  /more profiles for you/i,
+  /you might like/i,
+  /\bpromoted\b/i,
+  /\bsponsored\b/i,
+];
+
+/**
+ * Generic placeholder titles LinkedIn renders in recommendation tiles when no
+ * dates / description are present. Treated as contamination unless paired with
+ * a real date range or a substantive description.
+ */
+const GENERIC_PLACEHOLDER_TITLES: ReadonlyArray<RegExp> = [
+  /^sales associate$/i,
+  /^sales associate at .+/i,
+  /^tutor$/i,
+  /^tutor\s*\/\s*mentor$/i,
+  /^mentor$/i,
+  /^volunteer$/i,
+  /^intern$/i,
+  /^member$/i,
+  /^student$/i,
+];
+
+/** Minimum description length we treat as "substantive" for sanity-check. */
+const MIN_DESCRIPTION_LEN = 30;
 
 const SDUI_EXTRAS_MARKERS: ReadonlyArray<RegExp> = [
   /^grade:/i,
@@ -120,23 +171,145 @@ export function sectionEmpty(html: string): boolean {
 }
 
 /**
- * Extract every `<p>` text inside the page's `<main>` element. Matches the
- * Python `_sdui_extract_p_lines`. Operates on raw HTML (no DOM) so we don't
- * need a Playwright handle here.
+ * Strip every element marked as `aria-busy="true"` (skeleton/loading shells
+ * LinkedIn renders before hydration completes — they often contain dummy
+ * placeholder text that looks like real content).
  */
-export function extractPLines(html: string): string[] {
-  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/);
-  if (!mainMatch) return [];
-  let main = mainMatch[1];
-  // Strip `<svg>`, `<script>`, `<style>` blocks that hold no readable text.
-  main = main.replace(/<svg[^>]*>[\s\S]*?<\/svg>/g, "");
-  main = main.replace(/<script[^>]*>[\s\S]*?<\/script>/g, "");
-  main = main.replace(/<style[^>]*>[\s\S]*?<\/style>/g, "");
+function stripAriaBusy(html: string): string {
+  // Drop sections / divs / elements that explicitly declare aria-busy="true".
+  // We scrub each common container tag separately because regex can't match
+  // arbitrary balanced tags.
+  let out = html;
+  for (const tag of ["section", "div", "ul", "li", "article", "aside"] as const) {
+    const re = new RegExp(
+      `<${tag}[^>]*aria-busy=["']true["'][^>]*>[\\s\\S]*?<\\/${tag}>`,
+      "gi",
+    );
+    out = out.replace(re, "");
+  }
+  return out;
+}
+
+/**
+ * Strip every region whose surrounding heading / aria-label / id matches one
+ * of the recommendation widget signatures. This is the PRIMARY contamination
+ * shield — LinkedIn's "People also viewed" sidebar puts real-looking
+ * `<p>Sales Associate at Target</p>` tags right inside `<main>`.
+ *
+ * We scrub each container tag (section / aside / div) independently because
+ * pure-regex HTML parsing can't honor balanced nesting.
+ */
+function stripRecommendationWidgets(html: string): string {
+  let out = html;
+
+  // 1. <aside> blocks — LinkedIn nests "People also viewed" inside <aside>.
+  out = out.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, "");
+
+  // 2. Any <section>/<div> whose aria-label / id / data-test-id matches a
+  //    recommendation pattern.
+  for (const tag of ["section", "div"] as const) {
+    const re = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi");
+    out = out.replace(re, (block) => {
+      const headerOpen = block.match(/^<[^>]+>/);
+      if (headerOpen) {
+        const attrs = headerOpen[0].toLowerCase();
+        if (
+          RECOMMENDATION_HEADING_PATTERNS.some((p) => p.test(attrs)) ||
+          /\b(?:id|aria-label|aria-labelledby|data-section|data-test-id|class)=["'][^"']*(?:browsemap|pymk|similar-profile|people-also-viewed|recommended|other-profiles|aside-section)[^"']*["']/i.test(
+            attrs,
+          )
+        ) {
+          return "";
+        }
+      }
+      // Inspect the FIRST heading (h1-h6) inside the block — if it's a
+      // recommendation widget, drop the entire block.
+      const heading = block.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+      if (heading) {
+        const text = heading[1]
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (RECOMMENDATION_HEADING_PATTERNS.some((p) => p.test(text))) {
+          return "";
+        }
+      }
+      return block;
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Extract a single labelled section's inner HTML by id / data-section /
+ * aria-label. Returns null if no such anchor exists. Used to anchor
+ * experience / education parsing to ONLY the user's own section.
+ *
+ * On `/details/experience/` and `/details/education/` subpages LinkedIn
+ * renders the user's entries inside an explicit `<section id="experience">`
+ * (or `data-section="experience"`). When we can find that anchor we restrict
+ * `<p>` extraction to its subtree, which trivially eliminates all sidebar
+ * contamination.
+ */
+function extractAnchoredSection(html: string, kind: SectionKind): string | null {
+  const idAttrs = [`id="${kind}"`, `id='${kind}'`, `data-section="${kind}"`, `data-section='${kind}'`];
+
+  // Try every container tag LinkedIn might wrap the section in.
+  for (const tag of ["section", "div"] as const) {
+    for (const attr of idAttrs) {
+      // Use a non-greedy match — the LAST </tag> closer in the page might be
+      // for a parent, but our anchor is typically self-contained.
+      const re = new RegExp(
+        `<${tag}[^>]*\\b${attr}[^>]*>([\\s\\S]*?)<\\/${tag}>`,
+        "i",
+      );
+      const m = html.match(re);
+      if (m && m[1]) {
+        // If the anchor itself is a skeleton (aria-busy="true"), return an
+        // empty body so downstream parsing yields zero entries instead of
+        // scraping placeholder text like "Loading...".
+        const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
+        if (/aria-busy=["']true["']/i.test(openTag)) {
+          return "";
+        }
+        return m[1];
+      }
+    }
+  }
+
+  // Anchor by aria-label as a last resort.
+  const ariaRe = new RegExp(
+    `<section[^>]*aria-label=["'](?:${kind}|${kind[0].toUpperCase()}${kind.slice(1)})["'][^>]*>([\\s\\S]*?)<\\/section>`,
+    "i",
+  );
+  const ariaMatch = html.match(ariaRe);
+  if (ariaMatch && ariaMatch[1]) {
+    const openTag = ariaMatch[0].slice(0, ariaMatch[0].indexOf(">") + 1);
+    if (/aria-busy=["']true["']/i.test(openTag)) {
+      return "";
+    }
+    return ariaMatch[1];
+  }
+
+  return null;
+}
+
+/**
+ * Run the regex `<p>` extraction over an arbitrary HTML chunk, with the same
+ * sanitization as the legacy `extractPLines` (svg/script/style strip + entity
+ * decode + whitespace collapse).
+ */
+function extractPLinesFromChunk(chunk: string): string[] {
+  let html = chunk;
+  html = html.replace(/<svg[^>]*>[\s\S]*?<\/svg>/g, "");
+  html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/g, "");
+  html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/g, "");
 
   const out: string[] = [];
   const tagRe = /<p[^>]*>([\s\S]*?)<\/p>/g;
   let match: RegExpExecArray | null;
-  while ((match = tagRe.exec(main)) !== null) {
+  while ((match = tagRe.exec(html)) !== null) {
     let text = match[1].replace(/<[^>]+>/g, " ");
     text = text
       .replace(/&amp;/g, "&")
@@ -150,6 +323,24 @@ export function extractPLines(html: string): string[] {
     if (text) out.push(text);
   }
   return out;
+}
+
+/**
+ * Extract every `<p>` text inside the page's `<main>` element. Matches the
+ * Python `_sdui_extract_p_lines`. Operates on raw HTML (no DOM) so we don't
+ * need a Playwright handle here.
+ *
+ * Now scrubs `aria-busy="true"` skeletons and recommendation widgets
+ * (`People also viewed`, `Similar profiles`, etc.) BEFORE walking `<p>`
+ * tags so contamination from sidebars never reaches downstream consumers.
+ */
+export function extractPLines(html: string): string[] {
+  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/);
+  if (!mainMatch) return [];
+  let main = mainMatch[1];
+  main = stripAriaBusy(main);
+  main = stripRecommendationWidgets(main);
+  return extractPLinesFromChunk(main);
 }
 
 export function truncateAtSectionEnd(ps: string[]): string[] {
@@ -224,9 +415,28 @@ interface Resolved {
 /**
  * Port of `_sdui_parse_section`. Parses experience or education entries from
  * the HTML of a `/details/{kind}/` subpage.
+ *
+ * Hardening (additive on top of the Python parity):
+ *   1. Anchor `<p>` extraction to `<section id="experience">` (or
+ *      `data-section="experience"`) when present. Same for education. Falls
+ *      back to the cleaned `<main>` only if no anchor exists.
+ *   2. Strip aria-busy skeletons + recommendation widgets via `extractPLines`.
+ *   3. Truncate aggressively at recommendation-widget headings.
+ *   4. Drop entries that look like sidebar placeholders (generic titles with
+ *      no dates AND no real description).
+ *   5. Sanity gate: every entry must have at least `from_date`, `to_date`,
+ *      OR a description longer than `MIN_DESCRIPTION_LEN` chars.
  */
 export function parseSection(html: string, kind: SectionKind): Array<LinkedInExperience | LinkedInEducation> {
-  let ps = extractPLines(html);
+  // Prefer the anchored section subtree — it physically excludes sidebars.
+  const anchored = extractAnchoredSection(html, kind);
+  let ps: string[];
+  if (anchored !== null) {
+    const cleaned = stripRecommendationWidgets(stripAriaBusy(anchored));
+    ps = extractPLinesFromChunk(cleaned);
+  } else {
+    ps = extractPLines(html);
+  }
   ps = truncateAtSectionEnd(ps);
 
   // Drop any leading section heading like "Experience" or "Education".
@@ -298,10 +508,45 @@ export function parseSection(html: string, kind: SectionKind): Array<LinkedInExp
     }
   }
 
+  // Sanity-check + placeholder filter (additive guards, not in the Python).
+  const filtered = out.filter((e) => {
+    const fromDate = e.from_date;
+    const toDate = e.to_date;
+    const description = e.description;
+    const title =
+      kind === "experience"
+        ? (e as LinkedInExperience).position_title
+        : (e as LinkedInEducation).institution;
+
+    // Drop generic-placeholder titles that survived the heading scrub
+    // (recommendation tiles dropped in here when no anchor existed).
+    if (title) {
+      const hasDate = Boolean(fromDate) || Boolean(toDate);
+      const hasRealDescription =
+        description !== null && description !== undefined && description.trim().length >= MIN_DESCRIPTION_LEN;
+      if (
+        GENERIC_PLACEHOLDER_TITLES.some((p) => p.test(title.trim())) &&
+        !hasDate &&
+        !hasRealDescription
+      ) {
+        return false;
+      }
+    }
+
+    // Sanity gate: must have at least a date OR a substantive description.
+    const hasDate = Boolean(fromDate) || Boolean(toDate);
+    const hasRealDescription =
+      description !== null && description !== undefined && description.trim().length >= MIN_DESCRIPTION_LEN;
+    if (!hasDate && !hasRealDescription) {
+      return false;
+    }
+    return true;
+  });
+
   // Dedup by stable composite key, mirroring the Python tail.
   const seen = new Set<string>();
-  const uniq: typeof out = [];
-  for (const e of out) {
+  const uniq: typeof filtered = [];
+  for (const e of filtered) {
     const key =
       kind === "experience"
         ? JSON.stringify([

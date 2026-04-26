@@ -14,6 +14,11 @@ http.route({
     const auth = createAuth(ctx as any);
     const opts = (auth as any).options ?? {};
     const $context = await (auth as any).$context;
+    const testUrl =
+      "http://localhost:3000/api/auth/complete-oauth?redirect=%2Fonboarding";
+    const isTrusted = $context?.isTrustedOrigin?.(testUrl, {
+      allowRelativePaths: true,
+    });
     return Response.json({
       env_GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID ? "set" : "MISSING",
       env_GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET ? "set" : "MISSING",
@@ -22,6 +27,10 @@ http.route({
       socialProviders: Object.keys(opts.socialProviders ?? {}),
       ctxSocialProviders: Object.keys($context?.options?.socialProviders ?? {}),
       pluginIds: ($context?.options?.plugins ?? []).map((p: any) => p?.id),
+      trustedOrigins: $context?.trustedOrigins ?? null,
+      optionsTrustedOrigins: opts.trustedOrigins ?? null,
+      baseURL: opts.baseURL ?? null,
+      isTrustedTestUrl: { url: testUrl, result: isTrusted },
     });
   }),
 });

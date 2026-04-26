@@ -153,7 +153,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     }),
   playerMode: "off",
   playerNearestAgentId: null,
-  chatMode: "3d",
+  chatMode: "flat",
   setPlayerMode: (mode) => set({ playerMode: mode }),
   togglePlayerMode: () =>
     set((s) => ({ playerMode: s.playerMode === "walking" ? "off" : "walking" })),
