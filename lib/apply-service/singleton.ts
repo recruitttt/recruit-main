@@ -8,8 +8,9 @@ type GlobalWithApplyStore = typeof globalThis & {
 
 export function getApplyRunStore(): ReturnType<typeof createApplyRunStore> {
   const root = globalThis as GlobalWithApplyStore;
-  if (!root[globalKey]) {
+  const existing = root[globalKey];
+  if (!existing || typeof existing.patchJobStatus !== "function") {
     root[globalKey] = createApplyRunStore();
   }
-  return root[globalKey];
+  return root[globalKey]!;
 }

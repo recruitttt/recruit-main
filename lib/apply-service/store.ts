@@ -3,6 +3,7 @@ import type {
   ApplicationReviewItem,
   ApplyEvent,
   ApplyJob,
+  ApplyJobStatus,
   ApplyRun,
   DeferredQuestion,
   DeferredQuestionGroup,
@@ -211,6 +212,23 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     touch(run, now());
   }
 
+  function patchJobStatus(
+    runId: string,
+    jobId: string,
+    convexStatus: string,
+    error?: string,
+  ) {
+    const run = runs.get(runId);
+    if (!run) return;
+    const job = run.jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    job.status = mapConvexStatus(convexStatus);
+    if (error) job.error = error;
+    job.updatedAt = iso(now());
+    updateRunTerminalStatus(run);
+    touch(run, now());
+  }
+
   return {
     createRun,
     getRun,
@@ -222,6 +240,7 @@ export function createApplyRunStore(options: ApplyRunStoreOptions = {}) {
     approveJob,
     cancelJob,
     attachRemoteRun,
+    patchJobStatus,
   };
 
   function emit(runId: string, kind: ApplyEvent["kind"], message: string, payload?: unknown, jobId?: string): void {
@@ -281,6 +300,35 @@ function cloneRun(run: ApplyRun): ApplyRun {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function mapConvexStatus(convexStatus: string): ApplyJobStatus {
+  switch (convexStatus) {
+    case "queued": return "queued";
+    case "claimed":
+    case "browser_started":
+    case "fill_in_progress":
+    case "form_discovered":
+    case "answers_resolved":
+      return "filling";
+    case "filled_verified":
+    case "needs_human_review":
+      return "review_ready";
+    case "submit_attempted":
+    case "submitted_confirmed":
+    case "submitted_probable":
+      return "submitted_dev";
+    case "duplicate_or_already_applied":
+      return "submitted";
+    case "failed_unsupported_widget":
+    case "failed_repairable":
+    case "failed_browser_crash":
+    case "failed_network":
+    case "failed_user_input_required":
+      return "failed";
+    default:
+      return convexStatus.startsWith("failed") ? "failed" : "filling";
+  }
 }
 
 function normalizeUrlForMatch(url: string): string {
