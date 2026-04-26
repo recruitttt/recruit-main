@@ -1,90 +1,97 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { CameraControls } from "@react-three/drei";
+import { easing } from "maath";
 import { useRoomStore } from "./room-store";
-import { focusFraming } from "@/lib/room/focus-framing";
+import { focusFraming, type Framing } from "@/lib/room/focus-framing";
 import { playerActive, playerPosition } from "@/lib/room/player-position";
 
-const OVERVIEW = {
-  pos: [0, 6.8, 12.4] as const,
-  look: [0, 1.6, -2.0] as const,
-};
+const OVERVIEW_POS = [0, 6.8, 12.4] as const;
+const OVERVIEW_LOOK = [0, 1.6, -2.0] as const;
 
-const SCOUT_INTAKE = {
-  pos: [0, 2.6, 6.4] as const,
-  look: [0, 1.4, 1.0] as const,
-};
+const FOCUS_SMOOTH_TIME = 0.35;
+const PARALLAX_SMOOTH_TIME = 0.6;
 
-const FIXED_AZIMUTH = 0;
-const FOLLOW_DAMP = 3;
+const PARALLAX_X_MAX = 0.3;
+const PARALLAX_Y_MAX = 0.3;
+
+const FOLLOW_SMOOTH_TIME = 0.45;
 const FOLLOW_X_LIMIT = 6;
-const FOLLOW_EPSILON = 0.0008;
-const FOLLOW_TARGET_REUSE = new THREE.Vector3();
+const FOLLOW_CAMERA_TRACK = 0.5;
+
+/**
+ * Resolves the active focus framing from the room store. Returns `null` when
+ * the camera should sit in overview mode.
+ */
+export function useCameraFocus(): Framing | null {
+  const focusTarget = useRoomStore((s) => s.focusTarget);
+  const cameraMode = useRoomStore((s) => s.cameraMode);
+  return useMemo(() => {
+    if (cameraMode !== "focus" || !focusTarget) return null;
+    return focusFraming(focusTarget);
+  }, [cameraMode, focusTarget]);
+}
 
 export function RoomCamera() {
-  const controls = useRef<CameraControls>(null);
-  const focusTarget = useRoomStore((s) => s.focusTarget);
+  const focus = useCameraFocus();
   const playerMode = useRoomStore((s) => s.playerMode);
-  const intakePhase = useRoomStore((s) => s.intakePhase);
-  const chatMode = useRoomStore((s) => s.chatMode);
-  const intakeFocused =
-    chatMode === "3d" && (intakePhase === "waving" || intakePhase === "questioning");
 
-  useEffect(() => {
-    const c = controls.current;
-    if (!c) return;
-    if (focusTarget) {
-      const framing = focusFraming(focusTarget);
-      c.setLookAt(
-        framing.cam[0], framing.cam[1], framing.cam[2],
-        framing.look[0], framing.look[1], framing.look[2],
-        true,
-      );
-    } else if (intakeFocused) {
-      c.setLookAt(
-        SCOUT_INTAKE.pos[0], SCOUT_INTAKE.pos[1], SCOUT_INTAKE.pos[2],
-        SCOUT_INTAKE.look[0], SCOUT_INTAKE.look[1], SCOUT_INTAKE.look[2],
-        true,
-      );
+  // Reuse vectors across frames — `useFrame` runs every tick, so allocating
+  // here would churn GC and tank framerate.
+  const temps = useMemo(
+    () => ({
+      basePos: new THREE.Vector3(),
+      baseLook: new THREE.Vector3(),
+      parallaxOffset: new THREE.Vector3(),
+      parallaxTarget: new THREE.Vector3(),
+    }),
+    [],
+  );
+  const lookCurrent = useRef(
+    new THREE.Vector3(OVERVIEW_LOOK[0], OVERVIEW_LOOK[1], OVERVIEW_LOOK[2]),
+  );
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.1);
+    const camera = state.camera;
+    const followX = playerMode === "walking" && playerActive.current;
+
+    if (focus) {
+      temps.basePos.set(focus.cam[0], focus.cam[1], focus.cam[2]);
+      temps.baseLook.set(focus.look[0], focus.look[1], focus.look[2]);
     } else {
-      c.setLookAt(
-        OVERVIEW.pos[0], OVERVIEW.pos[1], OVERVIEW.pos[2],
-        OVERVIEW.look[0], OVERVIEW.look[1], OVERVIEW.look[2],
-        true,
-      );
+      temps.basePos.set(OVERVIEW_POS[0], OVERVIEW_POS[1], OVERVIEW_POS[2]);
+      temps.baseLook.set(OVERVIEW_LOOK[0], OVERVIEW_LOOK[1], OVERVIEW_LOOK[2]);
+      if (followX) {
+        const desiredX = THREE.MathUtils.clamp(
+          playerPosition.x,
+          -FOLLOW_X_LIMIT,
+          FOLLOW_X_LIMIT,
+        );
+        temps.baseLook.x = desiredX;
+        temps.basePos.x = desiredX * FOLLOW_CAMERA_TRACK;
+      }
     }
-  }, [focusTarget, intakeFocused]);
 
-  useFrame((_, delta) => {
-    const c = controls.current;
-    if (!c) return;
-    if (focusTarget) return;
-    if (playerMode !== "walking" || !playerActive.current) return;
-    c.getTarget(FOLLOW_TARGET_REUSE);
-    const desiredX = THREE.MathUtils.clamp(playerPosition.x, -FOLLOW_X_LIMIT, FOLLOW_X_LIMIT);
-    const newX = THREE.MathUtils.damp(FOLLOW_TARGET_REUSE.x, desiredX, FOLLOW_DAMP, delta);
-    const dx = newX - FOLLOW_TARGET_REUSE.x;
-    if (Math.abs(dx) > FOLLOW_EPSILON) c.truck(dx, 0, false);
+    // Parallax disabled while focused so it doesn't fight the focus framing.
+    const px = focus ? 0 : state.pointer.x * PARALLAX_X_MAX;
+    const py = focus ? 0 : state.pointer.y * PARALLAX_Y_MAX;
+    temps.parallaxTarget.set(px, py, 0);
+    easing.damp3(
+      temps.parallaxOffset,
+      temps.parallaxTarget,
+      PARALLAX_SMOOTH_TIME,
+      dt,
+    );
+    temps.basePos.add(temps.parallaxOffset);
+
+    const positionSmooth = focus ? FOCUS_SMOOTH_TIME : FOLLOW_SMOOTH_TIME;
+    easing.damp3(camera.position, temps.basePos, positionSmooth, dt);
+    easing.damp3(lookCurrent.current, temps.baseLook, FOCUS_SMOOTH_TIME, dt);
+    camera.lookAt(lookCurrent.current);
   });
 
-  return (
-    <CameraControls
-      ref={controls}
-      smoothTime={0.48}
-      draggingSmoothTime={0.25}
-      minDistance={4}
-      maxDistance={22}
-      minPolarAngle={Math.PI * 0.32}
-      maxPolarAngle={Math.PI * 0.42}
-      minAzimuthAngle={FIXED_AZIMUTH}
-      maxAzimuthAngle={FIXED_AZIMUTH}
-      azimuthRotateSpeed={0}
-      dollySpeed={0}
-      truckSpeed={1.4}
-      verticalDragToForward={false}
-    />
-  );
+  return null;
 }
