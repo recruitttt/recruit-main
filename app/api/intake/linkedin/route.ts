@@ -26,6 +26,10 @@ import { api } from "@/convex/_generated/api";
 import { getSessionUserId, getToken } from "@/lib/auth-server";
 import { linkedinAdapter } from "@/lib/intake/linkedin";
 import {
+  resolveLinkedInAiCredentials,
+  type LinkedInSharedRuntimeConfig,
+} from "@/lib/intake/linkedin/runtime-config";
+import {
   isLinkedinProfileUrl,
   normalizeLinkedinProfileUrl,
 } from "@/lib/intake/shared/source-state";
@@ -63,16 +67,6 @@ type RequestBody = z.infer<typeof RequestSchema>;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveAICredentials(): AICredentials {
-  const gateway = process.env.AI_GATEWAY_API_KEY;
-  if (gateway) return { source: "gateway", apiKey: gateway };
-  const anthropic = process.env.ANTHROPIC_API_KEY;
-  if (anthropic) return { source: "anthropic", apiKey: anthropic };
-  throw new Error(
-    "No AI credentials configured. Set ANTHROPIC_API_KEY or AI_GATEWAY_API_KEY."
-  );
-}
-
 function buildConvexClient(): ConvexHttpClient {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!url) {
@@ -81,6 +75,19 @@ function buildConvexClient(): ConvexHttpClient {
     );
   }
   return new ConvexHttpClient(url.replace(/\/+$/, ""));
+}
+
+async function readSharedRuntimeConfig(
+  client: ConvexHttpClient,
+): Promise<LinkedInSharedRuntimeConfig | null> {
+  try {
+    return (await client.query(
+      api.linkedinCookies.getSharedRuntimeConfig,
+      {},
+    )) as LinkedInSharedRuntimeConfig | null;
+  } catch {
+    return null;
+  }
 }
 
 function sseHeaders(): HeadersInit {
@@ -117,21 +124,31 @@ export async function POST(req: Request): Promise<Response> {
   // ---- Convex client + AI credentials ----------------------------------
   let client: ConvexHttpClient;
   let credentials: AICredentials;
+  let sharedRuntimeConfig: LinkedInSharedRuntimeConfig | null = null;
   try {
     client = buildConvexClient();
-    credentials = resolveAICredentials();
   } catch (err) {
     const msg = err instanceof Error ? err.message : "configuration error";
     return jsonError(msg, 503);
   }
 
-  // Forward the better-auth token so Convex mutations execute as the user.
+  // Forward the better-auth token before reading shared runtime config or
+  // mutating profile state. Localhost machines intentionally rely on Convex
+  // deployment env for LinkedIn/Browserbase/AI config, not per-developer env.
   try {
     const token = await getToken();
     if (token) client.setAuth(token);
   } catch {
     // Mutations targeted by this route accept `userId` arg, so unauthenticated
     // calls still work. We only attach the token when available.
+  }
+
+  try {
+    sharedRuntimeConfig = await readSharedRuntimeConfig(client);
+    credentials = resolveLinkedInAiCredentials(process.env, sharedRuntimeConfig);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "configuration error";
+    return jsonError(msg, 503);
   }
 
   // Persist the submitted URL before the long-running scrape begins. That lets
@@ -152,6 +169,7 @@ export async function POST(req: Request): Promise<Response> {
   // ---- Stream SSE -------------------------------------------------------
   const stream = streamLinkedinIntake({
     profileUrl: body.profileUrl,
+    runtimeConfig: sharedRuntimeConfig,
     userId,
     client,
     credentials,
@@ -174,6 +192,7 @@ export async function POST(req: Request): Promise<Response> {
 
 interface StreamInput {
   profileUrl: string;
+  runtimeConfig: LinkedInSharedRuntimeConfig | null;
   userId: string;
   client: ConvexHttpClient;
   credentials: AICredentials;
@@ -182,6 +201,7 @@ interface StreamInput {
 
 function streamLinkedinIntake({
   profileUrl,
+  runtimeConfig,
   userId,
   client,
   credentials,
@@ -196,7 +216,10 @@ function streamLinkedinIntake({
       const onAbort = () => streamWriter.cancel();
       signal?.addEventListener("abort", onAbort, { once: true });
 
-      const tappedAdapter: IntakeAdapter<{ profileUrl: string }> = {
+      const tappedAdapter: IntakeAdapter<{
+        profileUrl: string;
+        runtimeConfig?: LinkedInSharedRuntimeConfig | null;
+      }> = {
         name: linkedinAdapter.name,
         async *run(input, ctx) {
           for await (const event of linkedinAdapter.run(input, ctx)) {
@@ -214,7 +237,7 @@ function streamLinkedinIntake({
       };
 
       try {
-        await runIntake(tappedAdapter, { profileUrl }, intakeCtx);
+        await runIntake(tappedAdapter, { profileUrl, runtimeConfig }, intakeCtx);
         streamWriter.send({ stage: "complete", message: "LinkedIn intake complete" });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
