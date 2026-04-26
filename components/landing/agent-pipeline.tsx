@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import { Search, Pencil, Send, Mail, CalendarCheck } from "lucide-react";
 import { Mark } from "@/components/ui/logo";
+import { mistColors } from "@/components/design-system";
 
 const steps = [
   { Icon: Search,        label: "Finding jobs" },
@@ -78,8 +79,11 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
     if (phase !== "burst") return;
     const logoEl = document.querySelector("[data-logo-mark]") as SVGElement | null;
     if (!logoEl) return;
-    const rect = logoEl.getBoundingClientRect();
-    setLogoTarget({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    const frame = window.requestAnimationFrame(() => {
+      const rect = logoEl.getBoundingClientRect();
+      setLogoTarget({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [phase]);
 
   // when the flight lands: reveal the real logo + pulse it
@@ -115,7 +119,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
           initial="hidden"
           animate="show"
           variants={container}
-          className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[12px] font-mono text-[var(--color-fg-muted)]"
+          className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-[12px] text-slate-600"
         >
           {steps.map((s, i) => (
             <motion.div
@@ -124,10 +128,10 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
               animate={collapsing ? collapseTargetFor(i) : undefined}
               className="flex items-center gap-2.5"
             >
-              {i > 0 && <span className="text-[var(--color-fg-subtle)]/50">·</span>}
+              {i > 0 && <span className="text-slate-400/70">·</span>}
               <span className="flex items-center gap-1.5 whitespace-nowrap">
                 <s.Icon
-                  className="h-3.5 w-3.5 text-[var(--color-accent)] opacity-85"
+                  className="h-3.5 w-3.5 text-sky-600 opacity-85"
                   strokeWidth={1.75}
                 />
                 {s.label}
@@ -157,7 +161,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
               className="h-full w-full rounded-full"
               style={{
                 background:
-                  "radial-gradient(circle, rgba(8,145,178,0.55), rgba(8,145,178,0) 65%)",
+                  "radial-gradient(circle, rgba(14,165,233,0.55), rgba(14,165,233,0) 65%)",
                 filter: "blur(2px)",
               }}
             />
@@ -170,7 +174,8 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
         {(phase === "burst" || phase === "fly") && center && (
           <motion.div
             key="flying-mark"
-            className="pointer-events-none fixed left-0 top-0 z-50 text-[var(--color-accent)]"
+            className="pointer-events-none fixed left-0 top-0 z-50"
+            style={{ color: mistColors.accent }}
             initial={{
               x: center.x - 16,
               y: center.y - 16,

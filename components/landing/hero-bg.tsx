@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { mistColors } from "@/components/design-system";
 
 /**
- * Ambient hero background — warm-paper light theme:
+ * Ambient hero background for the Glass/Mist home screen:
  *   - very faint grid
  *   - cursor-follow cyan wash (low alpha so it reads as atmosphere)
  *   - two drifting soft color orbs (cyan + warm pink) for depth
@@ -49,9 +50,9 @@ export function HeroBg() {
   }, []);
 
   return (
-    <div ref={ref} className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div ref={ref} className="pointer-events-none fixed inset-0 overflow-hidden" style={{ backgroundColor: mistColors.bg }}>
       {/* faint grid */}
-      <div className="absolute inset-0 grid-bg grid-bg-fade opacity-60" />
+      <div className="absolute inset-0 grid-bg grid-bg-fade opacity-35" />
 
       {/* cursor follow — deep cyan at very low opacity */}
       <div
@@ -63,20 +64,20 @@ export function HeroBg() {
       />
 
       {/* subtle warm top wash */}
-      <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-[rgba(8,145,178,0.04)] via-transparent to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-white/35 via-white/10 to-transparent" />
 
       {/* drifting color orbs */}
       <div
         className="absolute left-[10%] top-[20%] h-72 w-72 rounded-full blur-3xl"
         style={{
-          background: "radial-gradient(circle, rgba(8,145,178,0.12), transparent 60%)",
+          background: "radial-gradient(circle, rgba(255,255,255,0.34), transparent 62%)",
           animation: "drift-a 18s ease-in-out infinite",
         }}
       />
       <div
         className="absolute right-[8%] top-[55%] h-80 w-80 rounded-full blur-3xl"
         style={{
-          background: "radial-gradient(circle, rgba(219,39,119,0.08), transparent 60%)",
+          background: "radial-gradient(circle, rgba(14,165,233,0.16), transparent 62%)",
           animation: "drift-b 22s ease-in-out infinite",
         }}
       />
