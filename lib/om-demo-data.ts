@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import dashboardSummary from "@/data/om-demo/dashboard-summary.json";
 import jobDetails from "@/data/om-demo/job-details.json";
 import manifest from "@/data/om-demo/manifest.json";
@@ -71,6 +73,22 @@ type OmDemoCacheEntry = {
 const rankedPayloadCache = new Map<string, Promise<RankedOmDemoPayload> | OmDemoCacheEntry>();
 let latestRankedByJobId = new Map<string, RankedLiveRecommendation>();
 let latestRankedPayload: OmDemoCacheEntry | null = null;
+
+// Static Om Sanan resume bundled at public/demo/om-sanan-resume.pdf. Loaded
+// once per process and base64-cached so every tailor demo serves the same
+// real PDF instead of the text-rendered fallback.
+let cachedOmResumeBase64: string | null | undefined = undefined;
+
+function readBundledOmResumeBase64(): string | null {
+  if (cachedOmResumeBase64 !== undefined) return cachedOmResumeBase64;
+  try {
+    const path = join(process.cwd(), "public", "demo", "om-sanan-resume.pdf");
+    cachedOmResumeBase64 = readFileSync(path).toString("base64");
+  } catch {
+    cachedOmResumeBase64 = null;
+  }
+  return cachedOmResumeBase64;
+}
 
 export function shouldUseOmDemoData(env: NodeJS.ProcessEnv = process.env) {
   const mode = (env.DASHBOARD_DATA_SOURCE ?? "").trim().toLowerCase();
@@ -917,8 +935,12 @@ export function omDemoTailoredApplication(
       : org.techStack.length,
   };
 
-  const pdfBytes = textToPdf(resumeFallbackText(tailoredResume));
-  const pdfBase64 = toBase64(pdfBytes);
+  // Prefer the static Om Sanan resume bundled in public/demo/. Falls back to
+  // the deterministic text-rendered PDF if the file isn't readable (e.g.,
+  // in test environments without the public/ tree).
+  const pdfBase64 =
+    readBundledOmResumeBase64() ??
+    toBase64(textToPdf(resumeFallbackText(tailoredResume)));
   const safeCompany = job.company.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
   const filename = `Resume_${safeCompany || "Tailored"}.pdf`;
 
