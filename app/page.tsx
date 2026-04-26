@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
+import { Fragment } from "react";
 import {
   ArrowRight,
   Check,
@@ -14,12 +14,13 @@ import {
   MessageSquareText,
   Search,
   ShieldCheck,
-  Sparkles,
   Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Mark, Wordmark } from "@/components/ui/logo";
+
+const HERO_TITLE_WORDS = ["Apply", "to", "jobs", "without", "applying."];
 
 const liveRuns = [
   { company: "Linear", role: "Design Engineer", state: "Submitting", score: 94 },
@@ -84,12 +85,12 @@ const pricingPlans = [
 export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#EEF3F7] text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-white/45 bg-[#EEF3F7]/78 backdrop-blur-2xl">
+      <header className="absolute inset-x-0 top-0 z-40">
         <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6">
           <Link
             href="/"
             aria-label="Recruit"
-            className="flex h-10 items-center gap-2 rounded-full border border-white/70 bg-white/55 px-2.5 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_12px_30px_rgba(15,23,42,0.06)]"
+            className="flex h-10 items-center gap-2"
           >
             <Mark size="sm" className="text-sky-600" />
             <span className="font-serif text-[19px] leading-none tracking-tight text-sky-700">
@@ -140,40 +141,41 @@ export default function LandingPage() {
 
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/62 px-3 py-1.5 text-[12px] font-semibold text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_16px_40px_rgba(15,23,42,0.06)]"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white">
-                <Sparkles className="h-3 w-3" />
-              </span>
-              AI agents for the job hunt
-            </motion.div>
-
-            <motion.h1
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto max-w-5xl text-balance font-serif text-[clamp(48px,9vw,112px)] leading-[0.91] tracking-tight text-slate-950"
-            >
-              Apply to jobs without applying.
-            </motion.h1>
-            <motion.p
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto max-w-2xl text-balance text-[16px] leading-7 text-slate-600 sm:text-[18px]"
+            <h1 className="mx-auto max-w-5xl text-balance font-serif text-[clamp(40px,7.4vw,92px)] leading-[0.94] tracking-tight text-slate-950">
+              {HERO_TITLE_WORDS.map((word, index) => (
+                <Fragment key={`${word}-${index}`}>
+                  <span
+                    className="inline-block"
+                    style={{ perspective: "900px" }}
+                  >
+                    <span
+                      className="inline-block will-change-transform"
+                      style={{
+                        transformOrigin: "50% 90%",
+                        animation: `word-flip-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) ${0.25 + index * 0.12}s both`,
+                      }}
+                    >
+                      {word}
+                    </span>
+                  </span>
+                  {index < HERO_TITLE_WORDS.length - 1 ? " " : null}
+                </Fragment>
+              ))}
+            </h1>
+            <p
+              className="mx-auto max-w-2xl text-balance text-[14px] leading-6 text-slate-600 sm:text-[16px]"
+              style={{
+                animation: "hero-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1.35s both",
+              }}
             >
               Recruit finds roles, researches each company, tailors your resume, and pauses only when it needs your truth.
-            </motion.p>
+            </p>
 
-            <motion.div
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            <div
               className="flex flex-col items-center justify-center gap-3 sm:flex-row"
+              style={{
+                animation: "hero-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 1.6s both",
+              }}
             >
               <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
                 <Button size="lg" className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800">
@@ -190,10 +192,15 @@ export default function LandingPage() {
                   View live dashboard
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
 
-          <div className="relative mx-auto mt-12 w-full max-w-6xl flex-1">
+          <div
+            className="relative mx-auto mt-12 w-full max-w-6xl flex-1"
+            style={{
+              animation: "hero-rise 0.95s cubic-bezier(0.22, 1, 0.36, 1) 1.9s both",
+            }}
+          >
             <ProductMockup />
           </div>
         </div>
