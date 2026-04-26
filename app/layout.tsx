@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/toast";
 import { getToken } from "@/lib/auth-server";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -84,6 +86,8 @@ export default async function RootLayout({
           </ConvexClientProvider>
           <Toaster />
         </ThemeProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
