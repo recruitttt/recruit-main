@@ -35,7 +35,7 @@ export function Mark({ className, size = "md" }: { className?: string; size?: Si
   return (
     <svg
       viewBox="0 0 24 24"
-      className={cn(markSize[size], className)}
+      className={cn("text-[var(--color-accent)]", markSize[size], className)}
       data-logo-mark
       aria-hidden
     >
@@ -48,7 +48,7 @@ export function Mark({ className, size = "md" }: { className?: string; size?: Si
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
-        className="text-[var(--color-accent)] opacity-80"
+        className="opacity-80"
       />
       <path
         d="M7.25 6.55C7.08 6.14 7.5 5.76 7.9 5.95L17 10.38C17.48 10.61 17.42 11.31 16.9 11.46L13.2 12.5C12.98 12.56 12.8 12.72 12.7 12.93L11.15 16.28C10.92 16.77 10.22 16.75 10.02 16.24L7.25 6.55Z"
@@ -57,7 +57,6 @@ export function Mark({ className, size = "md" }: { className?: string; size?: Si
         strokeWidth="1.65"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-[var(--color-accent)]"
       />
       <path
         d="M10.05 9.85L12.7 12.5"
@@ -66,7 +65,7 @@ export function Mark({ className, size = "md" }: { className?: string; size?: Si
         strokeWidth="1.45"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-[var(--color-accent)] opacity-75"
+        className="opacity-75"
       />
     </svg>
   );
