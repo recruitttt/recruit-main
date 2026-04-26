@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as applicationActions from "../applicationActions.js";
+import type * as applicationJobs from "../applicationJobs.js";
 import type * as ashby from "../ashby.js";
 import type * as ashbyActions from "../ashbyActions.js";
 import type * as atsIngestion from "../atsIngestion.js";
@@ -23,6 +25,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  applicationActions: typeof applicationActions;
+  applicationJobs: typeof applicationJobs;
   ashby: typeof ashby;
   ashbyActions: typeof ashbyActions;
   atsIngestion: typeof atsIngestion;
