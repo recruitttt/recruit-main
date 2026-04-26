@@ -1,9 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
 
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import type { UserProfile } from "@/lib/profile";
-import { tailorPersistedJob } from "@/lib/tailor/persisted-job";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,13 +11,7 @@ type Body = {
   profile?: UserProfile;
 };
 
-type Recommendation = {
-  jobId?: string;
-  company?: string;
-  title?: string;
-  rank?: number;
-  score?: number;
-};
+const startOnboardingPipeline = makeFunctionReference<"mutation">("ashby:startOnboardingPipeline");
 
 function getConvexClient() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -45,63 +37,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    await client.mutation(api.ashby.upsertDemoProfileSnapshot, {
+    const started = await client.mutation(startOnboardingPipeline, {
       profile: body.profile,
-    });
-
-    await client.action(api.ashbyActions.seedAshbySourcesFromCareerOps, {});
-    const ingestion = await client.action(api.ashbyActions.runAshbyIngestion, {
       limitSources: 3,
-    }) as { runId: Id<"ingestionRuns"> };
-    const ranking = await client.action(api.ashbyActions.rankIngestionRun, {
-      runId: ingestion.runId,
-    });
-
-    const recommendations = await client.query(api.ashby.currentRecommendations, {}) as Recommendation[];
-    const topRecommendation = [...recommendations]
-      .filter((recommendation) => recommendation.jobId)
-      .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER))[0];
-
-    if (!topRecommendation?.jobId) {
-      return Response.json({
-        ok: false,
-        reason: "no_ranked_job",
-        ingestion,
-        ranking,
-        recommendationsCount: recommendations.length,
-      }, { status: 502 });
-    }
-
-    const tailoring = await tailorPersistedJob({
-      client,
-      jobId: topRecommendation.jobId,
-      profile: body.profile,
-    });
-
-    if (!tailoring.ok) {
-      return Response.json({
-        ok: false,
-        reason: tailoring.reason,
-        ingestion,
-        ranking,
-        topRecommendation,
-      }, { status: tailoring.status });
-    }
+      tailorLimit: 3,
+    }) as { runId: string; status: "started"; message: string };
 
     return Response.json({
       ok: true,
-      ingestion,
-      ranking,
-      topRecommendation,
-      tailoring: {
-        jobId: tailoring.application.jobId,
-        company: tailoring.application.job.company,
-        role: tailoring.application.job.role,
-        tailoringScore: tailoring.application.tailoringScore,
-        keywordCoverage: tailoring.application.keywordCoverage,
-        pdfReady: Boolean(tailoring.application.pdfBase64),
-        pdfByteLength: Buffer.from(tailoring.application.pdfBase64, "base64").byteLength,
-      },
+      runId: started.runId,
+      status: started.status,
+      message: started.message,
     });
   } catch (err) {
     return Response.json(

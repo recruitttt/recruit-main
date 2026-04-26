@@ -3,8 +3,9 @@
 "use node";
 
 import MiniSearch, { type SearchResult } from "minisearch";
-import { actionGeneric, anyApi } from "convex/server";
+import { actionGeneric, anyApi, internalActionGeneric } from "convex/server";
 import { v } from "convex/values";
+import { DEMO_PROFILE, isProfileUsable } from "../lib/demo-profile";
 import {
   buildProfileSearchQuery,
   evaluateHardFilters,
@@ -23,8 +24,14 @@ import {
   type AtsSource,
   type NormalizedAtsJob,
 } from "./atsIngestion";
+import { textToPdf, toBase64 } from "../lib/tailor/simple-pdf";
+import { researchJob } from "../lib/tailor/research";
+import { computeTailoringScore } from "../lib/tailor/score";
+import { tailorResume } from "../lib/tailor/tailor";
+import type { Job, TailoredResume } from "../lib/tailor/types";
 
 const action = actionGeneric;
+const internalAction = internalActionGeneric;
 
 const DEMO_USER_ID = "demo";
 const CAREER_OPS_PORTALS_URL =
@@ -143,6 +150,7 @@ export const seedAtsSourcesFromCareerOps = action({
 export const runAshbyIngestion = action({
   args: {
     demoUserId: v.optional(v.string()),
+    runId: v.optional(v.id("ingestionRuns")),
     limitSources: v.optional(v.number()),
   },
   returns: v.any(),
@@ -160,7 +168,7 @@ export const runAshbyIngestion = action({
       })) as AshbySource[];
     }
 
-    const runId = await ctx.runMutation(anyApi.ashby.createIngestionRun, {
+    const runId = args.runId ?? await ctx.runMutation(anyApi.ashby.createIngestionRun, {
       demoUserId,
       sourceCount: sources.length,
     });
@@ -276,6 +284,102 @@ export const runAshbyIngestion = action({
         level: "error",
         message: "Ashby ingestion failed.",
         payload: { error: err instanceof Error ? err.message : String(err) },
+      });
+      throw err;
+    }
+  },
+});
+
+export const runOnboardingPipeline = internalAction({
+  args: {
+    demoUserId: v.optional(v.string()),
+    runId: v.id("ingestionRuns"),
+    limitSources: v.optional(v.number()),
+    tailorLimit: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const tailorLimit = args.tailorLimit ?? 3;
+
+    try {
+      await ctx.runAction(anyApi.ashbyActions.seedAshbySourcesFromCareerOps, {});
+      const ingestion = await ctx.runAction(anyApi.ashbyActions.runAshbyIngestion, {
+        demoUserId,
+        runId: args.runId,
+        limitSources: args.limitSources ?? 3,
+      });
+      const ranking = await ctx.runAction(anyApi.ashbyActions.rankIngestionRun, {
+        demoUserId,
+        runId: args.runId,
+      });
+      const recommendations = await ctx.runQuery(anyApi.ashby.listRecommendationsForRun, {
+        runId: args.runId,
+      }) as Array<{ jobId?: string; rank?: number }>;
+      const profile = await ctx.runQuery(anyApi.ashby.getDemoProfileForAction, {
+        demoUserId,
+      });
+      const topJobs = recommendations
+        .filter((recommendation) => recommendation.jobId)
+        .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER))
+        .slice(0, tailorLimit);
+
+      if (topJobs.length === 0) {
+        await appendPipelineLog(ctx, {
+          demoUserId,
+          runId: args.runId,
+          stage: "tailoring",
+          level: "warning",
+          message: "No ranked jobs were available for automatic tailoring.",
+          payload: { tailorLimit },
+        });
+        return { ingestion, ranking, tailoredCount: 0 };
+      }
+
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "tailoring",
+        level: "info",
+        message: `Starting async tailoring for top ${topJobs.length} jobs.`,
+        payload: { tailorLimit, jobIds: topJobs.map((job) => job.jobId) },
+      });
+
+      let tailoredCount = 0;
+      for (const recommendation of topJobs) {
+        if (!recommendation.jobId) continue;
+        const result = await tailorJobForOnboarding(ctx, {
+          demoUserId,
+          jobId: recommendation.jobId,
+          profile,
+        });
+        if (result.ok) tailoredCount++;
+      }
+
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "tailoring",
+        level: tailoredCount === topJobs.length ? "success" : "warning",
+        message: `Finished async tailoring for ${tailoredCount}/${topJobs.length} top jobs.`,
+        payload: { tailoredCount, targetCount: topJobs.length },
+      });
+
+      return { ingestion, ranking, tailoredCount };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(anyApi.ashby.markRunFailed, {
+        runId: args.runId,
+        source: "onboarding_pipeline",
+        message,
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        runId: args.runId,
+        stage: "pipeline",
+        level: "error",
+        message: "Async onboarding pipeline failed.",
+        payload: { error: message },
       });
       throw err;
     }
@@ -526,6 +630,160 @@ export const rankIngestionRun = action({
     }
   },
 });
+
+async function tailorJobForOnboarding(
+  ctx: any,
+  {
+    demoUserId,
+    jobId,
+    profile: inputProfile,
+  }: {
+    demoUserId: string;
+    jobId: string;
+    profile: any;
+  }
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const startedAt = Date.now();
+  const profile = profileForTailoring(inputProfile);
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  const detail = await ctx.runQuery(anyApi.ashby.jobDetail, {
+    demoUserId,
+    jobId,
+  });
+  const sourceJob = detail?.job;
+  if (!sourceJob) {
+    return { ok: false, reason: "job_not_found" };
+  }
+
+  const job: Job = {
+    id: jobId,
+    company: sourceJob.company,
+    role: sourceJob.title,
+    jobUrl: sourceJob.jobUrl,
+    location: sourceJob.location,
+    descriptionPlain: sourceJob.descriptionPlain,
+  };
+
+  await ctx.runMutation(anyApi.ashby.upsertTailoredApplication, {
+    demoUserId,
+    jobId,
+    status: "tailoring",
+    job,
+    pdfReady: false,
+  });
+
+  if (!apiKey) {
+    await failTailoring(ctx, demoUserId, jobId, job, "no_api_key");
+    return { ok: false, reason: "no_api_key" };
+  }
+
+  try {
+    const researched = await withAbortTimeout(45_000, (signal) => researchJob(job, apiKey, signal));
+    if (!researched.ok) {
+      await failTailoring(ctx, demoUserId, jobId, job, researched.reason);
+      return { ok: false, reason: researched.reason };
+    }
+
+    const tailored = await withAbortTimeout(60_000, (signal) => tailorResume(profile, researched.research, apiKey, signal));
+    if (!tailored.ok) {
+      await failTailoring(ctx, demoUserId, jobId, job, tailored.reason);
+      return { ok: false, reason: tailored.reason };
+    }
+
+    const pdfBytes = textToPdf(resumeFallbackText(tailored.resume));
+    const pdfBase64 = toBase64(pdfBytes);
+    const scoring = computeTailoringScore(tailored.resume, researched.research);
+
+    await ctx.runMutation(anyApi.ashby.upsertTailoredApplication, {
+      demoUserId,
+      jobId,
+      status: "completed",
+      job,
+      research: researched.research,
+      tailoredResume: tailored.resume,
+      tailoringScore: scoring.score,
+      keywordCoverage: scoring.coverage,
+      durationMs: Date.now() - startedAt,
+      pdfReady: true,
+      pdfFilename: pdfName(job.company),
+      pdfByteLength: pdfBytes.byteLength,
+      pdfBase64,
+    });
+
+    return { ok: true };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    await failTailoring(ctx, demoUserId, jobId, job, reason);
+    return { ok: false, reason };
+  }
+}
+
+async function failTailoring(ctx: any, demoUserId: string, jobId: string, job: Job, error: string) {
+  await ctx.runMutation(anyApi.ashby.upsertTailoredApplication, {
+    demoUserId,
+    jobId,
+    status: "failed",
+    job,
+    pdfReady: false,
+    error,
+  });
+}
+
+function pdfName(company: string): string {
+  const safeCompany = company.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
+  return `Resume_${safeCompany || "Tailored"}.pdf`;
+}
+
+function profileForTailoring(profile: any) {
+  if (!isProfileUsable(profile)) return DEMO_PROFILE;
+  return {
+    ...profile,
+    links: profile.links ?? {},
+    experience: profile.experience ?? [],
+    education: profile.education ?? [],
+    skills: profile.skills ?? [],
+    prefs: profile.prefs ?? { roles: [], locations: [] },
+    suggestions: profile.suggestions ?? [],
+    provenance: profile.provenance ?? {},
+    log: profile.log ?? [],
+    updatedAt: profile.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+async function withAbortTimeout<T>(
+  ms: number,
+  run: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function resumeFallbackText(resume: TailoredResume): string {
+  return [
+    "Tailored Resume",
+    "",
+    resume.summary,
+    "",
+    resume.skills?.length ? `Skills: ${resume.skills.join(", ")}` : undefined,
+    "",
+    ...(resume.experience ?? []).flatMap((item) => [
+      [item.title, item.company].filter(Boolean).join(" - "),
+      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
+      "",
+    ]),
+    ...(resume.projects ?? []).flatMap((item) => [
+      item.name,
+      ...(item.bullets ?? []).map((bullet) => `- ${bullet}`),
+      "",
+    ]),
+  ].filter((line): line is string => typeof line === "string").join("\n");
+}
 
 async function runProviderIngestion(
   ctx: any,
