@@ -16,7 +16,7 @@ const PALETTE: Record<ProvenanceSource, { label: string; className: string; empt
   linkedin: {
     label: "linkedin",
     className:
-      "border-sky-500/30 bg-sky-500/12 text-sky-700",
+      "border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
     emptyHint: "Connect LinkedIn to populate this",
   },
   chat: {

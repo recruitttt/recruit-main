@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Mark } from "@/components/ui/logo";
+import { RecruitBrandLink, TopLine } from "@/components/shell/top-line";
 import {
   authErrorMessage,
   authNewUserRedirectPath,
@@ -196,18 +196,12 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
   }
 
   return (
-    <main className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#CDD5DF] px-4 py-10 text-[#101827]">
-      <div className="mx-auto flex w-full max-w-[460px] flex-col items-center gap-5">
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-3 py-2 text-sky-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_14px_40px_rgba(15,23,42,0.08)] backdrop-blur-2xl"
-          aria-label="Recruit home"
-        >
-          <Mark size="sm" className="text-sky-600" />
-          <span className="font-serif text-[19px] leading-none">recruit</span>
-        </Link>
+    <main className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
+      <TopLine brand={<RecruitBrandLink />} />
 
-        <section className="w-full rounded-[28px] border border-white/55 bg-white/42 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl sm:p-8">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="mx-auto flex w-full max-w-[460px] flex-col items-center gap-5">
+          <section className="w-full rounded-[28px] border border-white/55 bg-white/42 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-2xl sm:p-8">
           <div className="text-center">
             <h1 className="font-serif text-[30px] font-normal leading-none text-[#101827]">
               {title}
@@ -241,7 +235,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             {isSignUp && (
               <label className="grid gap-2">
                 <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Name</span>
-                <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-400/20">
+                <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                   <User className="h-4 w-4 text-[#6B7A90]" />
                   <input value={name} onChange={(event) => setName(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="Your name" autoComplete="name" />
                 </span>
@@ -250,7 +244,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
 
             <label className="grid gap-2">
               <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Email address</span>
-              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-400/20">
+              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                 <Mail className="h-4 w-4 text-[#6B7A90]" />
                 <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="you@example.com" autoComplete="email" />
               </span>
@@ -258,7 +252,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
 
             <label className="grid gap-2">
               <span className="font-mono text-[11px] font-semibold uppercase text-[#465568]">Password</span>
-              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-400/20">
+              <span className="flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/54 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus-within:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent-glow)]">
                 <Lock className="h-4 w-4 text-[#6B7A90]" />
                 <input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="h-full flex-1 bg-transparent text-sm text-[#101827] outline-none placeholder:text-[#6B7A90]" placeholder="At least 8 characters" autoComplete={isSignUp ? "new-password" : "current-password"} />
               </span>
@@ -281,7 +275,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
 
           <div className="mt-7 text-center text-sm text-[#465568]">
             {alternateText}{" "}
-            <Link href={alternateHref} className="font-semibold text-sky-700 hover:text-sky-800">
+            <Link href={alternateHref} className="font-semibold text-[var(--color-accent)] hover:brightness-110">
               {alternateAction}
             </Link>
           </div>
@@ -290,7 +284,7 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
             type="button"
             onClick={continueAsDemo}
             disabled={pendingAction !== null}
-            className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-[#6B7A90]/50 bg-transparent px-3 text-[12px] font-medium text-[#465568] transition hover:border-sky-400 hover:bg-white/40 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-[#6B7A90]/50 bg-transparent px-3 text-[12px] font-medium text-[#465568] transition hover:border-[var(--color-accent)] hover:bg-white/40 hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pendingAction === "demo" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -298,7 +292,8 @@ export function RecruitAuthForm({ mode }: { mode: AuthMode }) {
               "Continue as demo user — skip auth"
             )}
           </button>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   );

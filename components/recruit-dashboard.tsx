@@ -1,22 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Search, X } from "lucide-react";
 import { isProfileUsable } from "@/lib/demo-profile";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
 import { downloadPdf } from "@/lib/tailor/client";
 import type { TailoredApplication } from "@/lib/tailor/types";
 import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
+import { ActionButton } from "@/components/design-system";
 import { DashboardJobInspector } from "@/components/dashboard/dashboard-job-inspector";
 import { DashboardLeaderboard } from "@/components/dashboard/dashboard-leaderboard";
 import {
   buildLeaderboardVisualOrder,
   normalizeLeaderboardRecommendations,
   preserveLeaderboardSelection,
-  shouldTriggerCosmeticShuffle,
 } from "@/components/dashboard/leaderboard-helpers";
-import { DashboardStatusStrip } from "@/components/dashboard/dashboard-status-strip";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -31,13 +30,8 @@ type PipelineRunState = "idle" | "syncing" | "ingesting" | "ranking" | "done" | 
 
 const FAST_INTERVAL_MS = 2500;
 const SLOW_INTERVAL_MS = 8000;
-const SHUFFLE_SETTLE_MS = 520;
 
 function ConnectedRecruitDashboard() {
-  const reduceMotion = useReducedMotion();
-  const shuffleTimerRef = useRef<number | null>(null);
-  const previousRowsRef = useRef<LeaderboardRow[]>([]);
-
   const [runState, setRunState] = useState<PipelineRunState>("idle");
   const [runMessage, setRunMessage] = useState<string>();
   const [runError, setRunError] = useState<string>();
@@ -46,12 +40,11 @@ function ConnectedRecruitDashboard() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobDetail, setJobDetail] = useState<JobDetail | null | undefined>(undefined);
   const [detailError, setDetailError] = useState<string>();
-  const [displayRows, setDisplayRows] = useState<{ key: string; rows: LeaderboardRow[] } | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [tailorState, setTailorState] = useState<TailorState>({
     running: false,
-    message: "Select a ranked job to inspect and tailor.",
+    message: "Select an application to inspect and tailor.",
   });
 
   const normalizedRecommendations = useMemo(
@@ -69,19 +62,23 @@ function ConnectedRecruitDashboard() {
       providerLabel: providerLabel(recommendation),
       score: recommendation.score,
       secondaryLine: secondaryLine(recommendation),
+      ...applicationStatus(recommendation, liveData?.run),
       recommendation,
     })),
-    [normalizedRecommendations],
+    [liveData?.run, normalizedRecommendations],
   );
-  const boardSignature = boardRows.map((row) => `${row.jobId}:${row.rank}:${Math.round(row.score)}`).join("|");
   const selection = preserveLeaderboardSelection(boardRows, selectedJobId, {
     fallbackToFirst: false,
   });
   const selectedRow = selection.selected;
   const selected = selectedRow?.recommendation ?? null;
-  const renderedRows = displayRows?.key === boardSignature
-    ? displayRows.rows
-    : boardRows;
+  const renderedRows = useMemo(
+    () => buildLeaderboardVisualOrder(boardRows, {
+      seed: `applications:${boardRows.map((row) => row.jobId).join("|")}`,
+      pinnedJobId: selection.selectedJobId,
+    }).shuffled,
+    [boardRows, selection.selectedJobId],
+  );
 
   const busy = runState === "syncing" ||
     runState === "ingesting" ||
@@ -103,7 +100,7 @@ function ConnectedRecruitDashboard() {
         if (cancelled) return;
         setLiveData(payload);
         setLiveError(undefined);
-        setRefreshedAt(Date.now());
+        setRefreshedAt(new Date().getTime());
       } catch (error) {
         if (cancelled) return;
         setLiveError(error instanceof Error ? error.message : String(error));
@@ -121,48 +118,6 @@ function ConnectedRecruitDashboard() {
       window.clearInterval(interval);
     };
   }, [busy]);
-
-  useEffect(() => {
-    if (shuffleTimerRef.current) {
-      window.clearTimeout(shuffleTimerRef.current);
-      shuffleTimerRef.current = null;
-    }
-
-    if (boardRows.length === 0) {
-      previousRowsRef.current = [];
-      return;
-    }
-
-    const shouldShuffle = !reduceMotion &&
-      shouldTriggerCosmeticShuffle(previousRowsRef.current, boardRows);
-
-    if (!shouldShuffle) {
-      previousRowsRef.current = boardRows;
-      return;
-    }
-
-    const visualOrder = buildLeaderboardVisualOrder(boardRows, {
-      seed: boardRows.map((row) => `${row.jobId}:${row.score}`).join("|"),
-      pinnedJobId: selection.selectedJobId,
-    });
-
-    previousRowsRef.current = boardRows;
-    const frame = window.requestAnimationFrame(() => {
-      setDisplayRows({ key: boardSignature, rows: visualOrder.shuffled });
-    });
-    shuffleTimerRef.current = window.setTimeout(() => {
-      setDisplayRows({ key: boardSignature, rows: visualOrder.settled });
-      shuffleTimerRef.current = null;
-    }, SHUFFLE_SETTLE_MS);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      if (shuffleTimerRef.current) {
-        window.clearTimeout(shuffleTimerRef.current);
-        shuffleTimerRef.current = null;
-      }
-    };
-  }, [boardRows, boardSignature, reduceMotion, selection.selectedJobId]);
 
   useEffect(() => {
     const activeJobId = selected?.jobId;
@@ -199,14 +154,6 @@ function ConnectedRecruitDashboard() {
     };
   }, [selected?.jobId]);
 
-  useEffect(() => {
-    return () => {
-      if (shuffleTimerRef.current) {
-        window.clearTimeout(shuffleTimerRef.current);
-      }
-    };
-  }, []);
-
   async function refreshLiveDataOnce() {
     const response = await fetch("/api/dashboard/live", { cache: "no-store" });
     if (!response.ok) {
@@ -214,7 +161,7 @@ function ConnectedRecruitDashboard() {
     }
     const payload = await response.json() as LiveDashboardPayload;
     setLiveData(payload);
-    setRefreshedAt(Date.now());
+    setRefreshedAt(new Date().getTime());
     setLiveError(undefined);
   }
 
@@ -284,7 +231,7 @@ function ConnectedRecruitDashboard() {
     setPdfViewerOpen(false);
     setTailorState({
       running: false,
-      message: "Inspect the fit summary, then tailor this job when ready.",
+      message: "Inspect the role, then tailor this job when ready.",
     });
   }
 
@@ -373,74 +320,93 @@ function ConnectedRecruitDashboard() {
     error: runError ?? liveError,
     onRunFirst3: () => void runFirstThreeSources(),
   };
+  const readyCount = boardRows.filter((row) => row.statusLabel === "Ready").length;
+  const needsReviewCount = boardRows.filter((row) => row.statusLabel === "Needs review").length;
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden px-4 py-6 md:px-8 md:py-8">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#f8fbff_0%,transparent_42%),linear-gradient(180deg,#f6f3ec_0%,#f9f7f3_48%,#f2ede2_100%)]" />
-        <div className="absolute left-[8%] top-[10%] h-56 w-56 rounded-full bg-sky-200/30 blur-3xl" />
-        <div className="absolute right-[10%] top-[18%] h-72 w-72 rounded-full bg-amber-200/20 blur-3xl" />
-        <div className="absolute bottom-[2%] left-[30%] h-80 w-80 rounded-full bg-slate-200/20 blur-3xl" />
-      </div>
-
-      <div className="relative mx-auto max-w-[1520px]">
-        <div className="mb-6">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Dashboard
+    <main className="min-h-screen bg-[var(--color-bg)] px-4 py-6 text-[var(--color-fg)] md:px-8 md:py-8">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--color-fg)] md:text-4xl">
+              Applications
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-fg-muted)]">
+              {dashboardSummary(boardRows.length, readyCount, needsReviewCount, refreshedAt)}
+            </p>
           </div>
-          <h1 className="mt-3 max-w-3xl text-[clamp(2.4rem,5vw,4.6rem)] font-semibold tracking-[-0.08em] text-slate-950">
-            Ranked jobs, moving in and out of conviction.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            The board keeps only what matters: live ranked roles, the reasoning behind each one, and the tailoring actions that turn a match into a PDF.
-          </p>
+          <ActionButton
+            disabled={!controls.canRun || controls.busy}
+            onClick={controls.onRunFirst3}
+            className="self-start"
+          >
+            <Search className="h-4 w-4" />
+            {controls.busy ? "Running" : "Start search"}
+          </ActionButton>
         </div>
 
-        <div className="space-y-6">
-          <DashboardStatusStrip
-            run={liveData?.run}
-            recommendationCount={boardRows.length}
-            refreshedAt={refreshedAt}
-            controls={controls}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <SummaryPill>{liveData?.run ? statusLabel(liveData.run) : "Idle"}</SummaryPill>
+          <SummaryPill>{boardRows.length} applications</SummaryPill>
+          <SummaryPill>{readyCount} ready</SummaryPill>
+          {needsReviewCount > 0 ? <SummaryPill>{needsReviewCount} need review</SummaryPill> : null}
+          <SummaryPill>{refreshedAt ? `Updated ${formatTime(refreshedAt)}` : "Awaiting sync"}</SummaryPill>
+        </div>
+
+        {controls.error || controls.message ? (
+          <div
+            className={
+              controls.error
+                ? "mb-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                : "mb-4 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-fg-muted)]"
+            }
+          >
+            {controls.error ?? controls.message}
+          </div>
+        ) : null}
+
+        <DashboardLeaderboard
+          rows={boardRows}
+          displayRows={renderedRows}
+          selectedJobId={selection.selectedJobId}
+          loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
+          onSelect={selectRecommendation}
+        />
+      </div>
+
+      {selected ? (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close application details"
+            className="absolute inset-0 bg-[#102016]/24"
+            onClick={() => setSelectedJobId(null)}
           />
-
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(380px,0.88fr)]">
-            <DashboardLeaderboard
-              rows={boardRows}
-              displayRows={renderedRows}
-              selectedJobId={selection.selectedJobId}
-              loadingJobId={selected?.jobId && jobDetail === undefined ? selected.jobId : null}
-              onSelect={selectRecommendation}
-              mobileInlineDetail={
-                <DashboardJobInspector
-                  inline
-                  selected={selected}
-                  detail={jobDetail}
-                  detailError={detailError}
-                  state={tailorState}
-                  pdf={pdfState}
-                  onTailor={() => void tailorSelectedJob()}
-                  onOpenPdf={() => setPdfViewerOpen(true)}
-                  onDownload={downloadTailoredPdf}
-                />
-              }
-            />
-
-            <div className="hidden xl:block">
-              <DashboardJobInspector
-                selected={selected}
-                detail={jobDetail}
-                detailError={detailError}
-                state={tailorState}
-                pdf={pdfState}
-                onTailor={() => void tailorSelectedJob()}
-                onOpenPdf={() => setPdfViewerOpen(true)}
-                onDownload={downloadTailoredPdf}
-              />
+          <aside className="absolute inset-y-0 right-0 w-full max-w-[560px] overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-[-24px_0_70px_-42px_rgba(16,32,22,0.38)] md:p-5">
+            <div className="sticky top-0 z-10 mb-3 flex justify-end bg-[var(--color-bg)] py-1 backdrop-blur">
+              <button
+                type="button"
+                aria-label="Close application details"
+                onClick={() => setSelectedJobId(null)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] transition hover:text-[var(--color-fg)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          </div>
+            <DashboardJobInspector
+              inline
+              selected={selected}
+              detail={jobDetail}
+              detailError={detailError}
+              state={tailorState}
+              pdf={pdfState}
+              onTailor={() => void tailorSelectedJob()}
+              onOpenPdf={() => setPdfViewerOpen(true)}
+              onDownload={downloadTailoredPdf}
+            />
+          </aside>
         </div>
-      </div>
+      ) : null}
 
       <TailoredPdfViewer
         open={pdfViewerOpen}
@@ -471,17 +437,86 @@ function secondaryLine(recommendation: LiveRecommendation) {
     return recommendation.compensationSummary;
   }
 
-  if (recommendation.rationale) {
-    return compactSentence(recommendation.rationale, 88);
-  }
-
-  return "Ranking rationale available on inspection.";
+  return providerLabel(recommendation);
 }
 
-function compactSentence(value: string, maxLength: number) {
-  const cleaned = value.replace(/\s+/g, " ").trim();
-  if (cleaned.length <= maxLength) return cleaned;
-  return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
+function applicationStatus(
+  recommendation: LiveRecommendation,
+  run: LiveRunSummary | null | undefined,
+): Pick<LeaderboardRow, "statusLabel" | "statusTone" | "actionLabel"> {
+  const rank = Number.isFinite(recommendation.rank) ? recommendation.rank : Number.MAX_SAFE_INTEGER;
+  const tailoredCount = run?.tailoredCount ?? 0;
+  const tailoringTargetCount = run?.tailoringTargetCount ?? (run?.tailoringInProgress ? Math.min(run.recommendedCount || 3, 3) : 0);
+
+  if (run?.status === "failed") {
+    return { statusLabel: "Needs review", statusTone: "warning", actionLabel: "Review" };
+  }
+
+  if (tailoredCount > 0 && rank <= tailoredCount) {
+    return { statusLabel: "Ready", statusTone: "success", actionLabel: "View" };
+  }
+
+  if (run?.tailoringInProgress && rank <= Math.max(tailoringTargetCount, tailoredCount)) {
+    return { statusLabel: "Tailoring", statusTone: "active", actionLabel: "Open" };
+  }
+
+  if (run?.status === "ranking") {
+    return { statusLabel: "Sorting", statusTone: "active", actionLabel: "Open" };
+  }
+
+  if (run?.status === "fetching" || run?.status === "fetched") {
+    return { statusLabel: "Queued", statusTone: "neutral", actionLabel: "Open" };
+  }
+
+  return { statusLabel: "Queued", statusTone: "neutral", actionLabel: "Open" };
+}
+
+function dashboardSummary(
+  applicationCount: number,
+  readyCount: number,
+  needsReviewCount: number,
+  refreshedAt: number | null,
+) {
+  if (applicationCount === 0) {
+    return "Start a search to build the application list. Jobs stay unranked until the fit signals are ready.";
+  }
+
+  const parts = [
+    `${applicationCount} ${applicationCount === 1 ? "application" : "applications"}`,
+    `${readyCount} ready`,
+  ];
+  if (needsReviewCount > 0) {
+    parts.push(`${needsReviewCount} need review`);
+  }
+  if (refreshedAt) {
+    parts.push(`updated ${formatTime(refreshedAt)}`);
+  }
+
+  return parts.join(" · ");
+}
+
+function SummaryPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex min-h-8 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-xs font-semibold text-[var(--color-fg-muted)] shadow-[0_10px_24px_-20px_rgba(16,32,22,0.3)]">
+      {children}
+    </span>
+  );
+}
+
+function formatTime(value: number) {
+  return new Date(value).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function statusLabel(run: LiveRunSummary) {
+  if (run.status === "fetching") return "Searching";
+  if (run.status === "fetched") return "Staging";
+  if (run.status === "ranking") return "Sorting";
+  if (run.status === "completed" && run.tailoringInProgress) return "Tailoring";
+  if (run.status === "completed") return "Ready";
+  return "Needs review";
 }
 
 function artifactOf(

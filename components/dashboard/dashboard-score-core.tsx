@@ -28,10 +28,10 @@ export function DashboardScoreCore({
 
   return (
     <div className="relative overflow-hidden rounded-[30px] border border-slate-200/80 bg-[radial-gradient(circle_at_top,#f8fbff,white_58%,#f5efe3_100%)] p-5 shadow-[0_30px_80px_-46px_rgba(15,23,42,0.35)]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.12),transparent_38%,rgba(251,191,36,0.12))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(63,122,86,0.12),transparent_38%,rgba(251,191,36,0.12))]" />
       <motion.div
         aria-hidden
-        className="absolute -right-8 top-4 h-28 w-28 rounded-full border border-sky-200/70"
+        className="absolute -right-8 top-4 h-28 w-28 rounded-full border border-[var(--color-border)]"
         animate={reduceMotion ? undefined : { rotate: 360 }}
         transition={orbitTransition}
       />
@@ -89,7 +89,7 @@ export function DashboardScoreCore({
             <MetricCard
               label="Tailoring"
               value={tailoringScore == null ? "Not run" : `${Math.round(tailoringScore)}`}
-              accent="bg-sky-500"
+              accent="bg-[var(--color-accent)]"
             />
             <MetricCard
               label="Coverage"

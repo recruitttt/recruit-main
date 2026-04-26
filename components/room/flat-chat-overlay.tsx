@@ -63,7 +63,7 @@ function FlatChatBody() {
           <div className="flex items-center gap-2">
             <span
               className="h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: "#0891B2", boxShadow: "0 0 8px rgba(8,145,178,0.55)" }}
+              style={{ backgroundColor: "#3F7A56", boxShadow: "0 0 8px rgba(63,122,86,0.45)" }}
             />
             <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#6B7A90]">
               Scout · chatting
@@ -121,7 +121,7 @@ function FlatChatBody() {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={pending ? "Scout's thinking…" : "Tell Scout…"}
-            className="flex-1 rounded-full border border-white/60 bg-white/70 px-4 py-2 text-[14px] text-[#101827] placeholder:text-[#6B7A90] outline-none transition focus:border-sky-300/70 focus:bg-white/90 disabled:cursor-not-allowed"
+            className="flex-1 rounded-full border border-white/60 bg-white/70 px-4 py-2 text-[14px] text-[#101827] placeholder:text-[#6B7A90] outline-none transition focus:border-[var(--color-accent)] focus:bg-white/90 disabled:cursor-not-allowed"
             autoComplete="off"
             disabled={pending}
           />
@@ -154,7 +154,7 @@ function ScoutBubble({ children }: { children: React.ReactNode }) {
 function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[82%] rounded-[18px] rounded-br-md bg-[#0891B2] px-4 py-2.5 text-[14.5px] leading-relaxed text-white shadow-[0_8px_18px_-10px_rgba(8,145,178,0.45)]">
+      <div className="max-w-[82%] rounded-[18px] rounded-br-md bg-[var(--color-accent)] px-4 py-2.5 text-[14.5px] leading-relaxed text-white shadow-[0_8px_18px_-10px_rgba(63,122,86,0.45)]">
         {children}
       </div>
     </div>

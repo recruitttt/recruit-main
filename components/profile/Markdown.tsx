@@ -33,7 +33,7 @@ export function Markdown({ children, className }: MarkdownProps) {
         "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
         "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
         "[&_li]:my-0.5 [&_li]:marker:text-slate-400",
-        "[&_a]:text-sky-700 [&_a]:underline [&_a]:decoration-sky-700/40 [&_a]:underline-offset-2 hover:[&_a]:decoration-sky-700",
+        "[&_a]:text-[var(--color-accent)] [&_a]:underline [&_a]:decoration-[var(--color-border-strong)] [&_a]:underline-offset-2 hover:[&_a]:decoration-[var(--color-accent)]",
         "[&_strong]:font-semibold [&_strong]:text-slate-900",
         "[&_em]:italic",
         "[&_code]:rounded [&_code]:border [&_code]:border-white/55 [&_code]:bg-white/55 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_code]:text-slate-800",

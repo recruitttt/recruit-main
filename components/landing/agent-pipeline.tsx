@@ -132,7 +132,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
               {i > 0 && <span className="text-slate-400/70">·</span>}
               <span className="flex items-center gap-1.5 whitespace-nowrap">
                 <s.Icon
-                  className="h-3.5 w-3.5 text-sky-600 opacity-85"
+                  className="h-3.5 w-3.5 text-[var(--color-accent)] opacity-85"
                   strokeWidth={1.75}
                 />
                 {s.label}
@@ -142,7 +142,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
         </motion.div>
       )}
 
-      {/* cyan glow pulses at the convergence point */}
+      {/* sage glow pulses at the convergence point */}
       <AnimatePresence>
         {(phase === "burst" || phase === "fly") && center && (
           <motion.div
@@ -162,7 +162,7 @@ export function AgentPipeline({ onComplete }: { onComplete?: () => void }) {
               className="h-full w-full rounded-full"
               style={{
                 background:
-                  "radial-gradient(circle, rgba(14,165,233,0.55), rgba(14,165,233,0) 65%)",
+                  "radial-gradient(circle, rgba(63,122,86,0.5), rgba(63,122,86,0) 65%)",
                 filter: "blur(2px)",
               }}
             />

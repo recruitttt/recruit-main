@@ -15,7 +15,7 @@ const colorByKind: Record<ActivityEvent["kind"], string> = {
   discover: "text-[var(--color-fg-muted)]",
   tailor: "text-amber-700",
   review: "text-violet-700",
-  fill: "text-cyan-700",
+  fill: "text-[var(--color-accent)]",
   submit: "text-emerald-700",
   cache: "text-[var(--color-accent)]",
 };

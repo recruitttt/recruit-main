@@ -521,7 +521,7 @@ const SOURCE_STATUS_STYLE: Record<
   },
   processing: {
     label: "Processing",
-    className: "border-sky-500/30 bg-sky-500/10 text-sky-700",
+    className: "border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
     icon: Loader2,
   },
   done: {
@@ -623,7 +623,7 @@ function LoadingBanner(): React.ReactElement {
         mistClasses.card,
       )}
     >
-      <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-600" />
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-accent)]" />
       Loading profile from Convex…
     </div>
   );
@@ -860,7 +860,7 @@ function ExperienceItemRow({
 }): React.ReactElement {
   return (
     <li className="relative">
-      <span className="absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-sky-500 shadow-[0_0_0_3px_rgba(14,165,233,0.18)]" />
+      <span className="absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-[var(--color-accent)] shadow-[0_0_0_3px_var(--color-accent-glow)]" />
       <div className="rounded-2xl border border-white/55 bg-white/35 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">

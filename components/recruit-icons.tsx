@@ -27,7 +27,7 @@ function IconBase({
   );
 }
 
-export function AgentCoreIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function AgentCoreIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <circle cx="12" cy="12" r="7.2" strokeOpacity="0.82" />
@@ -39,7 +39,7 @@ export function AgentCoreIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...prop
   );
 }
 
-export function RoleRadarIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function RoleRadarIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <path d="M5 16.4a7.4 7.4 0 0 1 14 0" strokeOpacity="0.78" />
@@ -52,7 +52,7 @@ export function RoleRadarIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...prop
   );
 }
 
-export function MatchSignalIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function MatchSignalIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <path d="M7.2 8.3h5.2c2.5 0 4.4 1.9 4.4 4.2s-1.9 4.2-4.4 4.2H7.2" strokeOpacity="0.78" />
@@ -64,7 +64,7 @@ export function MatchSignalIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...pr
   );
 }
 
-export function ResumeTailorIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function ResumeTailorIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <path d="M7.4 5.2h6.3l2.9 2.9v10.7H7.4z" strokeOpacity="0.82" />
@@ -77,7 +77,7 @@ export function ResumeTailorIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...p
   );
 }
 
-export function ApplicationSendIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function ApplicationSendIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <path d="M5.2 6.7l14.2-2.8-4.7 14.4-3.2-5.6z" strokeOpacity="0.82" />
@@ -89,7 +89,7 @@ export function ApplicationSendIcon({ accent = "#0EA5E9", accent2 = "#16A34A", .
   );
 }
 
-export function PipelinePathIcon({ accent = "#0EA5E9", accent2 = "#16A34A", ...props }: RecruitIconProps) {
+export function PipelinePathIcon({ accent = "#3F7A56", accent2 = "#2F8F57", ...props }: RecruitIconProps) {
   return (
     <IconBase {...props}>
       <path d="M5.2 8.1c4.2 0 2.9 7.8 6.8 7.8s2.6-7.8 6.8-7.8" strokeOpacity="0.82" />

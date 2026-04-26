@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { motion } from "motion/react";
 import { ChevronRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LeaderboardRow, LiveRecommendation } from "./dashboard-types";
@@ -25,16 +24,13 @@ export function DashboardLeaderboard({
 }: DashboardLeaderboardProps) {
   if (rows.length === 0) {
     return (
-      <section className="rounded-[30px] border border-white/60 bg-white/72 p-6 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.3)] backdrop-blur-xl">
+      <section className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-[0_20px_50px_-42px_rgba(16,32,22,0.28)]">
         <div className="max-w-xl">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Ranked jobs
-          </div>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
-            No live recommendations yet
+          <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--color-fg)]">
+            No applications yet
           </h2>
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            Start the first run and this board will fill with ranked jobs, score movement, and inspector details.
+          <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">
+            Start a search and the dashboard will fill with a simple list of jobs in motion.
           </p>
         </div>
       </section>
@@ -42,47 +38,81 @@ export function DashboardLeaderboard({
   }
 
   return (
-    <section className="rounded-[30px] border border-white/60 bg-white/72 p-4 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.3)] backdrop-blur-xl md:p-5">
-      <div className="mb-4 flex items-end justify-between gap-3 px-2">
+    <section className="overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_20px_50px_-42px_rgba(16,32,22,0.28)]">
+      <div className="flex flex-col gap-2 border-b border-[var(--color-border)] px-5 py-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Ranked jobs
-          </div>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
-            Kinetic recommendation board
+          <h2 className="text-lg font-semibold tracking-[-0.02em] text-[var(--color-fg)]">
+            Applications
           </h2>
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+            Randomized for now. Fit ranking can take over once backend signals are useful.
+          </p>
         </div>
-        <div className="text-right text-xs text-slate-500">
-          <div>{rows.length} roles on the board</div>
-          <div>Tap any row to inspect fit</div>
+        <div className="text-sm text-[var(--color-fg-muted)]">
+          {rows.length} {rows.length === 1 ? "role" : "roles"}
         </div>
       </div>
 
-      <div className="hidden md:grid md:gap-3">
-        {displayRows.map((row, index) => (
-          <DesktopRow
-            key={row.jobId}
-            row={row}
-            visualRank={index + 1}
-            active={selectedJobId === row.jobId}
-            loading={loadingJobId === row.jobId}
-            onSelect={onSelect}
-          />
-        ))}
+      <div className="hidden grid-cols-[minmax(160px,0.9fr)_minmax(220px,1.25fr)_minmax(150px,0.75fr)_126px_88px] border-b border-[var(--color-border)] bg-[var(--color-surface-1)] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-fg-subtle)] md:grid">
+        <div>Company</div>
+        <div>Role</div>
+        <div>Location</div>
+        <div>Status</div>
+        <div className="text-right">Action</div>
       </div>
 
-      <div className="grid gap-3 md:hidden">
-        {rows.map((row) => {
+      <div className="divide-y divide-[var(--color-border)]">
+        {displayRows.map((row) => {
           const active = selectedJobId === row.jobId;
+          const loading = loadingJobId === row.jobId;
           return (
-            <div key={row.jobId} className="space-y-2">
-              <MobileRow
-                row={row}
-                active={active}
-                loading={loadingJobId === row.jobId}
-                onSelect={onSelect}
-              />
-              {active ? mobileInlineDetail : null}
+            <div key={row.jobId}>
+              <button
+                type="button"
+                onClick={() => onSelect(row.recommendation)}
+                className={cn(
+                  "grid w-full gap-3 border-l-4 px-5 py-4 text-left transition md:grid-cols-[minmax(160px,0.9fr)_minmax(220px,1.25fr)_minmax(150px,0.75fr)_126px_88px] md:items-center",
+                  active
+                    ? "border-l-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-fg)]"
+                    : "border-l-transparent bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-surface-1)]",
+                )}
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[var(--color-fg)]">
+                    {row.company}
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--color-fg-subtle)] md:hidden">
+                    {row.providerLabel}
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{row.title}</div>
+                  <div className="mt-1 truncate text-xs text-[var(--color-fg-subtle)]">
+                    {row.secondaryLine}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-sm text-[var(--color-fg-muted)]">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{row.locationLabel}</span>
+                </div>
+
+                <div>
+                  <span className={statusClasses(row.statusTone, active)}>
+                    {loading ? "Loading" : row.statusLabel}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm font-semibold text-[var(--color-accent)] md:justify-end">
+                  <span className="md:hidden">{row.actionLabel}</span>
+                  <span className="hidden md:inline">{row.actionLabel}</span>
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </div>
+              </button>
+              {active && mobileInlineDetail ? (
+                <div className="bg-[var(--color-surface-1)] px-3 py-3 md:hidden">{mobileInlineDetail}</div>
+              ) : null}
             </div>
           );
         })}
@@ -91,156 +121,18 @@ export function DashboardLeaderboard({
   );
 }
 
-function DesktopRow({
-  row,
-  visualRank,
-  active,
-  loading,
-  onSelect,
-}: {
-  row: LeaderboardRow;
-  visualRank: number;
-  active: boolean;
-  loading: boolean;
-  onSelect: (recommendation: LiveRecommendation) => void;
-}) {
-  return (
-    <motion.button
-      layout
-      type="button"
-      onClick={() => onSelect(row.recommendation)}
-      className={cn(
-        "group relative grid w-full grid-cols-[64px_minmax(0,1fr)_110px] items-center gap-4 overflow-hidden rounded-[24px] border px-4 py-4 text-left transition",
-        active
-          ? "border-slate-950 bg-slate-950 text-white shadow-[0_24px_60px_-34px_rgba(15,23,42,0.45)]"
-          : "border-white/70 bg-white/85 text-slate-950 hover:border-sky-200 hover:bg-white",
-      )}
-      transition={{ type: "spring", stiffness: 320, damping: 28 }}
-    >
-      <div
-        aria-hidden
-        className={cn(
-          "absolute inset-y-0 left-0 w-1",
-          visualRank <= 3 ? "bg-amber-400" : active ? "bg-sky-300" : "bg-slate-200",
-        )}
-      />
-      <div className="relative pl-3">
-        <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-slate-400")}>
-          Rank
-        </div>
-        <div className="mt-1 text-4xl font-semibold tracking-[-0.07em] tabular-nums">
-          {visualRank}
-        </div>
-      </div>
+function statusClasses(tone: LeaderboardRow["statusTone"], active: boolean) {
+  if (active) {
+    return "inline-flex min-h-7 items-center rounded-full border border-[var(--color-accent)] bg-[var(--color-surface)] px-2.5 text-xs font-semibold text-[var(--color-accent)]";
+  }
 
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={cn(
-            "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-            active
-              ? "border-white/20 bg-white/10 text-white/80"
-              : "border-slate-200 bg-slate-50 text-slate-500",
-          )}>
-            {row.providerLabel}
-          </span>
-          {loading ? (
-            <span className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-sky-600")}>
-              Loading
-            </span>
-          ) : null}
-        </div>
-        <h3 className="mt-3 truncate text-lg font-semibold tracking-[-0.03em]">{row.title}</h3>
-        <div className={cn("mt-1 truncate text-sm", active ? "text-white/72" : "text-slate-600")}>{row.company}</div>
-        <div className={cn("mt-3 flex flex-wrap items-center gap-4 text-xs", active ? "text-white/65" : "text-slate-500")}>
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5" />
-            {row.locationLabel}
-          </span>
-          <span className="truncate">{row.secondaryLine}</span>
-        </div>
-      </div>
+  const toneClass = {
+    neutral: "border-[var(--color-border)] bg-[var(--color-surface-1)] text-[var(--color-fg-muted)]",
+    active: "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+    success: "border-[var(--color-success)] bg-[var(--color-accent-soft)] text-[var(--color-success)]",
+    warning: "border-amber-200 bg-amber-50 text-amber-700",
+    danger: "border-red-200 bg-red-50 text-red-700",
+  }[tone];
 
-      <div className="justify-self-end text-right">
-        <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-slate-400")}>
-          Score
-        </div>
-        <div className="mt-1 text-3xl font-semibold tracking-[-0.06em] tabular-nums">
-          {Math.round(row.score)}
-        </div>
-        <div className={cn("mt-3 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.18em]", active ? "text-white/70" : "text-slate-500")}>
-          Inspect
-          <ChevronRight className="h-3.5 w-3.5" />
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
-function MobileRow({
-  row,
-  active,
-  loading,
-  onSelect,
-}: {
-  row: LeaderboardRow;
-  active: boolean;
-  loading: boolean;
-  onSelect: (recommendation: LiveRecommendation) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(row.recommendation)}
-      className={cn(
-        "w-full rounded-[24px] border px-4 py-4 text-left transition",
-        active
-          ? "border-slate-950 bg-slate-950 text-white shadow-[0_24px_60px_-34px_rgba(15,23,42,0.45)]"
-          : "border-white/70 bg-white/85 text-slate-950",
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 gap-4">
-          <div>
-            <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-slate-400")}>
-              Rank
-            </div>
-            <div className="mt-1 text-3xl font-semibold tracking-[-0.06em] tabular-nums">{row.rank}</div>
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn(
-                "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-                active
-                  ? "border-white/20 bg-white/10 text-white/80"
-                  : "border-slate-200 bg-slate-50 text-slate-500",
-              )}>
-                {row.providerLabel}
-              </span>
-              {loading ? (
-                <span className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-sky-600")}>
-                  Loading
-                </span>
-              ) : null}
-            </div>
-            <h3 className="mt-3 text-base font-semibold tracking-[-0.03em]">{row.title}</h3>
-            <div className={cn("mt-1 text-sm", active ? "text-white/72" : "text-slate-600")}>{row.company}</div>
-            <div className={cn("mt-3 flex items-center gap-1.5 text-xs", active ? "text-white/65" : "text-slate-500")}>
-              <MapPin className="h-3.5 w-3.5" />
-              {row.locationLabel}
-            </div>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", active ? "text-white/60" : "text-slate-400")}>
-            Score
-          </div>
-          <div className="mt-1 text-2xl font-semibold tracking-[-0.06em] tabular-nums">{Math.round(row.score)}</div>
-        </div>
-      </div>
-
-      <div className={cn("mt-3 text-xs", active ? "text-white/68" : "text-slate-500")}>
-        {row.secondaryLine}
-      </div>
-    </button>
-  );
+  return cn("inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-semibold", toneClass);
 }
