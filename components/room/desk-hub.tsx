@@ -5,15 +5,9 @@ import { Html } from "@react-three/drei";
 import { useRoomStore } from "./room-store";
 import { ProfileTab } from "./desk-hub/profile-tab";
 import { TopJobsTab } from "./desk-hub/top-jobs-tab";
-
-// TODO(Phase C): import these once parallel tasks (B5.4, B6.4, etc.) land them.
-// import { DiscoverTab } from "./desk-hub/discover-tab";
-// import { ResumesTab } from "./desk-hub/resumes-tab";
-// import { ApplyQueueTab } from "./desk-hub/apply-queue-tab";
-
-function FallbackTab({ name }: { name: string }) {
-  return <div className="text-gray-500 text-sm">{name} tab coming soon.</div>;
-}
+import { DiscoverTab } from "./desk-hub/discover-tab";
+import { ResumesTab } from "./desk-hub/resumes-tab";
+import { ApplyQueueTab } from "./desk-hub/apply-queue-tab";
 
 type TabId = "profile" | "discover" | "top-jobs" | "resumes" | "apply-queue";
 
@@ -55,10 +49,9 @@ export function DeskHub({ userId }: Props) {
         <div className="flex-1 overflow-y-auto p-4 text-sm">
           {tab === "profile" && <ProfileTab userId={userId} />}
           {tab === "top-jobs" && <TopJobsTab userId={userId} />}
-          {/* TODO(Phase C): replace fallbacks with real tabs when discover/resumes/apply-queue land. */}
-          {tab === "discover" && <FallbackTab name="Discover" />}
-          {tab === "resumes" && <FallbackTab name="Resumes" />}
-          {tab === "apply-queue" && <FallbackTab name="Apply Queue" />}
+          {tab === "discover" && <DiscoverTab userId={userId} />}
+          {tab === "resumes" && <ResumesTab userId={userId} />}
+          {tab === "apply-queue" && <ApplyQueueTab userId={userId} />}
         </div>
       </div>
     </Html>

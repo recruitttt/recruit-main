@@ -19,11 +19,12 @@ import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
 
 export type RoomSceneProps = {
+  userId?: string | null;
   introPhase?: RoomIntroPhase;
   onReady?: () => void;
 };
 
-export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
+export default function RoomScene({ userId = null, introPhase, onReady }: RoomSceneProps) {
   const activeIntroPhase = introPhase && introPhase !== "done" ? introPhase : null;
 
   useEffect(() => {
@@ -61,12 +62,9 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
         <RoomFurniture />
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
-        {/* Phase C will plumb the real signed-in userId through this prop. */}
-        <RoomRecruiters userId={null} />
-        {/* Phase C will plumb the real signed-in userId through DeskHub too. */}
-        <DeskHub userId={null} />
-        {/* Phase C will plumb the real signed-in userId through ApplicationTerminal too. */}
-        <ApplicationTerminal userId={null} />
+        <RoomRecruiters userId={userId} />
+        <DeskHub userId={userId} />
+        <ApplicationTerminal userId={userId} />
         <PersonalizationCompanion />
         {activeIntroPhase ? null : <PlayerCharacter />}
         <ContactShadows
