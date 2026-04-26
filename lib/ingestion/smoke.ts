@@ -10,7 +10,6 @@ import type {
   ProviderTotals,
   SourceFetchResult,
 } from "./types";
-import { INGESTION_PROVIDERS } from "./types";
 import { canonicalUrl, parallelMap } from "./utils";
 
 export type SmokeRunOptions = {
@@ -31,11 +30,12 @@ export type SmokeRunResult = {
 const DEFAULT_SOURCES_PATH = "config/ingestion-sources.json";
 const DEFAULT_OUTPUT_ROOT = "manual-runs";
 const DEFAULT_CONCURRENCY = 5;
+const DEFAULT_SMOKE_PROVIDERS: IngestionProvider[] = ["ashby"];
 
 export async function runIngestionSmoke(options: SmokeRunOptions = {}): Promise<SmokeRunResult> {
   const startedAt = options.now ?? new Date();
   const startedMs = Date.now();
-  const providers = options.providers ?? [...INGESTION_PROVIDERS];
+  const providers = options.providers ?? DEFAULT_SMOKE_PROVIDERS;
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const sources = await loadSources(options.sourcesPath ?? DEFAULT_SOURCES_PATH);
   const selectedSources = selectSources(sources, providers, options.limit);

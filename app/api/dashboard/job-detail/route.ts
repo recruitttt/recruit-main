@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const jobId = url.searchParams.get("jobId");
+  const demoUserId = url.searchParams.get("demoUserId") ?? undefined;
   if (!jobId) {
     return Response.json({ error: "missing_job_id" }, { status: 400 });
   }
@@ -25,7 +26,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const detail = await client.query(api.ashby.jobDetail, { jobId: jobId as never });
+    const detail = await client.query(api.ashby.jobDetail, {
+      jobId: jobId as never,
+      ...(demoUserId ? { demoUserId } : {}),
+    });
     if (!detail) {
       return Response.json({ error: "job_not_found" }, { status: 404 });
     }
