@@ -32,6 +32,7 @@ import type * as recruiters from "../recruiters.js";
 import type * as repoSourceFiles from "../repoSourceFiles.js";
 import type * as repoSummaries from "../repoSummaries.js";
 import type * as sourceConnections from "../sourceConnections.js";
+import type * as tailoredApplications from "../tailoredApplications.js";
 import type * as userProfiles from "../userProfiles.js";
 
 import type {
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   repoSourceFiles: typeof repoSourceFiles;
   repoSummaries: typeof repoSummaries;
   sourceConnections: typeof sourceConnections;
+  tailoredApplications: typeof tailoredApplications;
   userProfiles: typeof userProfiles;
 }>;
 
