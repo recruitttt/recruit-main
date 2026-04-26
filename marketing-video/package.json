@@ -1,0 +1,26 @@
+{
+  "name": "recruit-marketing-video",
+  "version": "1.0.0",
+  "description": "20s landing page hero video, built with Remotion.",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion render HeroVideo out/hero.mp4",
+    "build-4k": "remotion render HeroVideo out/hero-4k.mp4 --width=3840 --height=2160",
+    "build-webm": "remotion render HeroVideo out/hero.webm --codec=vp8"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.346",
+    "@remotion/cli": "4.0.346",
+    "@remotion/media-utils": "4.0.346",
+    "@remotion/renderer": "4.0.346",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.346"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "@types/web": "0.0.166",
+    "typescript": "5.7.3"
+  }
+}
