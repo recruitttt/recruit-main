@@ -40,8 +40,8 @@ import type {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// LinkedIn login flow (captcha / PIN / live-view) can take several minutes.
-export const maxDuration = 600;
+// Vercel Hobby caps Serverless Functions at 300 seconds.
+export const maxDuration = 300;
 
 // ---------------------------------------------------------------------------
 // Request schema
