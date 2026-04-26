@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { AGENT_ORDER, type AgentId } from "@/lib/agents";
 import { mockApplications, type Application } from "@/lib/mock-data";
-import { STATIONS, stationForStage, type Station } from "./stations";
+import { STATIONS, stationForStage, type Station, type StationId } from "./stations";
 
 export const FRONT_STAGE: readonly [number, number, number] = [0, 0, 0.9];
 export const FRONT_STAGE_FACING = Math.PI;
@@ -39,9 +39,50 @@ export function currentAgentPosition(agentId: AgentId): THREE.Vector3 {
   return agentRoomPositions[agentId] ?? agentHomePosition(agentId);
 }
 
-export function stationForAgentCycle(agentId: AgentId, cycle: number): Station {
-  const agentIndex = Math.max(0, AGENT_ORDER.indexOf(agentId));
-  return STATIONS[(agentIndex + cycle) % STATIONS.length];
+// Each agent occupies one station at a time. The mapping mutates over the
+// session as the swap scheduler picks two agents and trades their stations
+// at jittered intervals. Read non-reactively from useFrame (per-frame poll);
+// matches the agentRoomPositions pattern above so we don't trigger React
+// re-renders on every shuffle.
+const initialAssignment: Record<AgentId, StationId> = {
+  scout: "jobboard",
+  mimi: "workbench",
+  pip: "review",
+  juno: "submit",
+  bodhi: "calendar",
+};
+
+const currentStationByAgent: Record<AgentId, StationId> = { ...initialAssignment };
+const stationLocks = new Set<AgentId>();
+
+function stationById(id: StationId): Station {
+  return STATIONS.find((s) => s.id === id) ?? STATIONS[0];
+}
+
+export function getStationForAgent(agentId: AgentId): Station {
+  return stationById(currentStationByAgent[agentId]);
+}
+
+export function lockAgentStation(agentId: AgentId): void {
+  stationLocks.add(agentId);
+}
+
+export function unlockAgentStation(agentId: AgentId): void {
+  stationLocks.delete(agentId);
+}
+
+export function swapTwoAgentStations(): { a: AgentId; b: AgentId } | null {
+  const pool = AGENT_ORDER.filter((id) => !stationLocks.has(id));
+  if (pool.length < 2) return null;
+  const i = Math.floor(Math.random() * pool.length);
+  let j = Math.floor(Math.random() * (pool.length - 1));
+  if (j >= i) j += 1;
+  const a = pool[i];
+  const b = pool[j];
+  const tmp = currentStationByAgent[a];
+  currentStationByAgent[a] = currentStationByAgent[b];
+  currentStationByAgent[b] = tmp;
+  return { a, b };
 }
 
 export function stationStandPosition(station: Station): THREE.Vector3 {

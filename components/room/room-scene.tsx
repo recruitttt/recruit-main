@@ -16,6 +16,8 @@ import { ApplicationTerminal } from "./application-terminal";
 import { IntroRevealGroup, RoomIntroCamera, RoomIntroScout, type RoomIntroPhase } from "./room-intro";
 import { ScoutSpeechBubble } from "./scout-speech-bubble";
 import { PlayerCharacter } from "./player-character";
+import { AgentSwapScheduler } from "./agent-swap-scheduler";
+import { CornerResearcher } from "./corner-researcher";
 import { useRoomStore } from "./room-store";
 
 export type RoomSceneProps = {
@@ -42,7 +44,7 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
         toneMapping: THREE.ACESFilmicToneMapping,
         outputColorSpace: THREE.SRGBColorSpace,
       }}
-      camera={{ position: [0, 6.8, 12.4], fov: 46, near: 0.1, far: 80 }}
+      camera={{ position: [0, 8.5, 15.5], fov: 46, near: 0.1, far: 90 }}
       onPointerMissed={clearFocus}
       style={{
         position: "absolute",
@@ -64,6 +66,8 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
         <RoomFurniture />
         <RoomStations />
         <RoomAgents hiddenAgentId={activeIntroPhase ? "scout" : null} />
+        {activeIntroPhase ? null : <AgentSwapScheduler />}
+        {activeIntroPhase ? null : <CornerResearcher />}
         <RoomRecruiters userId={userId} />
         <DeskHub userId={userId} />
         <ApplicationTerminal userId={userId} />
@@ -71,9 +75,9 @@ export default function RoomScene({ userId = null, introPhase, onReady }: RoomSc
         <ContactShadows
           position={[0, 0.004, -0.4]}
           opacity={0.38}
-          scale={28}
+          scale={34}
           blur={2.8}
-          far={5.5}
+          far={6.5}
           resolution={1024}
           color="#2B2620"
         />

@@ -9,7 +9,9 @@ import {
   frontStagePosition,
   FRONT_STAGE_FACING,
   pickWanderTarget,
-  stationForAgentCycle,
+  getStationForAgent,
+  lockAgentStation,
+  unlockAgentStation,
   stationStandPosition,
 } from "@/lib/room/app-agent-map";
 import { WALK_SPEED, BOB_AMPLITUDE, LIMB_SWING, phase, dampYaw } from "@/lib/room/walk";
@@ -22,7 +24,6 @@ type Props = {
 };
 
 const SELECTED_AGENT_FACING = -0.55;
-const SWAP_INTERVAL_SECONDS = 14;
 
 export function RoomAgent({ agentId }: Props) {
   const hue = AGENTS[agentId].hue;
@@ -39,7 +40,7 @@ export function RoomAgent({ agentId }: Props) {
   const isScout = agentId === "scout";
   const scoutInterlude = isScout && intakePhase !== "inactive";
 
-  const initialStation = useMemo(() => stationForAgentCycle(agentId, 0), [agentId]);
+  const initialStation = useMemo(() => getStationForAgent(agentId), [agentId]);
   const initialPos = useMemo(() => stationStandPosition(initialStation), [initialStation]);
   const wanderState = useRef({
     target: initialPos.clone(),
@@ -64,12 +65,20 @@ export function RoomAgent({ agentId }: Props) {
     return () => window.clearTimeout(timer);
   }, [intakePhase, isScout, setIntakePhase]);
 
+  useEffect(() => {
+    const shouldLock = (isScout && scoutInterlude) || selected;
+    if (shouldLock) {
+      lockAgentStation(agentId);
+      return () => unlockAgentStation(agentId);
+    }
+    return;
+  }, [agentId, isScout, scoutInterlude, selected]);
+
   useFrame(({ clock }, delta) => {
     const g = refs.group.current;
     if (!g) return;
     const t = clock.elapsedTime;
-    const cycle = Math.floor(t / SWAP_INTERVAL_SECONDS);
-    const station = stationForAgentCycle(agentId, cycle);
+    const station = getStationForAgent(agentId);
 
     if (scoutInterlude) {
       const goingForward =
