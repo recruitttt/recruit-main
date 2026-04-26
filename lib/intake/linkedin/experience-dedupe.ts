@@ -36,6 +36,7 @@ export function linkedInExperienceDedupeKey(
   const company = normalizeKeyPart(experience.company);
   const title = normalizeKeyPart(experience.position_title);
   if (!company && !title) return "";
+  if (company && title) return [company, title].join("::");
   return [
     company || "unknown-company",
     title || "unknown-title",

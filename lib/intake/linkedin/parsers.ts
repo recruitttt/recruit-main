@@ -205,6 +205,18 @@ function stripRecommendationWidgets(html: string): string {
   // 1. <aside> blocks — LinkedIn nests "People also viewed" inside <aside>.
   out = out.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, "");
 
+  // 1b. Bare recommendation result cards sometimes arrive without their
+  // widget heading after lazy-load. They are identifiable by member-profile
+  // links (`/in/<handle>`), while real experience rows link to companies.
+  for (const tag of ["li", "article"] as const) {
+    const re = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi");
+    out = out.replace(re, (block) =>
+      /\bhref=["'][^"']*(?:linkedin\.com\/in\/|\/in\/)[^"']*["']/i.test(block)
+        ? ""
+        : block,
+    );
+  }
+
   // 2. Any <section>/<div> whose aria-label / id / data-test-id matches a
   //    recommendation pattern.
   for (const tag of ["section", "div"] as const) {

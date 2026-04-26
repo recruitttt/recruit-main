@@ -1760,7 +1760,11 @@ async function fetchAshbyBoard(slug: string): Promise<{ jobs?: AshbyApiJob[] }> 
   return (await res.json()) as { jobs?: AshbyApiJob[] };
 }
 
-function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string): NormalizedAtsJob | null {
+function normalizeAshbyJob(
+  source: AshbySource,
+  job: AshbyApiJob,
+  runId: string
+): NormalizedAtsJob | null {
   const title = job.title?.trim();
   const jobUrl = job.jobUrl?.trim();
   if (!title || !jobUrl) return null;
@@ -1772,29 +1776,30 @@ function normalizeAshbyJob(source: AshbySource, job: AshbyApiJob, runId: string)
   const location = [job.location, ...(job.secondaryLocations ?? []).map((loc) => loc.location)]
     .filter(Boolean)
     .join(" · ");
+  const descriptionPlain = job.descriptionPlain ?? stripHtml(job.descriptionHtml);
 
   return {
-    sourceId: source._id || undefined,
     company: source.company,
     sourceSlug: source.slug,
     title,
     normalizedTitle: title.toLowerCase(),
-    location: location || undefined,
-    isRemote: job.isRemote,
-    workplaceType: job.workplaceType,
-    employmentType: job.employmentType,
-    department: job.department,
-    team: job.team,
-    descriptionPlain: job.descriptionPlain ?? stripHtml(job.descriptionHtml),
-    compensationSummary,
-    salaryMin: parsedCompensation.min ?? undefined,
-    salaryMax: parsedCompensation.max ?? undefined,
-    currency: parsedCompensation.currency,
     jobUrl,
-    applyUrl: job.applyUrl,
-    publishedAt: job.publishedAt,
     dedupeKey: `${source.slug}:${jobUrl}`,
     raw: { ...job, runId },
+    ...(source._id ? { sourceId: source._id } : {}),
+    ...(location ? { location } : {}),
+    ...(typeof job.isRemote === "boolean" ? { isRemote: job.isRemote } : {}),
+    ...(job.workplaceType ? { workplaceType: job.workplaceType } : {}),
+    ...(job.employmentType ? { employmentType: job.employmentType } : {}),
+    ...(job.department ? { department: job.department } : {}),
+    ...(job.team ? { team: job.team } : {}),
+    ...(descriptionPlain ? { descriptionPlain } : {}),
+    ...(compensationSummary ? { compensationSummary } : {}),
+    ...(typeof parsedCompensation.min === "number" ? { salaryMin: parsedCompensation.min } : {}),
+    ...(typeof parsedCompensation.max === "number" ? { salaryMax: parsedCompensation.max } : {}),
+    ...(parsedCompensation.currency ? { currency: parsedCompensation.currency } : {}),
+    ...(job.applyUrl ? { applyUrl: job.applyUrl } : {}),
+    ...(job.publishedAt ? { publishedAt: job.publishedAt } : {}),
   };
 }
 

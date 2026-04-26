@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { isProfileUsable } from "@/lib/demo-profile";
+import { resolveCompanyLogoAsset } from "@/lib/company-logos";
 import type { DashboardSeed } from "@/lib/dashboard-seed";
 import { readProfile } from "@/lib/profile";
 type TemplateId = "minimalist" | "classic" | "compact";
@@ -1030,15 +1031,19 @@ function CompanyLogo({
   }[size];
   const textClass = size === "lg" ? "text-lg" : "text-sm";
 
+  useEffect(() => {
+    setFailed(false);
+  }, [brand.logoUrl]);
+
   return (
     <div
       className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/72 ring-1 ring-[#D4E3CC]/72", boxClass)}
       style={{ backgroundColor: failed ? brand.bg : undefined }}
     >
-      {!failed ? (
+      {brand.logoUrl && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={brand.logoUrl ?? `https://logo.clearbit.com/${brand.domain}`}
+          src={brand.logoUrl}
           alt={brand.logoAlt ?? `${company} logo`}
           className="h-[72%] w-[72%] object-contain"
           onError={() => setFailed(true)}
@@ -1302,133 +1307,36 @@ function sourceLabel(selected: LiveRecommendation, detail: JobDetail | null | un
 }
 
 function companyBrand(company: string, organization?: OrganizationLogo | null) {
+  const registered = resolveCompanyLogoAsset(organization?.company ?? company);
+
   if (organization) {
     return {
-      domain: organization.domain,
-      logoUrl: organization.logoUrl,
-      logoAlt: organization.logoAlt,
-      color: organization.brandColor ?? "#234B32",
-      bg: organization.backgroundColor ?? "#E8F2E2",
-      tag: organization.prestigeTag ?? "Prestige",
+      domain: organization.domain || registered?.domain || "",
+      logoUrl: organization.logoUrl || registered?.logoUrl,
+      logoAlt: organization.logoAlt || registered?.logoAlt,
+      color: organization.brandColor ?? registered?.brandColor ?? "#234B32",
+      bg: organization.backgroundColor ?? registered?.backgroundColor ?? "#E8F2E2",
+      tag: organization.prestigeTag ?? registered?.prestigeTag ?? "Prestige",
       initials: companyInitials(organization.company || company),
     };
   }
 
-  const normalized = company.trim().toLowerCase();
-  const known: Record<string, { domain: string; logoUrl?: string; logoAlt?: string; color: string; bg: string; tag: string; initials: string }> = {
-    "google deepmind": {
-      domain: "google.com",
-      logoUrl: "https://logo.clearbit.com/google.com",
-      logoAlt: "Google logo",
-      color: "#4285F4",
-      bg: "#EAF2FF",
-      tag: "AI Lab",
-      initials: "G",
-    },
-    apple: {
-      domain: "apple.com",
-      logoUrl: "https://logo.clearbit.com/apple.com",
-      logoAlt: "Apple logo",
-      color: "#111827",
-      bg: "#F2F4F7",
-      tag: "Platform",
-      initials: "A",
-    },
-    nvidia: {
-      domain: "nvidia.com",
-      logoUrl: "https://logo.clearbit.com/nvidia.com",
-      logoAlt: "NVIDIA logo",
-      color: "#76B900",
-      bg: "#EDF8DF",
-      tag: "AI Compute",
-      initials: "NV",
-    },
-    openai: {
-      domain: "openai.com",
-      logoUrl: "https://logo.clearbit.com/openai.com",
-      logoAlt: "OpenAI logo",
-      color: "#111827",
-      bg: "#ECEFED",
-      tag: "Frontier AI",
-      initials: "O",
-    },
-    meta: {
-      domain: "meta.com",
-      logoUrl: "https://logo.clearbit.com/meta.com",
-      logoAlt: "Meta logo",
-      color: "#0668E1",
-      bg: "#E8F1FF",
-      tag: "AI Platform",
-      initials: "M",
-    },
-    "microsoft ai": {
-      domain: "microsoft.com",
-      logoUrl: "https://logo.clearbit.com/microsoft.com",
-      logoAlt: "Microsoft logo",
-      color: "#5E5E5E",
-      bg: "#EEF2F6",
-      tag: "Copilot",
-      initials: "MS",
-    },
-    "amazon agi": {
-      domain: "amazon.com",
-      logoUrl: "https://logo.clearbit.com/amazon.com",
-      logoAlt: "Amazon logo",
-      color: "#FF9900",
-      bg: "#FFF4DF",
-      tag: "AGI",
-      initials: "AM",
-    },
-    anthropic: {
-      domain: "anthropic.com",
-      logoUrl: "https://logo.clearbit.com/anthropic.com",
-      logoAlt: "Anthropic logo",
-      color: "#CC785C",
-      bg: "#F5E9E2",
-      tag: "Safety Lab",
-      initials: "A",
-    },
-    tesla: {
-      domain: "tesla.com",
-      logoUrl: "https://logo.clearbit.com/tesla.com",
-      logoAlt: "Tesla logo",
-      color: "#E82127",
-      bg: "#FCEBEC",
-      tag: "Autonomy",
-      initials: "T",
-    },
-    cohere: {
-      domain: "cohere.com",
-      color: "#21473A",
-      bg: "#E4EFE8",
-      tag: "Frontier AI",
-      initials: "CO",
-    },
-    "aleph alpha": {
-      domain: "aleph-alpha.com",
-      color: "#1D3557",
-      bg: "#E6EDF4",
-      tag: "Sovereign AI",
-      initials: "AA",
-    },
-    "clay labs": {
-      domain: "clay.com",
-      color: "#5A3B1C",
-      bg: "#F0E7DB",
-      tag: "GTM AI",
-      initials: "CL",
-    },
-    causaly: {
-      domain: "causaly.com",
-      color: "#273F7A",
-      bg: "#E8ECF7",
-      tag: "Bio AI",
-      initials: "CA",
-    },
-  };
+  if (registered) {
+    return {
+      domain: registered.domain,
+      logoUrl: registered.logoUrl,
+      logoAlt: registered.logoAlt,
+      color: registered.brandColor,
+      bg: registered.backgroundColor,
+      tag: registered.prestigeTag,
+      initials: companyInitials(registered.company),
+    };
+  }
 
-  return known[normalized] ?? {
-    domain: `${normalized.replace(/[^a-z0-9]+/g, "")}.com`,
+  return {
+    domain: "",
+    logoUrl: undefined,
+    logoAlt: undefined,
     color: "#234B32",
     bg: "#E8F2E2",
     tag: "Priority",
