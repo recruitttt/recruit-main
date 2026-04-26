@@ -15,6 +15,7 @@ const eslintConfig = defineConfig([
     "convex/_generated/**",
     "backups/**",
     "manual-runs/**",
+    ".claude/**",
   ]),
   // react-three-fiber writes directly to Three.js refs inside useFrame and uses
   // Math.random for procedural geometry. The new React 19 hook-purity rules flag

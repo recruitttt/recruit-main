@@ -29,6 +29,9 @@ import { researchJob } from "../lib/tailor/research";
 import { computeTailoringScore } from "../lib/tailor/score";
 import { tailorResume } from "../lib/tailor/tailor";
 import type { Job, TailoredResume } from "../lib/tailor/types";
+import { getPuppeteerBrowser } from "../lib/pdf";
+import { runAshbyFormFillOnPage } from "../lib/ashby-fill/browser";
+import { validateDirectAshbyApplicationUrl } from "../lib/ashby-fill/core";
 
 const action = actionGeneric;
 const internalAction = internalActionGeneric;
@@ -286,6 +289,99 @@ export const runAshbyIngestion = action({
         payload: { error: err instanceof Error ? err.message : String(err) },
       });
       throw err;
+    }
+  },
+});
+
+export const runAshbyFormFill = action({
+  args: {
+    targetUrl: v.string(),
+    demoUserId: v.optional(v.string()),
+    jobId: v.optional(v.id("ingestedJobs")),
+    submit: v.optional(v.boolean()),
+    openAiBestEffort: v.optional(v.boolean()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+    const { normalizedUrl, organizationSlug } = validateDirectAshbyApplicationUrl(args.targetUrl);
+    const context = await ctx.runQuery(anyApi.ashby.getAshbyFormFillContext, {
+      demoUserId,
+      organizationSlug,
+    });
+    const profile = isProfileUsable(context?.profile) ? context.profile : DEMO_PROFILE;
+    const profileIdentity = profileIdentityForAshbyRun(profile);
+    const runId = await ctx.runMutation(anyApi.ashby.createAshbyFormFillRun, {
+      demoUserId,
+      jobId: args.jobId,
+      targetUrl: normalizedUrl,
+      organizationSlug,
+      profileIdentity,
+    });
+
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      stage: "ashby-fill",
+      level: "info",
+      message: "Started Ashby form fill.",
+      payload: {
+        runId,
+        targetUrl: normalizedUrl,
+        organizationSlug,
+        submit: args.submit === true,
+        openAiBestEffort: args.openAiBestEffort === true,
+        profileIdentity,
+      },
+    });
+
+    let page: any = null;
+    try {
+      const browser = await getPuppeteerBrowser();
+      page = await browser.newPage();
+      const result = await runAshbyFormFillOnPage(page, {
+        targetUrl: normalizedUrl,
+        profile,
+        aliases: Array.isArray(context?.aliases) ? context.aliases : [],
+        approvedAnswers: Array.isArray(context?.approvedAnswers)
+          ? context.approvedAnswers
+          : [],
+        openAiBestEffort: args.openAiBestEffort === true,
+        openAiApiKey: args.openAiBestEffort === true ? process.env.OPENAI_API_KEY : null,
+        openAiModel: process.env.OPENAI_ASHBY_FILL_MODEL ?? "gpt-4o-mini",
+        draftAnswerMode: args.openAiBestEffort === true ? "fill" : "review_only",
+        submit: args.submit === true,
+      });
+
+      await ctx.runMutation(anyApi.ashby.finalizeAshbyFormFillRun, {
+        runId,
+        result: toConvexValue(result),
+      });
+      return {
+        runId,
+        outcome: result.outcome,
+        submitAttempted: result.submitAttempted,
+        submitCompleted: result.submitCompleted,
+        blockerCount: result.blockers.length,
+        runGrade: result.runGrade,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(anyApi.ashby.finalizeAshbyFormFillRun, {
+        runId,
+        error: message,
+      });
+      await appendPipelineLog(ctx, {
+        demoUserId,
+        stage: "ashby-fill",
+        level: "error",
+        message: "Ashby form fill failed.",
+        payload: { runId, targetUrl: normalizedUrl, error: message },
+      });
+      throw err;
+    } finally {
+      if (page) {
+        await page.close().catch(() => {});
+      }
     }
   },
 });
@@ -1534,6 +1630,19 @@ function stringOrUndefined(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = cleanYamlScalar(value);
   return trimmed || undefined;
+}
+
+function profileIdentityForAshbyRun(profile: unknown) {
+  const record = profile && typeof profile === "object" ? profile as Record<string, any> : {};
+  const links = record.links && typeof record.links === "object" ? record.links : {};
+  return {
+    name: typeof record.name === "string" ? record.name : null,
+    email: typeof record.email === "string" ? record.email : null,
+    location: typeof record.location === "string" ? record.location : null,
+    github: typeof links.github === "string" ? links.github : null,
+    linkedin: typeof links.linkedin === "string" ? links.linkedin : null,
+    hasResumePath: typeof record.resumePath === "string" || typeof record.files?.resumePath === "string",
+  };
 }
 
 function parseYamlScalar(value: string): string | boolean | undefined {
