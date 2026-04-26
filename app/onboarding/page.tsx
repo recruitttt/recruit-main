@@ -109,6 +109,12 @@ const STEP_PROMPTS: Record<Step, string> = {
   review: "Review this before I save it to Convex.",
 };
 
+const TESTIMONIAL = {
+  quote: "I'd pay 10% of my yearly expected income for this. 10% of $2 million—$200k.",
+  author: "Victor Cheng",
+  meta: "YC F24",
+} as const;
+
 export default function OnboardingChatPage() {
   return (
     <Suspense fallback={<OnboardingFallback />}>
@@ -434,6 +440,7 @@ function OnboardingChatContent() {
 
         <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
           <IntakeSummary data={data} selectedRoles={selectedRoles} linkCount={linkCount} completeCount={completeCount} />
+          <TestimonialCard />
         </aside>
       </div>
       </main>
@@ -862,6 +869,32 @@ function IntakeSummary({
             </div>
           );
         })}
+      </div>
+    </GlassCard>
+  );
+}
+
+function TestimonialCard() {
+  return (
+    <GlassCard density="spacious">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className={mistClasses.sectionLabel}>Testimonial</span>
+        <span className="rounded-full border border-emerald-200/80 bg-emerald-50/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-800">
+          YC founder
+        </span>
+      </div>
+      <div className={cx("border border-white/55 bg-white/28 px-4 py-4", mistRadii.nested)}>
+        <blockquote className="font-serif text-[22px] leading-[1.12] tracking-[-0.02em] text-slate-950">
+          “{TESTIMONIAL.quote}”
+        </blockquote>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/50 pt-3">
+          <div>
+            <div className="text-sm font-semibold tracking-tight text-slate-900">{TESTIMONIAL.author}</div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
+              {TESTIMONIAL.meta}
+            </div>
+          </div>
+        </div>
       </div>
     </GlassCard>
   );
