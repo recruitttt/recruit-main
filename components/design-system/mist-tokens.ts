@@ -8,6 +8,11 @@ export const mistColors = {
   warning: "#B86D12",
   danger: "#EF4444",
   neutral: "#6E7B6C",
+  // Scarce-use accents — ship sparingly so they keep their meaning.
+  // activationGold: only at the activation orbit climax + first-job-applied moment.
+  // aiPlum: only on AI-speaks surfaces (Scout dock, enrichment-chat header).
+  activationGold: "#F4C26B",
+  aiPlum: "#8E7EA8",
   surfacePanel: "rgba(255,255,255,0.45)",
   surfaceCard: "rgba(250,253,247,0.38)",
   surfaceControl: "rgba(255,255,255,0.52)",
