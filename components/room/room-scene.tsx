@@ -38,8 +38,11 @@ export default function RoomScene({ introPhase, onReady }: RoomSceneProps) {
       }}
       camera={{ position: [0, 6.8, 12.4], fov: 46, near: 0.1, far: 80 }}
       style={{
-        width: "100%",
-        height: "100%",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         background: "radial-gradient(ellipse at 50% 30%, #FBF9F4 0%, #F2EEE5 55%, #E8E3D6 100%)",
       }}
     >
