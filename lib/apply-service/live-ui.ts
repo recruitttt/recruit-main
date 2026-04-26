@@ -135,7 +135,7 @@ export function mergeRunJobState(current: readonly LiveApplyJob[], run: ApplyRun
 export function reduceLiveApplyEvent(current: readonly LiveApplyJob[], event: LiveApplyEvent): LiveApplyJob[] {
   if (!("jobSlug" in event) || typeof event.jobSlug !== "string") return [...current];
   return current.map((job) => {
-    if (job.remoteSlug !== event.jobSlug && job.id !== event.jobSlug) return job;
+    if (job.remoteSlug !== event.jobSlug) return job;
     return reduceJob(job, event);
   });
 }

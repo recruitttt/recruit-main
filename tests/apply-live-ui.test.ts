@@ -126,13 +126,6 @@ const withStatus = reduceLiveApplyEvent(withTimeline, {
 });
 assert.equal(withStatus[0]?.status, "submitted");
 
-const localIdEvent = reduceLiveApplyEvent(seeded, {
-  kind: "screenshot",
-  jobSlug: "job_2",
-  pngBase64: "local-shot",
-});
-assert.equal(localIdEvent[1]?.screenshotPng, "local-shot");
-
 const metrics = applyHubMetrics(withStatus);
 assert.equal(metrics.total, 2);
 assert.equal(metrics.active, 0);

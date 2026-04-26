@@ -246,34 +246,6 @@ assert.equal(store.getQuestionGroups("run_test")[0]?.status, "resolved");
 store.approveJob("run_test", "job_ai", { devSkipRealSubmit: true });
 assert.equal(store.getRun("run_test")?.jobs.find((job) => job.id === "job_ai")?.status, "submitted_dev");
 
-let localNow = 1_900_000_000_000;
-const localStore = createApplyRunStore({
-  now: () => localNow,
-  id: () => "run_local_live",
-});
-localStore.createRun(normalized.ok ? normalized.value : (() => {
-  throw new Error("normalization failed");
-})(), { source: "mock" });
-const initialLocal = localStore.advanceLocalRun("run_local_live");
-assert.ok(initialLocal?.jobs[0]?.screenshotPng, "local apply runs should expose a server screenshot immediately");
-assert.ok(
-  localStore.listEvents("run_local_live").some((event) => event.kind === "field_progress"),
-  "local apply runs should emit live field events for polling clients"
-);
-localNow += 3_000;
-const reviewLocal = localStore.advanceLocalRun("run_local_live");
-assert.equal(reviewLocal?.jobs[0]?.status, "review_ready");
-assert.ok(
-  localStore.listEvents("run_local_live").some((event) =>
-    event.kind === "field_progress" &&
-    typeof event.payload === "object" &&
-    event.payload !== null &&
-    "kind" in event.payload &&
-    event.payload.kind === "awaiting_final_approval"
-  ),
-  "local apply runs should emit final approval events after progressing"
-);
-
 assert.equal(DEFAULT_APPLY_SERVICE_SETTINGS.maxApplicationsPerRun, 20);
 assert.equal(DEFAULT_APPLY_SERVICE_SETTINGS.maxConcurrentApplications, 10);
 assert.equal(recruit2ApplyApiBaseUrl({ APPLY_LAB_PUBLIC_BASE_URL: "http://localhost:9000" } as unknown as NodeJS.ProcessEnv), "");

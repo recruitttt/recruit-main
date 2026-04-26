@@ -54,20 +54,13 @@ async function main() {
   const localOnlyBody = await localOnlyStarted.json() as {
     ok: true;
     recruit2: null;
-    run: {
-      source: string;
-      remoteRunId?: string;
-      jobs: Array<{ id: string; status: string; screenshotPng?: string }>;
-      events: Array<{ kind: string; payload?: unknown }>;
-    };
+    run: { source: string; remoteRunId?: string; jobs: Array<{ id: string; status: string }> };
   };
   assert.equal(localOnlyBody.ok, true);
   assert.equal(localOnlyBody.recruit2, null);
   assert.equal(localOnlyBody.run.source, "mock");
   assert.equal(localOnlyBody.run.remoteRunId, undefined);
   assert.equal(localOnlyBody.run.jobs[0]?.status, "filling");
-  assert.ok(localOnlyBody.run.jobs[0]?.screenshotPng);
-  assert.ok(localOnlyBody.run.events.some((event) => event.kind === "field_progress"));
 
   const originalFetch = globalThis.fetch;
   process.env.RECRUIT2_APPLY_API_URL = "http://recruit2.test";

@@ -11,7 +11,7 @@ export async function startApplyBatch(batch: NormalizedApplyBatch): Promise<
   if (!recruit2ApplyApiBaseUrl()) {
     return {
       ok: true,
-      run: store.advanceLocalRun(run.id) ?? run,
+      run,
     };
   }
 

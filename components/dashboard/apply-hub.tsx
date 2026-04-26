@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import {
   Activity,
   AlertTriangle,
@@ -138,12 +139,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
         }
         if (eventsResponse.ok) {
           const body = await eventsResponse.json() as { events?: ApplyEvent[] };
-          const nextEvents = body.events ?? [];
-          setEvents(nextEvents);
-          setLiveJobs((current) => nextEvents.reduce((jobs, event) => {
-            const liveEvent = liveEventFromApplyEvent(event);
-            return liveEvent ? reduceLiveApplyEvent(jobs, liveEvent) : jobs;
-          }, current));
+          setEvents(body.events ?? []);
         }
         if (questionsResponse.ok) {
           const body = await questionsResponse.json() as { groups?: DeferredQuestionGroup[] };
@@ -243,10 +239,7 @@ export function ApplyHub({ rows, selected, selectedJobId, tailoredResume }: Prop
       }
       setRun(body.run);
       setEvents(body.run.events);
-      setLiveJobs(body.run.events.reduce((jobs, event) => {
-        const liveEvent = liveEventFromApplyEvent(event);
-        return liveEvent ? reduceLiveApplyEvent(jobs, liveEvent) : jobs;
-      }, seedLiveApplyJobs(body.run)));
+      setLiveJobs(seedLiveApplyJobs(body.run));
       setSelectedLiveJobId(body.run.jobs[0]?.id ?? null);
       setAnswers({});
     } catch (err) {
@@ -741,10 +734,12 @@ function BrowserPreview({
       )}
     >
       {png ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageDataSrc(png)}
+        <Image
+          src={`data:image/png;base64,${png}`}
           alt={`${company} latest application form`}
+          width={1600}
+          height={1000}
+          unoptimized
           className="h-full w-full object-contain"
         />
       ) : (
@@ -761,26 +756,6 @@ function BrowserPreview({
       ) : null}
     </button>
   );
-}
-
-function liveEventFromApplyEvent(event: ApplyEvent): LiveApplyEvent | null {
-  const payload = event.payload;
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-  const kind = (payload as { kind?: unknown }).kind;
-  return typeof kind === "string" && (LIVE_EVENT_KINDS as readonly string[]).includes(kind)
-    ? payload as LiveApplyEvent
-    : null;
-}
-
-function imageDataSrc(encoded: string): string {
-  if (encoded.startsWith("data:")) return encoded;
-  try {
-    const decoded = atob(encoded);
-    if (decoded.trimStart().startsWith("<svg")) return `data:image/svg+xml;base64,${encoded}`;
-  } catch {
-    // Fall back to PNG below.
-  }
-  return `data:image/png;base64,${encoded}`;
 }
 
 function FieldList({
