@@ -10,10 +10,23 @@ import {
 type OpenAICompatibleResponse = {
   choices?: Array<{ message?: { content?: string } }>;
   error?: { message?: string };
+  detail?: string;
+  message?: string;
+};
+
+type AnthropicResponse = {
+  content?: Array<{ type?: string; text?: string }>;
+  error?: { message?: string };
+  detail?: string;
+  message?: string;
 };
 
 const DEFAULT_K2_BASE_URL = "https://api.k2think.ai/v1";
-const DEFAULT_K2_MODEL = "LLM360/K2-Think-V2";
+const DEFAULT_K2_MODEL = "MBZUAI-IFM/K2-Think-v2";
+const DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
+const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5";
+const DEFAULT_K2_TIMEOUT_MS = 5000;
+const DEFAULT_ANTHROPIC_TIMEOUT_MS = 12000;
 
 export async function runDashboardCommand(
   input: DashboardCommandRequest,
@@ -37,6 +50,7 @@ export async function runDashboardCommand(
     };
   }
 
+  const providerAttempts: Array<{ provider: string; reason: string }> = [];
   const result = await callK2DashboardCommand(k2Config, messages);
   if (result.ok) {
     return {
@@ -48,11 +62,28 @@ export async function runDashboardCommand(
       fallbackUsed: false,
     };
   }
+  providerAttempts.push({ provider: "k2", reason: result.reason });
+
+  const anthropicConfig = readAnthropicConfig(env);
+  if (anthropicConfig) {
+    const fallback = await callAnthropicDashboardCommand(anthropicConfig, messages);
+    if (fallback.ok) {
+      return {
+        ok: true,
+        value: fallback.value,
+        raw: fallback.raw,
+        provider: "anthropic",
+        modelId: `anthropic/${anthropicConfig.model}`,
+        fallbackUsed: true,
+      };
+    }
+    providerAttempts.push({ provider: "anthropic", reason: fallback.reason });
+  }
 
   return {
     ok: false,
-    reason: result.reason,
-    providerAttempts: [{ provider: "k2", reason: result.reason }],
+    reason: providerAttempts[providerAttempts.length - 1]?.reason ?? result.reason,
+    providerAttempts,
   };
 }
 
@@ -69,13 +100,38 @@ export function parseDashboardCommand(raw: string):
   for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
-      return { ok: true, value: DashboardCommandResponseSchema.parse(parsed) };
+      return {
+        ok: true,
+        value: DashboardCommandResponseSchema.parse(normalizeDashboardCommandCandidate(parsed)),
+      };
     } catch (err) {
       lastError = errorMessage(err);
     }
   }
 
   return { ok: false, reason: `invalid_model_json: ${lastError}` };
+}
+
+function normalizeDashboardCommandCandidate(parsed: unknown) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return parsed;
+
+  const candidate = { ...(parsed as Record<string, unknown>) };
+  const reorder = candidate.reorder;
+  if (!reorder || typeof reorder !== "object" || Array.isArray(reorder)) return candidate;
+
+  const reorderObject = reorder as Record<string, unknown>;
+  const jobIds = Array.isArray(reorderObject.jobIds)
+    ? reorderObject.jobIds.filter((jobId): jobId is string =>
+        typeof jobId === "string" && jobId.trim().length > 0
+      )
+    : [];
+  const reason = typeof reorderObject.reason === "string" ? reorderObject.reason.trim() : "";
+
+  candidate.reorder = jobIds.length > 0
+    ? { ...reorderObject, jobIds, reason: reason || "Model returned an ordered shortlist." }
+    : null;
+
+  return candidate;
 }
 
 function stripReasoningBlock(raw: string) {
@@ -130,18 +186,49 @@ function readK2Config(env: NodeJS.ProcessEnv) {
     apiKey,
     baseUrl: (env.K2_BASE_URL ?? env.K2_THINK_BASE_URL ?? env.K2THINK_BASE_URL ?? DEFAULT_K2_BASE_URL).replace(/\/+$/, ""),
     model: env.K2_MODEL ?? env.K2_THINK_MODEL ?? env.K2THINK_MODEL ?? DEFAULT_K2_MODEL,
+    timeoutMs: positiveInt(env.K2_DASHBOARD_COMMAND_TIMEOUT_MS) ?? DEFAULT_K2_TIMEOUT_MS,
+  };
+}
+
+function readAnthropicConfig(env: NodeJS.ProcessEnv) {
+  const apiKey = env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  return {
+    apiKey,
+    baseUrl: (env.ANTHROPIC_BASE_URL ?? DEFAULT_ANTHROPIC_BASE_URL).replace(/\/+$/, ""),
+    model: env.ANTHROPIC_DASHBOARD_COMMAND_MODEL ?? env.CLAUDE_DASHBOARD_COMMAND_MODEL ?? DEFAULT_ANTHROPIC_MODEL,
+    timeoutMs: positiveInt(env.ANTHROPIC_DASHBOARD_COMMAND_TIMEOUT_MS) ?? DEFAULT_ANTHROPIC_TIMEOUT_MS,
   };
 }
 
 async function callK2DashboardCommand(
-  config: { apiKey: string; baseUrl: string; model: string },
+  config: { apiKey: string; baseUrl: string; model: string; timeoutMs: number },
   messages: ChatMessage[],
+): Promise<{ ok: true; raw: string; value: DashboardCommandResponse } | { ok: false; reason: string }> {
+  return callDashboardCommandProvider(messages, (conversation) =>
+    callOpenAICompatibleJSON(config, conversation)
+  );
+}
+
+async function callAnthropicDashboardCommand(
+  config: { apiKey: string; baseUrl: string; model: string; timeoutMs: number },
+  messages: ChatMessage[],
+): Promise<{ ok: true; raw: string; value: DashboardCommandResponse } | { ok: false; reason: string }> {
+  return callDashboardCommandProvider(messages, (conversation) =>
+    callAnthropicJSON(config, conversation)
+  );
+}
+
+async function callDashboardCommandProvider(
+  messages: ChatMessage[],
+  callModel: (messages: ChatMessage[]) => Promise<{ ok: true; raw: string } | { ok: false; reason: string }>,
 ): Promise<{ ok: true; raw: string; value: DashboardCommandResponse } | { ok: false; reason: string }> {
   let conversation = [...messages];
   let parseReason = "invalid_model_json";
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const result = await callOpenAICompatibleJSON(config, conversation);
+    const result = await callModel(conversation);
     if (!result.ok) return result;
 
     const parsed = parseDashboardCommand(result.raw);
@@ -165,13 +252,88 @@ async function callK2DashboardCommand(
   return { ok: false, reason: parseReason };
 }
 
-async function callOpenAICompatibleJSON(
-  config: { apiKey: string; baseUrl: string; model: string },
+async function callAnthropicJSON(
+  config: { apiKey: string; baseUrl: string; model: string; timeoutMs: number },
   messages: ChatMessage[],
 ): Promise<{ ok: true; raw: string } | { ok: false; reason: string }> {
+  let timedOut = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, config.timeoutMs);
+
+  try {
+    const { system, apiMessages } = toAnthropicMessages(messages);
+    const res = await fetch(`${config.baseUrl}/messages`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": config.apiKey,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 1400,
+        temperature: 0,
+        system,
+        messages: apiMessages,
+      }),
+    });
+
+    const json = (await res.json()) as AnthropicResponse;
+    if (!res.ok || json.error) {
+      return {
+        ok: false,
+        reason: json.error?.message ?? json.detail ?? json.message ?? `anthropic_${res.status}`,
+      };
+    }
+
+    const raw = json.content
+      ?.filter((item) => item.type === "text" && typeof item.text === "string")
+      .map((item) => item.text)
+      .join("\n")
+      .trim();
+    return { ok: true, raw: raw || "{}" };
+  } catch (err) {
+    if (timedOut) return { ok: false, reason: `anthropic_timeout_after_${config.timeoutMs}ms` };
+    return { ok: false, reason: errorMessage(err) };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function toAnthropicMessages(messages: ChatMessage[]) {
+  const system = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content)
+    .join("\n\n");
+  const apiMessages = messages
+    .filter((message) => message.role !== "system")
+    .map((message) => ({
+      role: message.role as "user" | "assistant",
+      content: message.content,
+    }));
+
+  return { system, apiMessages };
+}
+
+async function callOpenAICompatibleJSON(
+  config: { apiKey: string; baseUrl: string; model: string; timeoutMs: number },
+  messages: ChatMessage[],
+): Promise<{ ok: true; raw: string } | { ok: false; reason: string }> {
+  let timedOut = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, config.timeoutMs);
+
   try {
     const res = await fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
@@ -187,12 +349,24 @@ async function callOpenAICompatibleJSON(
 
     const json = (await res.json()) as OpenAICompatibleResponse;
     if (!res.ok || json.error) {
-      return { ok: false, reason: json.error?.message ?? `k2_${res.status}` };
+      return {
+        ok: false,
+        reason: json.error?.message ?? json.detail ?? json.message ?? `k2_${res.status}`,
+      };
     }
     return { ok: true, raw: json.choices?.[0]?.message?.content ?? "{}" };
   } catch (err) {
+    if (timedOut) return { ok: false, reason: `k2_timeout_after_${config.timeoutMs}ms` };
     return { ok: false, reason: errorMessage(err) };
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+function positiveInt(value?: string) {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function errorMessage(err: unknown): string {

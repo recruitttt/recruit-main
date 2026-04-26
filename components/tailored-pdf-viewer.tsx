@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { Download, X } from "lucide-react";
+import { Download, FileWarning, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type TailoredPdfViewerProps = {
@@ -14,14 +15,57 @@ type TailoredPdfViewerProps = {
   pdfBase64?: string | null;
 };
 
-function base64ToBlobUrl(base64: string): string | null {
-  try {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: "application/pdf" });
-    return URL.createObjectURL(blob);
-  } catch {
-    return null;
+type PdfDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
+type PdfDocumentLoadingTask = import("pdfjs-dist").PDFDocumentLoadingTask;
+type RenderTask = import("pdfjs-dist").RenderTask;
+
+type LoadState = "idle" | "loading" | "ready" | "error";
+
+const MIN_SCALE = 0.75;
+const MAX_SCALE = 1.6;
+const SCALE_STEP = 0.15;
+
+async function loadPdfJs() {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc ||= new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ).toString();
+  return pdfjs;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const payload = base64.includes(",") ? base64.split(",").pop() ?? "" : base64;
+  const binary = window.atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
+  return bytes;
+}
+
+async function fetchPdfBytes(url: string, signal: AbortSignal): Promise<Uint8Array> {
+  const response = await fetch(url, { cache: "no-store", signal });
+  if (!response.ok) {
+    throw new Error(`pdf_${response.status}`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+function downloadBytes(bytes: Uint8Array, filename: string) {
+  const blobPart = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const blob = new Blob([blobPart], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function TailoredPdfViewer({
@@ -32,18 +76,17 @@ export function TailoredPdfViewer({
   sizeKb,
   pdfBase64,
 }: TailoredPdfViewerProps) {
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-
-  const blobUrl = useMemo(() => {
-    if (!open || !pdfBase64) return null;
-    return base64ToBlobUrl(pdfBase64);
-  }, [open, pdfBase64]);
+  const [mounted, setMounted] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [pdfDocument, setPdfDocument] = useState<PdfDocumentProxy | null>(null);
+  const [scale, setScale] = useState(1.08);
 
   useEffect(() => {
-    return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [blobUrl]);
+    const frame = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -65,18 +108,76 @@ export function TailoredPdfViewer({
   const downloadUrl = jobId
     ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(jobId)}`
     : null;
-  const src = blobUrl ?? apiUrl;
-  const iframeLoaded = Boolean(src) && loadedSrc === src;
   const displayName = filename ?? "Tailored resume.pdf";
+  const pages = useMemo(
+    () => pdfDocument
+      ? Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
+      : [],
+    [pdfDocument],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+
+    const abortController = new AbortController();
+    let cancelled = false;
+    let loadedDocument: PdfDocumentProxy | null = null;
+    let loadingTask: PdfDocumentLoadingTask | null = null;
+
+    async function loadPdf() {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      setLoadState("loading");
+      setErrorMessage(null);
+      setPdfBytes(null);
+      setPdfDocument(null);
+
+      if (!pdfBase64 && !apiUrl) {
+        throw new Error("No PDF is available for this application yet.");
+      }
+
+      const bytes = pdfBase64
+        ? base64ToBytes(pdfBase64)
+        : await fetchPdfBytes(apiUrl as string, abortController.signal);
+      if (cancelled) return;
+
+      setPdfBytes(bytes);
+      const pdfjs = await loadPdfJs();
+      if (cancelled) return;
+
+      loadingTask = pdfjs.getDocument({ data: Uint8Array.from(bytes) });
+      const document = await loadingTask.promise;
+      loadedDocument = document;
+      if (cancelled) {
+        await document.destroy();
+        return;
+      }
+
+      setPdfDocument(document);
+      setLoadState("ready");
+    }
+
+    void loadPdf().catch((error) => {
+      if (cancelled || abortController.signal.aborted) return;
+      setLoadState("error");
+      setErrorMessage(error instanceof Error ? error.message : "PDF preview failed to load.");
+      setPdfDocument(null);
+    });
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+      void loadingTask?.destroy();
+      if (loadedDocument) {
+        void loadedDocument.destroy();
+      }
+    };
+  }, [apiUrl, open, pdfBase64]);
 
   function handleDownload() {
-    if (blobUrl) {
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = displayName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    if (pdfBytes) {
+      downloadBytes(pdfBytes, displayName);
       return;
     }
     if (downloadUrl) {
@@ -84,11 +185,14 @@ export function TailoredPdfViewer({
     }
   }
 
-  return (
+  const canZoomOut = scale > MIN_SCALE;
+  const canZoomIn = scale < MAX_SCALE;
+
+  const modal = (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -118,14 +222,38 @@ export function TailoredPdfViewer({
                 <span className="text-[10px] uppercase tracking-wide text-[var(--color-fg-subtle)]">
                   Tailored resume preview
                   {sizeKb ? ` · ${sizeKb} KB` : ""}
+                  {pdfDocument ? ` · ${pdfDocument.numPages} page${pdfDocument.numPages === 1 ? "" : "s"}` : ""}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setScale((value) => Math.max(MIN_SCALE, value - SCALE_STEP))}
+                  disabled={!canZoomOut || loadState !== "ready"}
+                  aria-label="Zoom out"
+                  className="h-8 w-8"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="hidden w-11 text-center text-xs font-semibold tabular-nums text-[var(--color-fg-muted)] sm:inline">
+                  {Math.round(scale * 100)}%
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setScale((value) => Math.min(MAX_SCALE, value + SCALE_STEP))}
+                  disabled={!canZoomIn || loadState !== "ready"}
+                  aria-label="Zoom in"
+                  className="h-8 w-8"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
                   size="sm"
                   variant="secondary"
                   onClick={handleDownload}
-                  disabled={!src}
+                  disabled={!pdfBytes && !downloadUrl}
                 >
                   <Download className="h-3.5 w-3.5" />
                   Download
@@ -142,29 +270,136 @@ export function TailoredPdfViewer({
               </div>
             </header>
 
-            <div className="relative flex-1 bg-[var(--color-surface-1)]">
-              {!iframeLoaded && src && (
-                <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--color-fg-subtle)]">
-                  Loading preview…
+            <div className="relative flex-1 overflow-auto bg-[var(--color-surface-1)] px-3 py-4 sm:px-6">
+              {loadState === "loading" ? (
+                <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-[var(--color-fg-subtle)]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Rendering preview…
                 </div>
-              )}
-              {src ? (
-                <iframe
-                  key={src}
-                  src={src}
-                  title={displayName}
-                  className="h-full w-full border-0"
-                  onLoad={() => setLoadedSrc(src)}
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm text-[var(--color-fg-muted)]">
-                  No PDF available yet.
+              ) : null}
+
+              {loadState === "error" ? (
+                <div className="flex h-full min-h-[360px] items-center justify-center text-center">
+                  <div className="max-w-sm">
+                    <FileWarning className="mx-auto h-8 w-8 text-[var(--color-fg-subtle)]" />
+                    <div className="mt-3 text-sm font-semibold text-[var(--color-fg)]">
+                      PDF preview unavailable
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">
+                      {errorMessage ?? "The resume PDF could not be rendered."}
+                    </p>
+                  </div>
                 </div>
-              )}
+              ) : null}
+
+              {loadState === "ready" && pdfDocument ? (
+                <div className="mx-auto flex min-h-full w-fit max-w-full flex-col items-center gap-4">
+                  {pages.map((pageNumber) => (
+                    <PdfCanvasPage
+                      key={`${pageNumber}-${scale}`}
+                      document={pdfDocument}
+                      pageNumber={pageNumber}
+                      scale={scale}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+
+  return mounted ? createPortal(modal, document.body) : null;
+}
+
+function PdfCanvasPage({
+  document,
+  pageNumber,
+  scale,
+}: {
+  document: PdfDocumentProxy;
+  pageNumber: number;
+  scale: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [rendering, setRendering] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let renderTask: RenderTask | null = null;
+
+    async function renderPage() {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      setRendering(true);
+      setFailed(false);
+
+      const page = await document.getPage(pageNumber);
+      if (cancelled) {
+        page.cleanup();
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext("2d");
+      if (!canvas || !context) {
+        page.cleanup();
+        return;
+      }
+
+      const viewport = page.getViewport({ scale });
+      const outputScale = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+      renderTask = page.render({
+        canvas,
+        canvasContext: context,
+        viewport,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+      });
+      await renderTask.promise;
+      page.cleanup();
+      if (!cancelled) setRendering(false);
+    }
+
+    void renderPage().catch((error) => {
+      if (cancelled || (error instanceof Error && error.name === "RenderingCancelledException")) return;
+      setRendering(false);
+      setFailed(true);
+    });
+
+    return () => {
+      cancelled = true;
+      renderTask?.cancel();
+    };
+  }, [document, pageNumber, scale]);
+
+  return (
+    <div className="relative max-w-full overflow-hidden rounded-md border border-[var(--color-border)] bg-white shadow-[0_14px_36px_-24px_rgba(15,15,18,0.45)]">
+      {rendering ? (
+        <div className="absolute inset-0 z-10 flex min-h-64 min-w-64 items-center justify-center bg-white text-xs text-[var(--color-fg-subtle)]">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Page {pageNumber}
+        </div>
+      ) : null}
+      {failed ? (
+        <div className="flex min-h-64 min-w-64 items-center justify-center bg-white px-6 text-center text-sm text-[var(--color-fg-muted)]">
+          Page {pageNumber} could not be rendered.
+        </div>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          aria-label={`Resume PDF page ${pageNumber}`}
+          className="block h-auto max-w-full"
+        />
+      )}
+    </div>
   );
 }
