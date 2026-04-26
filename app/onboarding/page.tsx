@@ -13,13 +13,10 @@ import {
   Check,
   ChevronLeft,
   Clock3,
-  FileText,
   Link2,
   Loader2,
   MapPin,
   Sparkles,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import { Wordmark, CompanyLogo } from "@/components/ui/logo";
@@ -47,7 +44,7 @@ import {
   shouldAutoStartGithubIntake,
 } from "@/lib/intake/shared/source-state";
 import { onboardingMatches } from "@/lib/mock-data";
-import { isMuted, playActivate, playReceive, playSend, setMuted } from "@/lib/sounds";
+import { playActivate, playReceive, playSend } from "@/lib/sounds";
 import { logProfileEvent, mergeProfile } from "@/lib/profile";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -182,7 +179,6 @@ function OnboardingChatContent() {
   const [messages, setMessages] = useState<ChatEntry[]>([
     { id: `a-${initialStep}`, kind: "agent", text: STEP_PROMPTS[initialStep] },
   ]);
-  const [muted, setMutedState] = useState(false);
   const [parsingResume, setParsingResume] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
@@ -247,11 +243,6 @@ function OnboardingChatContent() {
   // ---------------------------------------------------------------------------
   // Effects
   // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setMutedState(isMuted()), 0);
-    return () => window.clearTimeout(id);
-  }, []);
 
   useEffect(() => {
     router.prefetch("/ready");
@@ -371,12 +362,6 @@ function OnboardingChatContent() {
       prefs: { ...current.prefs, ...(updates.prefs ?? {}) },
     }));
   }, []);
-
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
-  };
 
   const toggleRole = (role: string) => {
     updateData({
@@ -661,15 +646,6 @@ function OnboardingChatContent() {
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-slate-500 sm:inline">
               {completeCount} saved
             </span>
-            <ActionButton
-              variant="ghost"
-              size="icon"
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-              title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
-            >
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </ActionButton>
             <Link href="/" aria-label="Close">
               <ActionButton variant="ghost" size="icon">
                 <X className="h-4 w-4" />
@@ -686,10 +662,10 @@ function OnboardingChatContent() {
         />
       </header>
 
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-5 pt-6 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0">
-          <GlassCard density="spacious" className="flex h-[calc(100vh-172px)] min-h-[600px] flex-col">
-            <div className="mb-5 flex items-start gap-4 border-b border-white/45 pb-5">
+          <GlassCard density="spacious" className="flex h-[calc(100vh-196px)] min-h-[600px] flex-col">
+            <div className="mb-6 flex items-start gap-4 border-b border-white/45 pb-6">
               <AgentCharacter id="scout" awake size={52} />
               <div className="min-w-0">
                 <div className={cx(mistClasses.sectionLabel, "text-sky-600")}>Scout intake</div>
@@ -1094,53 +1070,51 @@ function ResumeStepCard({
     resumeRun?.status === "completed" || resumeRun?.status === "failed";
 
   return (
-    <ChatCard icon={<FileText className="h-4 w-4 text-sky-600" />}>
-      <div className="space-y-4">
-        <FileUploadControl
-          fileName={data.resumeFilename || undefined}
-          parsing={parsingResume}
-          onBrowse={() => fileInputRef.current?.click()}
-          onClear={
-            data.resumeFilename
-              ? () => updateData({ resumeFilename: "", resumeStorageId: null })
-              : undefined
-          }
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.doc,.docx"
-          className="hidden"
-          onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
-        />
+    <div className="mt-2 space-y-4">
+      <FileUploadControl
+        fileName={data.resumeFilename || undefined}
+        parsing={parsingResume}
+        onBrowse={() => fileInputRef.current?.click()}
+        onClear={
+          data.resumeFilename
+            ? () => updateData({ resumeFilename: "", resumeStorageId: null })
+            : undefined
+        }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx"
+        className="hidden"
+        onChange={(e) => onResumeFile(e.target.files?.[0] ?? null)}
+      />
 
-        {resumeError && (
-          <div className={cx("border border-red-200/70 bg-red-50/50 px-3 py-2 text-xs text-red-700", mistRadii.nested)}>
-            {resumeError}
-          </div>
-        )}
-
-        {hasUpload && resumeRun && (
-          <ProgressBadge kind="resume" run={resumeRun} />
-        )}
-
-        <div className="flex justify-end">
-          <ActionButton
-            variant={hasUpload ? "primary" : "secondary"}
-            disabled={parsingResume}
-            onClick={() =>
-              onAdvance(
-                hasUpload ? `Uploaded ${data.resumeFilename}` : "Skipped resume for now",
-                "connect",
-              )
-            }
-          >
-            {hasUpload ? (hasFinishedRun ? "Continue" : "Continue while parsing") : "Skip for now"}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </ActionButton>
+      {resumeError && (
+        <div className={cx("border border-red-200/70 bg-red-50/50 px-3 py-2 text-xs text-red-700", mistRadii.nested)}>
+          {resumeError}
         </div>
+      )}
+
+      {hasUpload && resumeRun && (
+        <ProgressBadge kind="resume" run={resumeRun} />
+      )}
+
+      <div className="flex justify-end">
+        <ActionButton
+          variant={hasUpload ? "primary" : "secondary"}
+          disabled={parsingResume}
+          onClick={() =>
+            onAdvance(
+              hasUpload ? `Uploaded ${data.resumeFilename}` : "Skipped resume for now",
+              "connect",
+            )
+          }
+        >
+          {hasUpload ? (hasFinishedRun ? "Continue" : "Continue while parsing") : "Skip for now"}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </ActionButton>
       </div>
-    </ChatCard>
+    </div>
   );
 }
 
