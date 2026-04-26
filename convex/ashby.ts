@@ -593,6 +593,7 @@ export const upsertTailoredApplication = mutation({
     pdfReady: v.optional(v.boolean()),
     pdfFilename: v.optional(v.string()),
     pdfByteLength: v.optional(v.number()),
+    pdfBase64: v.optional(v.string()),
     error: v.optional(v.string()),
   },
   returns: v.null(),
@@ -620,6 +621,7 @@ export const upsertTailoredApplication = mutation({
       pdfReady: args.pdfReady ?? false,
       pdfFilename: args.pdfFilename,
       pdfByteLength: args.pdfByteLength,
+      pdfBase64: args.pdfBase64,
       error: args.error,
       updatedAt: now,
     });
@@ -638,6 +640,7 @@ export const upsertTailoredApplication = mutation({
       "tailored_resume",
       "cover_letter",
       "pdf_ready",
+      "pdf_file",
     ]);
 
     if (args.research) {
@@ -690,6 +693,22 @@ export const upsertTailoredApplication = mutation({
         },
         createdAt: now,
       }));
+      if (args.pdfBase64) {
+        await ctx.db.insert("jobPipelineArtifacts", omitUndefined({
+          demoUserId,
+          runId: sourceJob?.runId,
+          jobId: args.jobId,
+          kind: "pdf_file",
+          title: args.pdfFilename ?? "Tailored resume PDF",
+          content: args.pdfFilename,
+          payload: {
+            filename: args.pdfFilename,
+            byteLength: args.pdfByteLength,
+            base64: args.pdfBase64,
+          },
+          createdAt: now,
+        }));
+      }
     }
 
     await ctx.db.insert("pipelineLogs", omitUndefined({
