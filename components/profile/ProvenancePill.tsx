@@ -1,9 +1,13 @@
+"use client";
+
 //
 // ProvenancePill — tiny inline pill marking which adapter sourced a field.
 // Renders even when the field is empty so the UI surfaces *which* source
 // could fill the gap.
 //
 
+import { motion, useReducedMotion } from "motion/react";
+import { fastEaseOut } from "@/lib/motion-presets";
 import type { ProvenanceSource } from "@/lib/profile";
 
 const PALETTE: Record<ProvenanceSource, { label: string; className: string; emptyHint: string }> = {
@@ -66,24 +70,30 @@ export function ProvenancePill({
   suffix,
   className = "",
 }: ProvenancePillProps): React.ReactElement {
+  const reduceMotion = useReducedMotion();
   const meta = PALETTE[source];
   const base =
     "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em]";
+  const hoverProps = reduceMotion
+    ? {}
+    : { whileHover: { scale: 1.05 }, transition: fastEaseOut };
 
   if (empty) {
     return (
-      <span
+      <motion.span
+        {...hoverProps}
         className={`${base} border-slate-300/55 bg-white/30 text-slate-500 ${className}`}
         title={meta.emptyHint}
       >
         <span className="h-1 w-1 rounded-full bg-slate-400/65" aria-hidden />
         no {meta.label} yet
-      </span>
+      </motion.span>
     );
   }
 
   return (
-    <span
+    <motion.span
+      {...hoverProps}
       className={`${base} ${meta.className} ${className}`}
       title={`Sourced from ${meta.label}`}
     >
@@ -93,7 +103,7 @@ export function ProvenancePill({
       />
       from {meta.label}
       {suffix ? <span className="opacity-70">{suffix}</span> : null}
-    </span>
+    </motion.span>
   );
 }
 

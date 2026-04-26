@@ -13,7 +13,9 @@ import {
   Network,
   Sparkles,
 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { cx } from "@/components/design-system";
+import { staggerContainer, staggerItem } from "@/lib/motion-presets";
 import { FILTERS, NODE_COLORS, type GraphFilter, type GraphNodeKind } from "./graph-types";
 
 export interface GraphFilterBarProps {
@@ -33,15 +35,29 @@ export function GraphFilterBar({
   visibleNodes,
   visibleEdges,
 }: GraphFilterBarProps): React.ReactElement {
+  const reduceMotion = useReducedMotion();
+  const containerProps = reduceMotion
+    ? {}
+    : {
+        variants: staggerContainer(0.06),
+        initial: "hidden" as const,
+        animate: "visible" as const,
+      };
+  const itemProps = reduceMotion ? {} : { variants: staggerItem };
+
   return (
     <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-[22px] border border-white/70 bg-white/58 p-1.5 text-slate-700 shadow-[0_18px_42px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-2xl">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+      <motion.div
+        {...containerProps}
+        className="flex min-w-0 flex-1 flex-wrap items-center gap-1"
+      >
         {FILTERS.map((option) => {
           const isActive = option.id === filter;
           const Icon = FILTER_ICONS[option.id];
           return (
-            <button
+            <motion.button
               key={option.id}
+              {...itemProps}
               type="button"
               onClick={() => onFilterChange(option.id)}
               className={cx(
@@ -54,10 +70,10 @@ export function GraphFilterBar({
             >
               <Icon className="h-3.5 w-3.5" />
               {option.label}
-            </button>
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       <div className="hidden min-w-0 items-center gap-2 border-l border-white/60 pl-3 lg:flex">
         <Legend counts={nodeCounts} />

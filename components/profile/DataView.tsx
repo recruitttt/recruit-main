@@ -19,6 +19,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { motion, useReducedMotion } from "motion/react";
+import { fadeUp } from "@/lib/motion-presets";
 import {
   AlertTriangle,
   BookOpen,
@@ -1164,9 +1166,21 @@ function FieldRow({
   source: ProvenanceSource;
   fallbackSource: ProvenanceSource;
 }): React.ReactElement {
+  const reduceMotion = useReducedMotion();
   const empty = !value || value.trim().length === 0;
+  const animationProps = reduceMotion
+    ? {}
+    : {
+        variants: fadeUp,
+        initial: "hidden" as const,
+        whileInView: "visible" as const,
+        viewport: { once: true, margin: "-20px" },
+      };
   return (
-    <div className="rounded-2xl border border-white/55 bg-white/30 p-3">
+    <motion.div
+      {...animationProps}
+      className="rounded-2xl border border-white/55 bg-white/30 p-3"
+    >
       <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-500">
         <Icon className="h-3 w-3" />
         {label}
@@ -1185,7 +1199,7 @@ function FieldRow({
         </div>
         <ProvenancePill source={empty ? fallbackSource : source} empty={empty} />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1283,8 +1297,17 @@ function ExperienceItemRow({
   role: WorkExperience;
   source: ProvenanceSource;
 }): React.ReactElement {
+  const reduceMotion = useReducedMotion();
+  const animationProps = reduceMotion
+    ? {}
+    : {
+        variants: fadeUp,
+        initial: "hidden" as const,
+        whileInView: "visible" as const,
+        viewport: { once: true, margin: "-20px" },
+      };
   return (
-    <li className="relative">
+    <motion.li {...animationProps} className="relative">
       <span className="absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border border-white bg-[var(--color-accent)] shadow-[0_0_0_3px_var(--color-accent-glow)]" />
       <div className="rounded-2xl border border-white/55 bg-white/35 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1320,7 +1343,7 @@ function ExperienceItemRow({
           </p>
         ) : null}
       </div>
-    </li>
+    </motion.li>
   );
 }
 
@@ -1520,10 +1543,20 @@ function ProjectsSection({
 }
 
 function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
+  const reduceMotion = useReducedMotion();
   const s = row.summary ?? {};
   const url = `https://github.com/${row.repoFullName}`;
+  const animationProps = reduceMotion
+    ? {}
+    : {
+        variants: fadeUp,
+        initial: "hidden" as const,
+        whileInView: "visible" as const,
+        viewport: { once: true, margin: "-20px" },
+      };
   return (
-    <article
+    <motion.article
+      {...animationProps}
       className={cx(
         "flex flex-col gap-3 border p-4",
         mistClasses.card,
@@ -1611,7 +1644,7 @@ function RepoSummaryCard({ row }: { row: RepoSummaryRow }): React.ReactElement {
         <span className="truncate">model: {row.generatedByModel || "—"}</span>
         <RelativeTime iso={row.generatedAt} />
       </footer>
-    </article>
+    </motion.article>
   );
 }
 

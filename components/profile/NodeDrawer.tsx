@@ -10,7 +10,9 @@
 
 import { useEffect, useMemo } from "react";
 import { X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cx } from "@/components/design-system";
+import { fastEaseOut } from "@/lib/motion-presets";
 import type { GraphNodeKind } from "./graph-types";
 
 export interface NodeDrawerProps {
@@ -31,7 +33,8 @@ export function NodeDrawer({
   kind,
   color,
   data,
-}: NodeDrawerProps): React.ReactElement | null {
+}: NodeDrawerProps): React.ReactElement {
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -43,68 +46,90 @@ export function NodeDrawer({
 
   const rows = useMemo(() => buildDisplayRows(data), [data]);
 
-  if (!open) return null;
+  const backdropMotion = reduceMotion
+    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: fastEaseOut,
+      };
+
+  const panelMotion = reduceMotion
+    ? { initial: false, animate: { x: 0 }, exit: { x: 0 } }
+    : {
+        initial: { x: "100%" as const },
+        animate: { x: 0 },
+        exit: { x: "100%" as const },
+        transition: { type: "spring" as const, stiffness: 280, damping: 28 },
+      };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <button
-        type="button"
-        aria-label="Close drawer"
-        className="absolute inset-0 bg-slate-950/24 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <aside
-        role="dialog"
-        aria-label={`${kind} details: ${title}`}
-        className={cx(
-          "relative ml-auto h-full w-full max-w-[440px] overflow-y-auto rounded-l-[28px]",
-          "border-l border-white/70 bg-[#f7fbf4]/86 px-5 py-6 text-[#102016]",
-          "shadow-[0_24px_64px_rgba(15,23,42,0.18),inset_1px_0_0_rgba(255,255,255,0.88)]",
-          "backdrop-blur-2xl",
-        )}
-      >
-        <header className="mb-5 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <span
-              className="mb-2 inline-flex h-5 items-center gap-1.5 rounded-full border border-white/70 bg-white/58 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#435749]"
-              style={{ color }}
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }}
-              />
-              {kind}
-            </span>
-            <h2 className="truncate text-lg font-semibold leading-tight text-[#102016]">
-              {title}
-            </h2>
-            {subtitle && (
-              <p className="mt-1 truncate text-xs text-[#738070]">{subtitle}</p>
-            )}
-          </div>
-          <button
+    <AnimatePresence>
+      {open ? (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <motion.button
+            {...backdropMotion}
             type="button"
+            aria-label="Close drawer"
+            className="absolute inset-0 bg-slate-950/24 backdrop-blur-sm"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/58 text-[#738070] shadow-[inset_0_1px_0_rgba(255,255,255,0.76)] transition hover:bg-white/82 hover:text-[#102016]"
-            aria-label="Close"
+          />
+          <motion.aside
+            {...panelMotion}
+            role="dialog"
+            aria-label={`${kind} details: ${title}`}
+            className={cx(
+              "relative ml-auto h-full w-full max-w-[440px] overflow-y-auto rounded-l-[28px]",
+              "border-l border-white/70 bg-[#f7fbf4]/86 px-5 py-6 text-[#102016]",
+              "shadow-[0_24px_64px_rgba(15,23,42,0.18),inset_1px_0_0_rgba(255,255,255,0.88)]",
+              "backdrop-blur-2xl",
+            )}
           >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </header>
+            <header className="mb-5 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span
+                  className="mb-2 inline-flex h-5 items-center gap-1.5 rounded-full border border-white/70 bg-white/58 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#435749]"
+                  style={{ color }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }}
+                  />
+                  {kind}
+                </span>
+                <h2 className="truncate text-lg font-semibold leading-tight text-[#102016]">
+                  {title}
+                </h2>
+                {subtitle && (
+                  <p className="mt-1 truncate text-xs text-[#738070]">{subtitle}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/58 text-[#738070] shadow-[inset_0_1px_0_rgba(255,255,255,0.76)] transition hover:bg-white/82 hover:text-[#102016]"
+                aria-label="Close"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </header>
 
-        {rows.length === 0 ? (
-          <p className="rounded-2xl border border-white/65 bg-white/52 p-4 text-xs text-[#738070]">
-            No additional data captured for this node yet.
-          </p>
-        ) : (
-          <dl className="space-y-3">
-            {rows.map((row) => (
-              <DrawerRow key={row.key} label={row.key} value={row.display} />
-            ))}
-          </dl>
-        )}
-      </aside>
-    </div>
+            {rows.length === 0 ? (
+              <p className="rounded-2xl border border-white/65 bg-white/52 p-4 text-xs text-[#738070]">
+                No additional data captured for this node yet.
+              </p>
+            ) : (
+              <dl className="space-y-3">
+                {rows.map((row) => (
+                  <DrawerRow key={row.key} label={row.key} value={row.display} />
+                ))}
+              </dl>
+            )}
+          </motion.aside>
+        </div>
+      ) : null}
+    </AnimatePresence>
   );
 }
 

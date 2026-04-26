@@ -8,7 +8,9 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronRight, Database } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { cx, mistClasses } from "@/components/design-system";
+import { fadeUp } from "@/lib/motion-presets";
 
 export interface SectionCardProps {
   title: string;
@@ -42,10 +44,20 @@ export function SectionCard({
   className = "",
   children,
 }: SectionCardProps): React.ReactElement {
+  const reduceMotion = useReducedMotion();
   const showEmpty = Boolean(empty) && isEffectivelyEmpty(children);
+  const animationProps = reduceMotion
+    ? {}
+    : {
+        variants: fadeUp,
+        initial: "hidden" as const,
+        whileInView: "visible" as const,
+        viewport: { once: true, margin: "-40px" },
+      };
 
   return (
-    <section
+    <motion.section
+      {...animationProps}
       className={cx(
         "min-w-0 border p-5",
         mistClasses.panel,
@@ -83,7 +95,7 @@ export function SectionCard({
       {rawData !== undefined ? (
         <RawDrawer label={rawLabel} data={rawData} />
       ) : null}
-    </section>
+    </motion.section>
   );
 }
 
