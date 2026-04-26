@@ -96,7 +96,7 @@ export function RoomCanvasClient({ introPhase, showDetailPanel = true, onSceneRe
             title={chatMode === "flat" ? "Back to 3D room" : "Switch to flat chat"}
             className={
               (chatMode === "flat"
-                ? "border-sky-400/55 bg-sky-50 text-sky-900"
+                ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                 : "border-white/55 bg-[#F8FBFF]/82 text-[#101827]") +
               " pointer-events-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 shadow-[0_10px_24px_-12px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl transition hover:bg-[#F8FBFF]"
             }

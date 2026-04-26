@@ -286,7 +286,7 @@ function JobDetailDrawer({
             href={job?.jobUrl ?? selected.jobUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-sky-600"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-[var(--color-accent)]"
           >
             original job <ExternalLink className="h-3 w-3" />
           </a>

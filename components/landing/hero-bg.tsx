@@ -54,12 +54,12 @@ export function HeroBg() {
       {/* faint grid */}
       <div className="absolute inset-0 grid-bg grid-bg-fade opacity-35" />
 
-      {/* cursor follow — deep cyan at very low opacity */}
+      {/* cursor follow — sage at very low opacity */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(600px circle at var(--mx,50%) var(--my,30%), rgba(8,145,178,0.08), transparent 55%)",
+            "radial-gradient(600px circle at var(--mx,50%) var(--my,30%), rgba(63,122,86,0.08), transparent 55%)",
         }}
       />
 
@@ -78,7 +78,7 @@ export function HeroBg() {
       <div
         className="absolute right-[8%] top-[55%] h-80 w-80 rounded-full blur-3xl"
         style={{
-          background: "radial-gradient(circle, rgba(14,165,233,0.16), transparent 62%)",
+          background: "radial-gradient(circle, rgba(63,122,86,0.14), transparent 62%)",
           animation: "drift-b 22s ease-in-out infinite",
           mixBlendMode: "soft-light",
         }}

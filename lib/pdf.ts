@@ -11,6 +11,12 @@ import puppeteer, { type Browser } from "puppeteer-core";
 export { textToPdf, toBase64 } from "./tailor/simple-pdf";
 
 let browserPromise: Promise<Browser> | null = null;
+let lastBrowserbaseSession: BrowserbaseSessionInfo | null = null;
+
+export type BrowserbaseSessionInfo = {
+  id: string;
+  connectUrl?: string;
+};
 
 const DEFAULT_CHROMIUM_PACK_URL =
   "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar";
@@ -67,24 +73,35 @@ async function resolvePackagedChromium(): Promise<{ args: string[]; executablePa
 }
 
 async function launchBrowser(): Promise<Browser> {
-  if (process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID) {
-    return await connectBrowserbase();
-  }
-  const { args, executablePath } = await resolveExecutable();
-  const browser = await puppeteer.launch({
-    args,
-    defaultViewport: { width: 816, height: 1056 },
-    executablePath,
-    headless: process.env.LOCAL_CHROME_HEADLESS === "0" ? false : true,
-    userDataDir: process.env.LOCAL_CHROME_USER_DATA_DIR || undefined,
-  });
+  const browser = isBrowserbaseConfigured()
+    ? await connectBrowserbase()
+    : await launchLocalBrowser();
   browser.on("disconnected", () => {
     browserPromise = null;
   });
   return browser;
 }
 
+async function launchLocalBrowser(): Promise<Browser> {
+  const { args, executablePath } = await resolveExecutable();
+  return await puppeteer.launch({
+    args,
+    defaultViewport: { width: 816, height: 1056 },
+    executablePath,
+    headless: process.env.LOCAL_CHROME_HEADLESS === "0" ? false : true,
+    userDataDir: process.env.LOCAL_CHROME_USER_DATA_DIR || undefined,
+  });
+}
+
 async function connectBrowserbase(): Promise<Browser> {
+  const browserSettings = {
+    solveCaptchas: isBrowserbaseCaptchaSolvingEnabled(),
+    recordSession: true,
+    logSession: true,
+    verified: process.env.BROWSERBASE_VERIFIED === "1" ? true : undefined,
+    captchaImageSelector: process.env.BROWSERBASE_CAPTCHA_IMAGE_SELECTOR || undefined,
+    captchaInputSelector: process.env.BROWSERBASE_CAPTCHA_INPUT_SELECTOR || undefined,
+  };
   const response = await fetch("https://api.browserbase.com/v1/sessions", {
     method: "POST",
     headers: {
@@ -95,6 +112,9 @@ async function connectBrowserbase(): Promise<Browser> {
       projectId: process.env.BROWSERBASE_PROJECT_ID,
       contextId: process.env.BROWSERBASE_CONTEXT_ID || undefined,
       keepAlive: process.env.BROWSERBASE_KEEP_ALIVE === "1" ? true : undefined,
+      timeout: Number(process.env.BROWSERBASE_SESSION_TIMEOUT_SECONDS ?? "600"),
+      proxies: process.env.BROWSERBASE_PROXIES === "1" ? true : undefined,
+      browserSettings,
     }),
   });
   if (!response.ok) {
@@ -105,7 +125,44 @@ async function connectBrowserbase(): Promise<Browser> {
   if (!session.connectUrl) {
     throw new Error(`Browserbase session did not return a connectUrl for session ${session.id ?? "unknown"}`);
   }
+  if (session.id) {
+    lastBrowserbaseSession = {
+      id: session.id,
+      connectUrl: session.connectUrl,
+    };
+  }
   return await puppeteer.connect({ browserWSEndpoint: session.connectUrl });
+}
+
+export function isBrowserbaseConfigured(): boolean {
+  return Boolean(process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID);
+}
+
+export function isBrowserbaseCaptchaSolvingEnabled(): boolean {
+  return isBrowserbaseConfigured() && process.env.BROWSERBASE_SOLVE_CAPTCHAS !== "0";
+}
+
+export function getLastBrowserbaseSessionInfo(): BrowserbaseSessionInfo | null {
+  return lastBrowserbaseSession;
+}
+
+export async function getBrowserbaseLiveViewUrls(sessionId = lastBrowserbaseSession?.id): Promise<{
+  debuggerFullscreenUrl?: string;
+  debuggerUrl?: string;
+  pages?: Array<{ url?: string; title?: string; debuggerFullscreenUrl?: string; debuggerUrl?: string }>;
+} | null> {
+  if (!sessionId || !process.env.BROWSERBASE_API_KEY) return null;
+  const response = await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}/debug`, {
+    headers: {
+      "X-BB-API-Key": process.env.BROWSERBASE_API_KEY,
+    },
+  });
+  if (!response.ok) return null;
+  return await response.json() as {
+    debuggerFullscreenUrl?: string;
+    debuggerUrl?: string;
+    pages?: Array<{ url?: string; title?: string; debuggerFullscreenUrl?: string; debuggerUrl?: string }>;
+  };
 }
 
 async function getBrowser(): Promise<Browser> {

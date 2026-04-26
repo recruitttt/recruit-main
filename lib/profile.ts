@@ -380,7 +380,7 @@ export function clearProfile(): void {
 
 // Hue mapping per source (matches lib/agents.ts colors).
 export const SOURCE_HUE: Record<ProvenanceSource, string> = {
-  chat: "#0891B2",
+  chat: "#3F7A56",
   resume: "#DB2777",
   github: "#7C3AED",
   linkedin: "#059669",

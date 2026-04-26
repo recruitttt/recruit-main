@@ -209,7 +209,7 @@ export default function PricingPage() {
                         {tier.highlight && (
                           <StatusBadge tone="accent" variant="solid">
                             <Sparkles className="h-3.5 w-3.5" />
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-cyan-400 to-sky-500 [background-size:200%_100%] motion-safe:animate-[shimmer_2.4s_linear_infinite]">
+                            <span className="text-[var(--color-accent)]">
                               Most popular
                             </span>
                           </StatusBadge>

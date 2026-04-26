@@ -451,7 +451,7 @@ function EditInput({
         className={cn(
           "h-10 w-full rounded-[14px] border border-white/55 bg-white/45 px-3 text-sm leading-none text-slate-900 outline-none transition-shadow",
           "placeholder:leading-none placeholder:text-slate-400",
-          "focus-visible:ring-2 focus-visible:ring-sky-400/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          "focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         )}
       />
     </label>
@@ -484,7 +484,7 @@ function LinkRow({
       className="flex flex-wrap items-center gap-3"
     >
       <ProvenanceDot source={source} />
-      <Icon className="h-4 w-4 text-[#0EA5E9]" />
+      <Icon className="h-4 w-4 text-[var(--color-accent)]" />
       {prefix && (
         <span className="text-[13px] font-mono text-slate-500">{prefix}</span>
       )}

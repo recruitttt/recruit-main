@@ -23,6 +23,12 @@ export function canonicalizeJobUrl(targetUrl: string): string {
         url.pathname = `/${parts[0]}/${parts[1]}/application`;
       }
     }
+    if (url.hostname === "jobs.lever.co") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length >= 2) {
+        url.pathname = `/${parts[0]}/${parts[1]}/apply`;
+      }
+    }
     return url.toString();
   } catch {
     return normalizeKeyPart(targetUrl);
@@ -30,12 +36,13 @@ export function canonicalizeJobUrl(targetUrl: string): string {
 }
 
 export function extractProviderJobId(provider: FormProvider, targetUrl: string): string | null {
-  if (provider !== "ashby") return null;
   try {
     const url = new URL(targetUrl);
-    if (url.hostname.toLowerCase() !== "jobs.ashbyhq.com") return null;
+    const hostname = url.hostname.toLowerCase();
     const parts = url.pathname.split("/").filter(Boolean);
-    return parts[1] ?? null;
+    if (provider === "ashby" && hostname === "jobs.ashbyhq.com") return parts[1] ?? null;
+    if (provider === "lever" && hostname === "jobs.lever.co") return parts[1] ?? null;
+    return null;
   } catch {
     return null;
   }

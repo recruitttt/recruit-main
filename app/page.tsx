@@ -19,6 +19,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Mark, Wordmark } from "@/components/ui/logo";
+import {
+  RecruitBrandLink,
+  TopLine,
+  topLinePillClass,
+} from "@/components/shell/top-line";
 
 const HERO_TITLE_WORDS = ["Apply", "to", "jobs", "without", "applying."];
 
@@ -84,45 +89,32 @@ const pricingPlans = [
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#EEF3F7] text-slate-950">
-      <header className="absolute inset-x-0 top-0 z-40">
-        <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6">
-          <Link
-            href="/"
-            aria-label="Recruit"
-            className="flex h-10 items-center gap-2 [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
-          >
-            <Mark size="sm" className="text-white drop-shadow-[0_1px_2px_rgba(15,23,42,0.18)]" />
-            <span className="font-serif text-[19px] leading-none tracking-tight text-white">
-              recruit
-            </span>
-          </Link>
-
-          <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-white/85 md:flex [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]">
+    <main className="min-h-screen overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
+      <TopLine
+        variant="hero"
+        maxWidthClassName="max-w-7xl"
+        brand={<RecruitBrandLink variant="hero" ariaLabel="Recruit" />}
+        nav={
+          <nav className="ml-4 hidden items-center gap-2 text-[13px] font-medium text-white/85 md:flex [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]">
             <Link href="/dashboard" className="transition hover:text-white">
               Dashboard
             </Link>
           </nav>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Link href="/dashboard" className="hidden sm:block">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full text-white/90 hover:bg-white/15 hover:text-white [text-shadow:0_1px_2px_rgba(15,23,42,0.18)]"
-              >
-                Sign in
-              </Button>
+        }
+        actions={
+          <>
+            <Link href="/dashboard" className={`${topLinePillClass("hero")} hidden sm:inline-flex`}>
+              Sign in
             </Link>
             <Link href="/onboarding">
-              <Button size="sm" className="rounded-full bg-slate-950 px-4 text-white hover:bg-slate-800">
+              <Button size="sm" className="h-10 rounded-full bg-[var(--color-accent)] px-4 text-white hover:brightness-110">
                 Start applying
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="relative">
         <div
@@ -136,10 +128,10 @@ export default function LandingPage() {
           }}
         >
           <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_22%,rgba(255,255,255,0)_55%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-[16%] bg-[linear-gradient(to_bottom,rgba(238,243,247,0)_0%,#EEF3F7_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[16%] bg-[linear-gradient(to_bottom,rgba(245,248,241,0)_0%,#F5F8F1_100%)]" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:pt-24">
+        <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl flex-col px-4 pb-8 pt-20 sm:px-6 sm:pt-24 lg:pt-28">
           <div className="mx-auto max-w-5xl space-y-6 text-center">
             <h1 className="mx-auto max-w-4xl text-balance font-serif text-[clamp(32px,5.6vw,72px)] leading-[0.96] tracking-tight text-slate-950">
               {HERO_TITLE_WORDS.map((word, index) => (
@@ -178,7 +170,7 @@ export default function LandingPage() {
               }}
             >
               <Link href="/onboarding" className="motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-[1.03]">
-                <Button size="lg" className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800">
+                <Button size="lg" className="h-12 rounded-full bg-[var(--color-accent)] px-6 text-white hover:brightness-110">
                   Spin up my agents
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -206,14 +198,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-[#F7FAFC] px-4 py-16 sm:px-6">
+      <section className="bg-[var(--color-bg)] px-4 py-16 sm:px-6">
         <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3">
           {steps.map((step) => (
             <div
               key={step.title}
               className="rounded-[28px] border border-white/70 bg-white/68 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/78 text-sky-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/78 text-[var(--color-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                 <step.icon className="h-5 w-5" />
               </div>
               <h2 className="mt-5 text-lg font-semibold tracking-tight text-slate-950">{step.title}</h2>
@@ -223,7 +215,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-10 sm:px-6">
+      <section className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -239,7 +231,7 @@ export default function LandingPage() {
                 key={plan.name}
                 className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
                   plan.featured
-                    ? "border-sky-200/80 bg-white/82"
+                    ? "border-[var(--color-accent)] bg-white/82"
                     : "border-white/70 bg-white/58"
                 }`}
               >
@@ -252,7 +244,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   {plan.featured ? (
-                    <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                    <span className="rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)]">
                       Popular
                     </span>
                   ) : null}
@@ -272,7 +264,7 @@ export default function LandingPage() {
                     variant={plan.featured ? "primary" : "secondary"}
                     className={`w-full rounded-full ${
                       plan.featured
-                        ? "bg-slate-950 text-white hover:bg-slate-800"
+                        ? "bg-[var(--color-accent)] text-white hover:brightness-110"
                         : "border-white/70 bg-white/58 text-slate-700 hover:bg-white/75"
                     }`}
                   >
@@ -286,7 +278,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-6 sm:px-6">
+      <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-6 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <Wordmark />
           <div className="flex gap-5">
@@ -324,7 +316,7 @@ function ProductMockup() {
         <div className="grid min-h-[520px] gap-px bg-white/45 md:grid-cols-[220px_1fr_330px]">
           <aside className="hidden bg-white/45 p-4 md:block">
             <div className="flex items-center gap-2 rounded-2xl border border-white/70 bg-white/65 p-2">
-              <Mark size="sm" className="text-sky-600" />
+              <Mark size="sm" className="text-[var(--color-accent)]" />
               <div>
                 <div className="text-[13px] font-semibold text-slate-950">Recruit</div>
                 <div className="text-[11px] text-slate-500">command center</div>
@@ -357,7 +349,7 @@ function ProductMockup() {
                   5 agents applying for Mo
                 </h2>
               </div>
-              <button className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-[13px] font-semibold text-white">
+              <button className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-4 text-[13px] font-semibold text-white">
                 <Command className="h-3.5 w-3.5" />
                 Assist
               </button>
@@ -376,7 +368,7 @@ function ProductMockup() {
               <div className="flex items-center justify-between border-b border-white/65 px-4 py-3">
                 <div className="text-[13px] font-semibold text-slate-950">Application pipeline</div>
                 <div className="flex items-center gap-2 text-[12px] text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-600" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-accent)]" />
                   syncing
                 </div>
               </div>
@@ -387,7 +379,7 @@ function ProductMockup() {
                       <div className="truncate text-[14px] font-semibold text-slate-950">{run.company}</div>
                       <div className="mt-1 truncate text-[12px] text-slate-500">{run.role}</div>
                     </div>
-                    <div className="hidden rounded-full border border-white/75 bg-white/64 px-3 py-1 text-center text-[12px] font-semibold text-sky-700 sm:block">
+                    <div className="hidden rounded-full border border-white/75 bg-white/64 px-3 py-1 text-center text-[12px] font-semibold text-[var(--color-accent)] sm:block">
                       {run.state}
                     </div>
                     <div className="font-mono text-[18px] text-slate-950">{run.score}</div>
@@ -398,7 +390,7 @@ function ProductMockup() {
           </section>
 
           <aside className="bg-white/48 p-4 sm:p-5">
-            <div className="rounded-[26px] border border-white/75 bg-slate-950 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
+            <div className="rounded-[26px] border border-white/75 bg-[#102016] p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
               <div className="flex items-center justify-between">
                 <div className="text-[13px] font-semibold">Scout</div>
                 <div className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70">
@@ -452,7 +444,7 @@ function MiniArtifact({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white/64 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700">
+      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">

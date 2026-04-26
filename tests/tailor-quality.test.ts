@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderResumeHtml } from "../lib/resume-html";
 import { textToPdf } from "../lib/pdf";
 import { extractPdfTextForEvidence } from "../lib/pdf-text";
@@ -7,6 +8,13 @@ import { resumeFallbackText } from "../lib/tailor/resume-fallback-text";
 import { normalizeResume, validateResumeQuality } from "../lib/tailor/tailor";
 import type { JobResearch, TailoredResume } from "../lib/tailor/types";
 import type { UserProfile } from "../lib/profile";
+
+const tailorSource = readFileSync(
+  new URL("../lib/tailor/tailor.ts", import.meta.url),
+  "utf8"
+);
+assert.match(tailorSource, /DEFAULT_TAILOR_MODEL = "gpt-5\.4-mini"/);
+assert.equal(tailorSource.includes('?? "gpt-4o-mini"'), false);
 
 const profile: UserProfile = {
   name: "Ada Lovelace",

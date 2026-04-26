@@ -27,10 +27,10 @@ export function ActionButton({
     <button
       disabled={disabled || loading}
       className={cx(
-        "inline-flex items-center justify-center gap-2 border font-semibold leading-none whitespace-nowrap transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none",
+        "inline-flex items-center justify-center gap-2 border font-semibold leading-none whitespace-nowrap transition-all duration-200 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-glow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none",
         size === "sm" ? "h-9 px-3 text-xs" : size === "lg" ? "h-12 px-5 text-base" : size === "icon" ? "h-10 w-10 px-0 text-sm aspect-square" : "h-10 px-4 text-sm",
         size === "icon" || size === "sm" ? "rounded-full" : resolvedVariant === "primary" ? "rounded-[24px]" : "rounded-full",
-        resolvedVariant === "primary" && "border-[#0F172A] bg-[#0F172A] text-white shadow-[0_14px_34px_rgba(15,23,42,0.16)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.22)]",
+        resolvedVariant === "primary" && "border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[0_14px_34px_rgba(63,122,86,0.18)] hover:shadow-[0_18px_40px_rgba(63,122,86,0.24)]",
         resolvedVariant === "secondary" && cx(mistClasses.control, "text-slate-700"),
         resolvedVariant === "ghost" && "border-white/55 bg-white/24 text-slate-700",
         resolvedVariant === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",

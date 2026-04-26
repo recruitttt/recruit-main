@@ -20,7 +20,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       )}
     >
       {Icon ? (
-        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-sky-50/80 text-sky-600">
+        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
           <Icon className="h-6 w-6" />
         </div>
       ) : null}
