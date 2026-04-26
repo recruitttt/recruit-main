@@ -60,7 +60,11 @@ export const debugCreateAuth = internalAction({
         socialProviderKeys: Object.keys(opts.socialProviders ?? {}),
         hasGithub: Boolean(opts.socialProviders?.github),
         baseURL: opts.baseURL,
-        trustedOrigins: opts.trustedOrigins,
+        trustedOrigins:
+          typeof opts.trustedOrigins === "function"
+            ? "[function]"
+            : opts.trustedOrigins,
+        resolvedTrustedOrigins: $context?.trustedOrigins ?? null,
         // After plugins resolve, the $context has the FINAL options.
         ctxSocialProviderKeys: Object.keys(ctxOpts.socialProviders ?? {}),
         ctxHasGithub: Boolean(ctxOpts.socialProviders?.github),
