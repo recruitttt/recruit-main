@@ -348,7 +348,12 @@ function ConnectedRecruitDashboard() {
       setRunMessage("Ranking scraped jobs...");
       setRunState("ranking");
 
-      const response = await fetch("/api/dashboard/run-first-3", { method: "POST" });
+      const profile = readProfile();
+      const response = await fetch("/api/dashboard/run-first-3", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile }),
+      });
       const body = await response.json().catch(() => null) as
         | { error?: string; rankingWarning?: string | null }
         | null;
@@ -1171,6 +1176,12 @@ function JobStatsPanel({
           <StatTile icon={CheckCircle2} label="Keywords" value={keywordCoverage ? <><CountUpValue value={Math.round(keywordCoverage)} />%</> : "n/a"} detail={pdf.ready ? "PDF-ready metadata" : "Awaiting PDF"} />
         </div>
 
+        <RankingMethodPanel
+          scoringMode={score?.scoringMode ?? selected.scoringMode}
+          fitScore={fitScore}
+          mlScore={llmScore}
+        />
+
         <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
           <div className="mb-3 grid gap-3 sm:grid-cols-2">
             <Fact label="Location" value={resolvedLocation} />
@@ -1252,6 +1263,93 @@ function JobStatsPanel({
         </section>
       </div>
     </motion.div>
+  );
+}
+
+function RankingMethodPanel({
+  scoringMode,
+  fitScore,
+  mlScore,
+}: {
+  scoringMode?: string;
+  fitScore: number;
+  mlScore: number;
+}) {
+  const mode = scoringMode ?? "unknown";
+  const isV2 = mode.startsWith("v2_");
+  const active = {
+    hardFilters: isV2,
+    bm25: mode.includes("bm25"),
+    rrf: mode.includes("rrf"),
+    rerank: mode.includes("rerank"),
+    rationale: mode.includes("rationale"),
+  };
+  const stages = [
+    { label: "Hard filters", active: active.hardFilters },
+    { label: "BM25 (lexical)", active: active.bm25 },
+    { label: "Embeddings + RRF", active: active.rrf },
+    { label: "Cohere Rerank v3", active: active.rerank },
+    { label: "gpt-5.4-mini rationale", active: active.rationale },
+  ];
+  const ran = stages.filter((stage) => stage.active).map((stage) => stage.label);
+  const fullStack = active.hardFilters && active.bm25 && active.rrf && active.rerank && active.rationale;
+  const summary = fullStack
+    ? "Full ML stack ran: BM25 + embeddings + neural reranker + LLM-written rationale"
+    : isV2
+      ? `Partial ML stack - only ${ran.length > 0 ? ran.join(", ") : "fallback scoring"} ran`
+      : "Ranking method is not recorded for this job.";
+
+  return (
+    <section className="border-t border-[var(--dashboard-panel-divider)] pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--dashboard-panel-kicker)]">
+          Ranking method
+        </h3>
+        <span className="rounded-md border border-[var(--dashboard-panel-divider)] px-2 py-1 font-mono text-[11px] text-[var(--dashboard-panel-muted)]">
+          {isV2 ? "v2" : "unknown"}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {stages.map((stage) => (
+          <span
+            key={stage.label}
+            className={cn(
+              "rounded-md border px-2 py-1 text-[11px] font-semibold",
+              stage.active
+                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+                : "border-[var(--dashboard-panel-divider)] text-[var(--dashboard-panel-subtle)] line-through"
+            )}
+          >
+            {stage.label}
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+        <MethodMetric label="Total" value={Math.round(fitScore)} />
+        <MethodMetric label="Rerank / ML" value={Math.round(mlScore)} />
+        <MethodMetric label="Mode" value={mode} mono />
+      </div>
+      <p className="mt-3 text-xs leading-5 text-[var(--dashboard-panel-muted)]">{summary}</p>
+    </section>
+  );
+}
+
+function MethodMetric({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0 border-l border-[var(--dashboard-panel-divider)] pl-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--dashboard-panel-subtle)]">
+        {label}
+      </div>
+      <div className={cn("mt-1 truncate text-[var(--dashboard-panel-fg)]", mono && "font-mono")}>{value}</div>
+    </div>
   );
 }
 

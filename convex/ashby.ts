@@ -1201,6 +1201,8 @@ export const writeRankingResults = internalMutation({
           bm25Normalized: score.bm25Normalized,
           ruleScore: score.ruleScore,
           llmScore: score.llmScore,
+          embeddingScore: score.embeddingScore,
+          rerankScore: score.rerankScore,
           totalScore: score.totalScore,
           scoringMode: score.scoringMode,
           strengths: score.strengths,
@@ -1235,7 +1237,7 @@ export const writeRankingResults = internalMutation({
     ).length;
     const survivorCount = args.decisions.length - filteredCount;
     const llmScoredCount = args.scores.filter(
-      (score) => score.scoringMode === "llm"
+      (score) => typeof score.llmScore === "number" && score.llmScore > 0
     ).length;
 
     await ctx.db.patch(args.runId, omitUndefined({

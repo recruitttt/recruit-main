@@ -1,13 +1,16 @@
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { getConvexClient } from "@/lib/convex-http";
-import { omDemoLivePayload, shouldUseOmDemoData } from "@/lib/om-demo-data";
+import { rankedOmDemoLivePayload, shouldUseOmDemoData } from "@/lib/om-demo-data";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request?: Request) {
+  const body = request ? await readBody(request) : {};
+  const profile = body && typeof body === "object" && "profile" in body ? body.profile : undefined;
+
   if (shouldUseOmDemoData()) {
-    const payload = omDemoLivePayload();
+    const payload = await rankedOmDemoLivePayload(profile as never);
     return Response.json({
       ingestion: {
         runId: payload.run._id,
@@ -25,6 +28,8 @@ export async function POST() {
         scoringMode: payload.run.scoringMode,
       },
       rankingWarning: null,
+      recommendations: payload.recommendations,
+      logs: payload.logs,
       fixture: payload.fixture,
     });
   }
@@ -53,6 +58,7 @@ export async function POST() {
   try {
     const ranking = await client.action(api.ashbyActions.rankIngestionRun, {
       runId: ingestion.runId,
+      ...(profile ? { profile } : {}),
     });
     return Response.json({ ingestion, ranking, rankingWarning: null });
   } catch (err) {
@@ -64,5 +70,18 @@ export async function POST() {
       ranking: null,
       rankingWarning: message,
     }, { status: 207 });
+  }
+}
+
+async function readBody(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const text = await request.text();
+    if (!text.trim()) return {};
+    const parsed = JSON.parse(text) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
   }
 }

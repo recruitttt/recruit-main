@@ -88,8 +88,8 @@ function buildRepoHighlights(
   const topRepos = profile.github?.topRepos ?? [];
   return topRepos.slice(0, MAX_REPO_HIGHLIGHTS).map((repo) => ({
     name: repo.name,
-    summary: (repo.description ?? "").slice(0, MAX_REPO_SUMMARY_CHARS),
-    languages: repo.language ? [repo.language] : [],
+    summary: repoSummary(repo),
+    languages: repoLanguages(repo),
     stars: repo.stars,
   }));
 }
@@ -101,6 +101,48 @@ function asStringArray(value: unknown): string[] {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) return value;
+  }
+  return undefined;
+}
+
+function joinStringArray(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const joined = value.filter((item): item is string => typeof item === "string").join(" ");
+  return joined.trim().length > 0 ? joined : undefined;
+}
+
+function experienceDescription(role: unknown): string | undefined {
+  if (!role || typeof role !== "object") return undefined;
+  const record = role as Record<string, unknown>;
+  const parts = [
+    asString(record.description),
+    asString(record.roleSummary),
+    joinStringArray(record.keyResponsibilities),
+    joinStringArray(record.technologiesMentioned),
+  ].filter((part): part is string => Boolean(part && part.trim().length > 0));
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+function repoSummary(repo: unknown): string {
+  if (!repo || typeof repo !== "object") return "";
+  const record = repo as Record<string, unknown>;
+  return (
+    firstString(record.whatItDoes, record.oneLineDescription, record.description) ?? ""
+  ).slice(0, MAX_REPO_SUMMARY_CHARS);
+}
+
+function repoLanguages(repo: unknown): string[] {
+  if (!repo || typeof repo !== "object") return [];
+  const record = repo as Record<string, unknown>;
+  const language = asString(record.language);
+  return Array.from(
+    new Set([language, ...asStringArray(record.keyTechnologies)].filter((item): item is string => Boolean(item)))
+  );
 }
 
 export function toRichRankingProfile(
@@ -123,12 +165,13 @@ export function toRichRankingProfile(
   return {
     headline: asString(profile.headline),
     summary: asString(profile.summary),
+    resumeText: asString(profile.resume?.rawText),
     location: asString(profile.location),
     skills: asStringArray(profile.skills),
     experience: experienceArr.map((role) => ({
       title: asString(role?.title),
       company: asString(role?.company),
-      description: asString(role?.description),
+      description: experienceDescription(role),
     })),
     education: educationArr.slice(0, MAX_EDUCATION).map((entry) => ({
       school: asString(entry?.school),
