@@ -9,7 +9,7 @@ function unavailable() {
   return Response.json(
     {
       error: "missing_convex_url",
-      message: "DLQ persistence needs Convex configuration.",
+      message: "Review queue persistence needs Convex configuration.",
     },
     { status: 503 }
   );
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, queue });
   } catch {
     return Response.json(
-      { error: "dlq_update_failed", message: "Could not persist that DLQ decision." },
+      { error: "dlq_update_failed", message: "Could not persist that review decision." },
       { status: 500 }
     );
   }

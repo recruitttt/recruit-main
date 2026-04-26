@@ -300,7 +300,7 @@ const emptyDashboardSeed: DashboardSeed = {
   metrics: [
     { label: "Applications", value: "0", detail: "no live runs yet", tone: "neutral", progress: 0 },
     { label: "Active runs", value: "0", detail: "idle", tone: "neutral", progress: 0 },
-    { label: "DLQ pending", value: "0", detail: "no blockers", tone: "success", progress: 0 },
+    { label: "Needs review", value: "0", detail: "no blockers", tone: "success", progress: 0 },
     { label: "Cache reuse", value: "0%", detail: "awaiting data", tone: "neutral", progress: 0 },
     { label: "Time saved", value: "0h", detail: "awaiting data", tone: "neutral", progress: 0 },
   ],
@@ -1762,7 +1762,7 @@ function buildDashboardSeed(
       : [
           { label: "Applications", value: String(run.recommendedCount || sortedRecommendations.length), detail: `${run.rawJobCount} jobs scraped`, tone: "accent", progress: Math.min(100, sortedRecommendations.length * 12) },
           { label: "Active runs", value: run.status === "completed" || run.status === "failed" ? "0" : "1", detail: run.status, tone: run.status === "failed" ? "danger" : "active", progress },
-          { label: "DLQ pending", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
+          { label: "Needs review", value: String(run.errorCount), detail: hasErrors ? "run errors captured" : "no blockers", tone: hasErrors ? "warning" : "success", progress: hasErrors ? 35 : 0 },
           { label: "Cache reuse", value: "0%", detail: "live ingestion", tone: "neutral", progress: 0 },
           { label: "Time saved", value: "0h", detail: "tracking soon", tone: "neutral", progress: 0 },
         ],

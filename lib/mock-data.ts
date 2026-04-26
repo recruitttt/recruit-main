@@ -139,7 +139,7 @@ export type KPI = {
 export const mockKPIs: KPI[] = [
   { label: "Applications submitted", value: "128", delta: "+24 this week", hint: "Lifetime" },
   { label: "Agents running now", value: "3", hint: "Live" },
-  { label: "DLQ pending", value: "4", delta: "−2 from yesterday", hint: "Awaiting your input" },
+  { label: "Needs review", value: "4", delta: "−2 from yesterday", hint: "Awaiting your input" },
   { label: "Answer-cache reuses", value: "312", delta: "98.7% hit rate", hint: "Compounding memory" },
   { label: "Provider coverage", value: "100%", hint: "Ashby" },
   { label: "Time saved", value: "23.4h", delta: "≈ 14 min / app", hint: "Estimated" },

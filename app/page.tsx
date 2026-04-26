@@ -224,7 +224,7 @@ function ProductMockup() {
               </div>
             </div>
             <div className="mt-5 space-y-2 text-[13px]">
-              {["Dashboard", "Applications", "Artifacts", "DLQ"].map((item, index) => (
+              {["Dashboard", "Applications", "Artifacts", "Review queue"].map((item, index) => (
                 <div
                   key={item}
                   className={`flex items-center justify-between rounded-2xl px-3 py-2.5 ${
