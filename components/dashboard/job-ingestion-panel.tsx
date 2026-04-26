@@ -1,13 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   ArrowUpRight,
   Database,
   Filter,
   Loader2,
-  Play,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
@@ -82,10 +81,6 @@ function ConnectedJobIngestionPanel({
   const sources = useQuery(convexRefs.ashby.enabledAshbySources, {});
   const summary = useQuery(convexRefs.ashby.latestIngestionRunSummary, {});
   const recommendations = useQuery(convexRefs.ashby.currentRecommendations, {});
-  const syncProfile = useMutation(convexRefs.ashby.upsertDemoProfileSnapshot);
-  const seedSources = useAction(convexRefs.ashbyActions.seedAshbySourcesFromCareerOps);
-  const runIngestion = useAction(convexRefs.ashbyActions.runAshbyIngestion);
-  const rankRun = useAction(convexRefs.ashbyActions.rankIngestionRun);
 
   const busy = state === "syncing" || state === "ingesting" || state === "ranking";
   const sourceCount = Array.isArray(sources) ? sources.length : 0;
@@ -101,23 +96,26 @@ function ConnectedJobIngestionPanel({
     return "neutral";
   }, [busy, latest?.status, state]);
 
-  async function handleRun(limitSources?: number) {
+  async function handleRun() {
     try {
       setMessage("");
       setState("syncing");
-      await syncProfile({ profile: readProfile() });
-      if (sourceCount === 0) {
-        await seedSources({});
-      }
 
       setState("ingesting");
-      const ingestion = (await runIngestion({ limitSources })) as { runId: string };
-
-      setState("ranking");
-      await rankRun({ runId: ingestion.runId });
+      const response = await fetch("/api/dashboard/start-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: readProfile() }),
+      });
+      const body = await response.json().catch(() => null) as
+        | { ok?: boolean; reason?: string; runId?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.reason ?? `dashboard_pipeline_${response.status}`);
+      }
 
       setState("done");
-      setMessage("Scan complete.");
+      setMessage(body?.runId ? `Pipeline queued: ${body.runId}` : "Pipeline queued.");
     } catch (err) {
       setState("error");
       setMessage(err instanceof Error ? err.message : String(err));
@@ -137,22 +135,13 @@ function ConnectedJobIngestionPanel({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => void handleRun(3)}
-          >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            Run first 3
-          </Button>
-          <Button
             variant="accent"
             size="sm"
             disabled={busy}
             onClick={() => void handleRun()}
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Run full scan
+            Run pipeline
           </Button>
         </div>
       </div>
