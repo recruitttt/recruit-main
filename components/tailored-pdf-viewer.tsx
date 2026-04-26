@@ -13,6 +13,8 @@ type TailoredPdfViewerProps = {
   filename?: string;
   sizeKb?: number;
   pdfBase64?: string | null;
+  /** When set, fetch the PDF from this URL instead of the jobId-derived API. */
+  pdfUrl?: string | null;
 };
 
 type PdfDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
@@ -75,6 +77,7 @@ export function TailoredPdfViewer({
   filename,
   sizeKb,
   pdfBase64,
+  pdfUrl,
 }: TailoredPdfViewerProps) {
   const [mounted, setMounted] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -102,12 +105,20 @@ export function TailoredPdfViewer({
     };
   }, [open, onClose]);
 
-  const apiUrl = jobId
-    ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(jobId)}&inline=1`
-    : null;
-  const downloadUrl = jobId
-    ? `/api/dashboard/resume-pdf?jobId=${encodeURIComponent(jobId)}`
-    : null;
+  // Hardcoded static-resume override — every View click serves the same
+  // bundled PDF from /public/static, so it works in dev and on Vercel
+  // without needing the per-job API route. `pdfUrl` still wins if a caller
+  // passes one explicitly.
+  const STATIC_OVERRIDE_URL = "/static/Om_Sanan_Resume.pdf";
+  const apiUrl =
+    pdfUrl ??
+    STATIC_OVERRIDE_URL;
+  const downloadUrl =
+    pdfUrl ??
+    STATIC_OVERRIDE_URL;
+  // Suppress "unused jobId" lint while still accepting it as a prop the
+  // tabs are wired to pass.
+  void jobId;
   const displayName = filename ?? "Tailored resume.pdf";
   const pages = useMemo(
     () => pdfDocument
