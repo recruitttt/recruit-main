@@ -232,6 +232,10 @@ function OnboardingChatContent() {
     api.auth.connectedAccounts,
     userId ? { userId } : "skip"
   );
+  const githubSnapshot = useQuery(
+    api.githubSnapshots.latest,
+    userId ? { userId } : "skip"
+  );
   const linkedinRun = useQuery(
     api.intakeRuns.byUserKind,
     userId ? { userId, kind: "linkedin" } : "skip"
@@ -245,6 +249,7 @@ function OnboardingChatContent() {
     userId ? { userId, kind: "web" } : "skip"
   );
   const githubConnected = isGithubConnected(accountConnections);
+  const hasImportedGithub = Boolean(githubSnapshot);
 
   // ---------------------------------------------------------------------------
   // Effects
@@ -320,6 +325,7 @@ function OnboardingChatContent() {
       !shouldAutoStartGithubIntake({
         connected: githubConnected,
         run: githubRun,
+        hasImportedGithub,
       })
     ) {
       return;
@@ -335,7 +341,7 @@ function OnboardingChatContent() {
         message: err instanceof Error ? err.message : String(err),
       });
     });
-  }, [githubConnected, githubRun, runGithubIntake, userId]);
+  }, [githubConnected, githubRun, hasImportedGithub, runGithubIntake, userId]);
 
   // ---------------------------------------------------------------------------
   // Derived state

@@ -95,12 +95,31 @@ export const githubAdapter: IntakeAdapter<GithubAdapterInput> = {
       yield toIntakeEvent(event);
     }
 
-    // Persist sharded source files immediately so that even if AI
-    // summarization fails we still have the raw enrichment cached.
+    // Persist sharded source files immediately so that even if optional AI
+    // repo summarization fails we still have the raw enrichment cached.
     await persistSourceFiles(ctx, snapshot);
 
-    // ---- Stage 2: per-repo summarization (Haiku) ----
+    // Persist the snapshot and base profile patch before optional AI summaries.
+    // GitHub account import must not depend on Anthropic / AI Gateway being
+    // configured; repo summaries enrich the profile, but the account, links,
+    // languages, and top repos are already available from GitHub itself.
     const baseProfile = snapshotToProfile(snapshot);
+    await persistSnapshot(ctx, snapshot);
+
+    const { patch, provenance } = buildUserProfilePatch(snapshot, baseProfile);
+
+    yield {
+      stage: "mapper",
+      message: "Built profile patch from GitHub",
+      patch,
+      provenance,
+      data: {
+        repoCount: snapshot.repos.length,
+        enrichedCount: snapshot.perRepoEnrichment.length,
+      },
+    };
+
+    // ---- Stage 2: optional per-repo summarization (Haiku) ----
 
     const summaryEvents: IntakeProgressEvent[] = [];
     let knownTotal = 0;
@@ -133,39 +152,31 @@ export const githubAdapter: IntakeAdapter<GithubAdapterInput> = {
       // intake adapter. We deliberately ignore them here.
     };
 
-    const reportOutput = await runReport({
-      snapshot,
-      profile: baseProfile,
-      credentials: ctx.credentials,
-      perRepoConcurrency: PER_REPO_CONCURRENCY,
-      onProgress: captureReport,
-    });
+    try {
+      if (!ctx.credentials.apiKey) {
+        throw new Error("No AI credentials configured for repo summaries.");
+      }
 
-    for (const event of summaryEvents) {
-      yield event;
+      const reportOutput = await runReport({
+        snapshot,
+        profile: baseProfile,
+        credentials: ctx.credentials,
+        perRepoConcurrency: PER_REPO_CONCURRENCY,
+        onProgress: captureReport,
+      });
+
+      for (const event of summaryEvents) {
+        yield event;
+      }
+
+      await persistRepoSummaries(ctx, reportOutput.repoSummaries);
+    } catch (error) {
+      yield {
+        stage: "summarize-repos",
+        message: `GitHub repo summaries skipped: ${stringifyError(error)}`,
+        level: "warn",
+      };
     }
-
-    // Persist per-repo summaries.
-    await persistRepoSummaries(ctx, reportOutput.repoSummaries);
-
-    // Persist the snapshot AFTER summarization (we strip out source files
-    // since those live in their own table — keeps the snapshot doc small).
-    await persistSnapshot(ctx, snapshot);
-
-    // ---- Stage 3: mapper — emit final patch + provenance ----
-    const { patch, provenance } = buildUserProfilePatch(snapshot, baseProfile);
-
-    yield {
-      stage: "mapper",
-      message: "Built profile patch from GitHub",
-      patch,
-      provenance,
-      data: {
-        repoCount: snapshot.repos.length,
-        enrichedCount: snapshot.perRepoEnrichment.length,
-        summarizedCount: reportOutput.repoSummaries.length,
-      },
-    };
 
     yield {
       stage: "complete",
@@ -174,6 +185,16 @@ export const githubAdapter: IntakeAdapter<GithubAdapterInput> = {
     };
   },
 };
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) return error.message || error.name || "Error";
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Stage event mapping (extractor → intake)

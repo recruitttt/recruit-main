@@ -28,6 +28,7 @@ import type * as linkedinCookies from "../linkedinCookies.js";
 import type * as linkedinSnapshots from "../linkedinSnapshots.js";
 import type * as repoSourceFiles from "../repoSourceFiles.js";
 import type * as repoSummaries from "../repoSummaries.js";
+import type * as sourceConnections from "../sourceConnections.js";
 import type * as userProfiles from "../userProfiles.js";
 
 import type {
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   linkedinSnapshots: typeof linkedinSnapshots;
   repoSourceFiles: typeof repoSourceFiles;
   repoSummaries: typeof repoSummaries;
+  sourceConnections: typeof sourceConnections;
   userProfiles: typeof userProfiles;
 }>;
 
