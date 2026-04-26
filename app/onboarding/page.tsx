@@ -540,13 +540,16 @@ function OnboardingChatContent() {
 
   const handleLinkSocialGithub = useCallback(async () => {
     try {
-      // The OAuth redirect flow leaves this page; the `session.create.after`
-      // hook handles GitHub sign-in. Email-first account linking returns to
-      // this page without creating a new session, so the connected-account
-      // effect above starts intake once the Better Auth account row exists.
+      // Route through /api/auth/complete-oauth so the cross-domain plugin's
+      // one-time token gets exchanged for a localhost-scoped session cookie.
+      // Bypassing this (callbackURL pointing straight at /onboarding) leaves
+      // the linked account invisible to the client until a hard reload.
       await authClient.linkSocial({
         provider: "github",
-        callbackURL: new URL("/onboarding?step=3", window.location.origin).toString(),
+        callbackURL: buildOAuthCompletionURL(
+          window.location.origin,
+          "/onboarding?step=3"
+        ),
         errorCallbackURL: new URL(
           "/onboarding?step=3&github_error=oauth",
           window.location.origin

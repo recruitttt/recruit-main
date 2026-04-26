@@ -53,6 +53,7 @@ export function StartSearchCta({
   const [stage, setStage] = useState<LaunchStage>("idle");
   const [error, setError] = useState<string | null>(null);
   const [userOpenedConfirm, setUserOpenedConfirm] = useState(false);
+  const [openingDashboard, setOpeningDashboard] = useState(false);
 
   const ready = isAllReady(snapshot);
   const pending = pendingSources(snapshot);
@@ -168,15 +169,22 @@ export function StartSearchCta({
               <ActionButton
                 variant="secondary"
                 size="lg"
+                loading={openingDashboard}
                 disabled={stage === "starting"}
                 onClick={() => {
-                  // No-op CTA — the user can just wait while the queries
-                  // continue updating. We log so we can see how often users
-                  // pick "wait" over "proceed".
-                  logProfileEvent("chat", "User chose to wait for intake", "info");
+                  // Open the dashboard now; intake adapters keep running in
+                  // Convex regardless of where the user is in the UI. The
+                  // dashboard surfaces a "still finishing intake" banner.
+                  logProfileEvent(
+                    "chat",
+                    "User opened dashboard while intake still running",
+                    "info",
+                  );
+                  setOpeningDashboard(true);
+                  router.push("/dashboard");
                 }}
               >
-                Wait for intake to finish
+                Open dashboard
               </ActionButton>
             )}
             <ActionButton

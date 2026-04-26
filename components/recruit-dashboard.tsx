@@ -16,6 +16,7 @@ import {
   normalizeLeaderboardRecommendations,
   preserveLeaderboardSelection,
 } from "@/components/dashboard/leaderboard-helpers";
+import { IntakeProgressBanner } from "@/components/dashboard/intake-progress-banner";
 import type {
   DashboardRunControls,
   JobDetail,
@@ -343,6 +344,10 @@ function ConnectedRecruitDashboard() {
             <Search className="h-4 w-4" />
             {controls.busy ? "Running" : "Start search"}
           </ActionButton>
+        </div>
+
+        <div className="mb-4">
+          <IntakeProgressBanner />
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
