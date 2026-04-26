@@ -176,6 +176,16 @@ const artifact = JSON.parse(await readFile(artifactPath, "utf8")) as typeof summ
 assert.equal(artifact.dedupedJobCount, 4);
 assert.equal(artifact.sampleJobs.length, 4);
 
+const schemaSource = await readFile(
+  new URL("../convex/schema.ts", import.meta.url),
+  "utf8"
+);
+const ingestionRunsSchema = schemaSource.slice(
+  schemaSource.indexOf("ingestionRuns: defineTable"),
+  schemaSource.indexOf("ingestedJobs: defineTable")
+);
+assert.match(ingestionRunsSchema, /provider: v\.optional\(v\.string\(\)\)/);
+
 console.log("Local ingestion adapter tests passed");
 }
 
