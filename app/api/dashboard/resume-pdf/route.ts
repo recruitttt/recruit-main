@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, reason: "missing_convex_url" }, { status: 503 });
   }
 
-  const jobId = new URL(req.url).searchParams.get("jobId");
+  const url = new URL(req.url);
+  const jobId = url.searchParams.get("jobId");
+  const inline = url.searchParams.get("inline") === "1";
   if (!jobId) {
     return Response.json({ ok: false, reason: "missing_job" }, { status: 400 });
   }
@@ -35,10 +37,11 @@ export async function GET(req: Request) {
     }
 
     const bytes = Uint8Array.from(Buffer.from(base64, "base64"));
+    const disposition = inline ? "inline" : "attachment";
     return new Response(bytes, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
+        "Content-Disposition": `${disposition}; filename="${filename.replace(/"/g, "")}"`,
         "Cache-Control": "no-store",
       },
     });

@@ -11,6 +11,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Download,
+  Eye,
   ExternalLink,
   Check,
   CircleStop,
@@ -57,6 +58,7 @@ import type {
 import { readProfile } from "@/lib/profile";
 import { isProfileUsable } from "@/lib/demo-profile";
 import { downloadPdf } from "@/lib/tailor/client";
+import { TailoredPdfViewer } from "@/components/tailored-pdf-viewer";
 import type { JobResearch, TailoredApplication } from "@/lib/tailor/types";
 
 type LiveRunSummary = {
@@ -1168,12 +1170,19 @@ function ApplicationPipelinePanel({
 }
 
 function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const selected = tailoring?.selected;
   const detail = tailoring?.detail;
   const job = detail?.job ?? selected?.job ?? null;
   const tailored = detail?.tailoredApplication;
   const artifacts = detail?.artifacts ?? [];
   const hasPersistedPdf = Boolean(tailored?.pdfBase64 || artifactOf(artifacts, "pdf_file"));
+  const inMemoryPdfBase64 = tailoring?.state?.downloadable?.pdfBase64 ?? null;
+  const persistedPdfBase64 =
+    (tailored?.pdfBase64 as string | undefined) ??
+    ((artifactOf(artifacts, "pdf_file")?.payload as { base64?: string } | undefined)?.base64 ?? null);
+  const viewerPdfBase64 = inMemoryPdfBase64 ?? persistedPdfBase64;
+  const canViewPdf = Boolean(viewerPdfBase64 || (selected?.jobId && hasPersistedPdf));
   const loading = selected && detail === undefined;
   const followUps = tailoring?.followUps;
   const trackedApplication = selected
@@ -1270,16 +1279,28 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
               Detail deprecated
             </Button>
             {(tailoring.state.downloadable || tailored?.pdfReady) && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={tailoring.onDownload}
-                disabled={!tailoring.state.downloadable && !hasPersistedPdf}
-                title={!tailoring.state.downloadable && tailored?.pdfReady && !hasPersistedPdf ? "PDF metadata is persisted, but the PDF bytes are not available for this older run." : undefined}
-              >
-                <Download className="h-3.5 w-3.5" />
-                {tailoring.state.downloadable || hasPersistedPdf ? "Download PDF" : "PDF metadata stored"}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setPdfViewerOpen(true)}
+                  disabled={!canViewPdf}
+                  title={!canViewPdf ? "PDF metadata is persisted, but the PDF bytes are not available for this older run." : undefined}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={tailoring.onDownload}
+                  disabled={!tailoring.state.downloadable && !hasPersistedPdf}
+                  title={!tailoring.state.downloadable && tailored?.pdfReady && !hasPersistedPdf ? "PDF metadata is persisted, but the PDF bytes are not available for this older run." : undefined}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {tailoring.state.downloadable || hasPersistedPdf ? "Download PDF" : "PDF metadata stored"}
+                </Button>
+              </>
             )}
           </div>
 
@@ -1398,16 +1419,40 @@ function SelectedJobPanel({ tailoring }: { tailoring?: TailoringControls }) {
                 <ArtifactText text={coverLetterText(tailored?.tailoredResume?.coverLetterBlurb ?? artifactOf(artifacts, "cover_letter")?.content ?? artifactOf(artifacts, "cover_letter")?.payload)} />
               </TimelineItem>
               <TimelineItem title="PDF output" complete={Boolean(tailored?.pdfReady)}>
-                <p className="text-sm leading-6 text-slate-600">
-                  {tailored?.pdfReady
-                    ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
-                    : "Run tailoring to generate a downloadable PDF for this session."}
-                </p>
+                {tailored?.pdfReady && canViewPdf ? (
+                  <button
+                    type="button"
+                    onClick={() => setPdfViewerOpen(true)}
+                    className="group inline-flex items-center gap-2 rounded-[10px] border border-white/55 bg-white/35 px-3 py-2 text-left text-sm leading-6 text-slate-700 transition hover:border-sky-300/70 hover:bg-white/55 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-slate-500 group-hover:text-sky-600" />
+                    <span>
+                      {`${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`}
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500 group-hover:text-sky-600">
+                      view
+                    </span>
+                  </button>
+                ) : (
+                  <p className="text-sm leading-6 text-slate-600">
+                    {tailored?.pdfReady
+                      ? `${tailored.pdfFilename ?? "Tailored resume PDF"}${tailored.pdfByteLength ? ` · ${Math.round(tailored.pdfByteLength / 1024)} KB` : ""}`
+                      : "Run tailoring to generate a downloadable PDF for this session."}
+                  </p>
+                )}
               </TimelineItem>
             </div>
           )}
         </div>
       </GlassCard>
+      <TailoredPdfViewer
+        open={pdfViewerOpen}
+        onClose={() => setPdfViewerOpen(false)}
+        jobId={selected?.jobId ?? null}
+        filename={tailored?.pdfFilename}
+        sizeKb={tailored?.pdfByteLength ? Math.round(tailored.pdfByteLength / 1024) : undefined}
+        pdfBase64={viewerPdfBase64}
+      />
     </Panel>
   );
 }
