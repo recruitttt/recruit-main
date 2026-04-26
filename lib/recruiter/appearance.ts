@@ -12,6 +12,19 @@ const SKIN = ["#f3d3b1", "#e0a98a", "#bd8a64", "#8d5a3e", "#5a3a2a"];
 const OUTFIT = ["#2d3a4a", "#3a4d5b", "#5a6b7d", "#3a4f3a", "#5a3a3a", "#3a3a5a", "#5a4a2a", "#444444"];
 const ACCESSORY = ["none", "glasses", "clipboard", "coffee", "laptop"] as const;
 
+const VOICES = [
+  "EXAVITQu4vr4xnSDxMAC", // Sarah — warm female
+  "TX3LPaxmHKxFdv7VOQHJ", // Liam — friendly male
+  "XB0fDUnXU5powFXDhCwa", // Charlotte — professional female
+  "pqHfZKP75CvOlQylNhV4", // Bill — calm male
+  "bIHbv24MWmeRgasZH58o", // Will — young male
+  "cgSgspJ2msm6clMCkdEq", // Jessica — bright female
+];
+
+export function pickRecruiterVoiceId(seed: number): string {
+  return VOICES[Math.abs(seed) % VOICES.length];
+}
+
 export function generateAppearance(seed: number): RecruiterAppearance {
   const r = mulberry32(seed);
   return {
