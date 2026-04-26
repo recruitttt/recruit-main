@@ -51,6 +51,36 @@ const steps = [
   },
 ];
 
+const pricingPlans = [
+  {
+    name: "Free",
+    price: "$0",
+    detail: "5 applications / month",
+    features: ["Ashby coverage", "Resume tailoring", "Review queue"],
+    cta: "Start free",
+    href: "/onboarding",
+    featured: false,
+  },
+  {
+    name: "Standard",
+    price: "$10",
+    detail: "100 applications / month",
+    features: ["Priority queue", "3-persona review", "Unlimited answer cache"],
+    cta: "Start Standard",
+    href: "/onboarding?tier=standard",
+    featured: true,
+  },
+  {
+    name: "Pro",
+    price: "$20",
+    detail: "Unlimited applications",
+    features: ["Recruiter outreach", "Auto follow-ups", "Custom templates"],
+    cta: "Start Pro",
+    href: "/onboarding?tier=pro",
+    featured: false,
+  },
+];
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#EEF3F7] text-slate-950">
@@ -70,9 +100,6 @@ export default function LandingPage() {
           <nav className="ml-8 hidden items-center gap-6 text-[13px] font-medium text-slate-500 md:flex">
             <Link href="/dashboard" className="transition hover:text-slate-950">
               Dashboard
-            </Link>
-            <Link href="/pricing" className="transition hover:text-slate-950">
-              Pricing
             </Link>
           </nav>
 
@@ -178,11 +205,73 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Simple pricing</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Start free, then scale only when the agent is doing real work.</p>
+            </div>
+            <div className="text-sm font-medium text-slate-500">Cancel anytime</div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {pricingPlans.map((plan) => (
+              <div
+                key={plan.name}
+                className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
+                  plan.featured
+                    ? "border-sky-200/80 bg-white/82"
+                    : "border-white/70 bg-white/58"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-950">{plan.name}</div>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-semibold tracking-tight text-slate-950">{plan.price}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">/ mo</span>
+                    </div>
+                  </div>
+                  {plan.featured ? (
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                      Popular
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-2 text-sm text-slate-600">{plan.detail}</div>
+                <div className="mt-4 grid gap-2">
+                  {plan.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-2 text-sm text-slate-600">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link href={plan.href} className="mt-4 block">
+                  <Button
+                    size="sm"
+                    variant={plan.featured ? "primary" : "secondary"}
+                    className={`w-full rounded-full ${
+                      plan.featured
+                        ? "bg-slate-950 text-white hover:bg-slate-800"
+                        : "border-white/70 bg-white/58 text-slate-700 hover:bg-white/75"
+                    }`}
+                  >
+                    {plan.cta}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <footer className="border-t border-slate-200/70 bg-[#F7FAFC] px-4 py-6 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <Wordmark />
           <div className="flex gap-5">
-            <Link href="/pricing" className="transition hover:text-slate-950">Pricing</Link>
             <Link href="/dashboard" className="transition hover:text-slate-950">Dashboard</Link>
             <Link href="/onboarding" className="transition hover:text-slate-950">Start</Link>
           </div>
