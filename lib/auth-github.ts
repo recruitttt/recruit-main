@@ -29,16 +29,15 @@ export async function getGitHubAccessToken(
   // holds (providerId, userId, accessToken, refreshToken, ...) for a single
   // OAuth provider. Repeated reconnect attempts can leave stale GitHub rows,
   // so prefer any row with a persisted access token instead of the first row.
+  // findMany takes args FLAT — only mutations use the `input` envelope.
   const result = (await (ctx as any).runQuery(
     (components.betterAuth.adapter as any).findMany,
     {
-      input: {
-        model: "account",
-        where: [
-          { field: "userId", operator: "eq", value: userId },
-          { field: "providerId", operator: "eq", value: "github" },
-        ],
-      },
+      model: "account",
+      where: [
+        { field: "userId", operator: "eq", value: userId },
+        { field: "providerId", operator: "eq", value: "github" },
+      ],
       paginationOpts: { cursor: null, numItems: 50 },
     }
   )) as { page?: GithubAccountRow[] } | null;

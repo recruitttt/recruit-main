@@ -52,6 +52,33 @@ async function main() {
   );
   assert.match(convexAuthSource, /allowDifferentEmails:\s*true/);
 
+  // Regression guard for the linkSocial-doesn't-show-connected bug.
+  //
+  // The Convex Better Auth component exposes `findMany` as a query whose
+  // validator takes args FLAT — `{ model, where, paginationOpts, ... }`.
+  // Only mutations (`create`, `updateOne/Many`, `deleteOne/Many`) accept
+  // `{ input: { model, where, ... } }`. A previous fix attempt wrapped
+  // `findMany` args in `input`, which made the args validator reject the
+  // call. The `connectedAccounts` query then threw on the server, the
+  // React `useQuery` returned undefined, and the UI claimed GitHub was
+  // "not linked" even after `linkSocial` had successfully written the row.
+  for (const [path, label] of [
+    ["../convex/auth.ts", "convex/auth.ts"],
+    ["../lib/auth-github.ts", "lib/auth-github.ts"],
+    ["../convex/authAdmin.ts", "convex/authAdmin.ts"],
+  ] as const) {
+    const source = readFileSync(new URL(path, import.meta.url), "utf8");
+    const findManyCalls = source.matchAll(/\.findMany[\s\S]*?\{([\s\S]*?)\}\s*\)/g);
+    for (const match of findManyCalls) {
+      const body = match[1];
+      assert.equal(
+        /^\s*input:\s*\{/m.test(body),
+        false,
+        `${label}: findMany call must NOT wrap args in \`input:\` — flat args only`,
+      );
+    }
+  }
+
   const onboardingClientSource = readFileSync(
     new URL("../app/onboarding/_client.tsx", import.meta.url),
     "utf8"
