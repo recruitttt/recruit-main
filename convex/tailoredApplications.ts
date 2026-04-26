@@ -39,12 +39,15 @@ export const listForUser = query({
       const { company, title } = deriveCompanyTitle(row);
       return {
         _id: row._id,
+        jobId: row.jobId,
         company,
         title,
         status: row.status,
         tailoringScore: row.tailoringScore,
         keywordCoverage: row.keywordCoverage,
         pdfReady: row.pdfReady,
+        pdfFilename: row.pdfFilename,
+        pdfByteLength: row.pdfByteLength,
         updatedAt: row.updatedAt,
       };
     });

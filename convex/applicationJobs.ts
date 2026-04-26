@@ -206,6 +206,7 @@ export const listRecentForCurrentUser = query({
       .take(limit);
     return rows.map((row: any) => ({
       _id: row._id,
+      jobId: row.jobId,
       company: row.company,
       title: row.title,
       status: row.status,
