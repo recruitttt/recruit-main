@@ -13,6 +13,16 @@ import {
   type RankingJob,
   type RankingProfile,
 } from "../lib/job-ranking";
+import {
+  fetchJsonWithRetry,
+  normalizeGreenhouseJob,
+  normalizeLeverJob,
+  normalizeWorkdayJob,
+  parallelMap as parallelMapAts,
+  type AtsProvider,
+  type AtsSource,
+  type NormalizedAtsJob,
+} from "./atsIngestion";
 
 const action = actionGeneric;
 
@@ -20,9 +30,15 @@ const DEMO_USER_ID = "demo";
 const CAREER_OPS_PORTALS_URL =
   "https://raw.githubusercontent.com/santifer/career-ops/main/templates/portals.example.yml";
 const ASHBY_API_BASE = "https://api.ashbyhq.com/posting-api/job-board";
+const GREENHOUSE_API_BASE = "https://boards-api.greenhouse.io/v1/boards";
+const LEVER_API_BASES = {
+  global: "https://api.lever.co/v0/postings",
+  eu: "https://api.eu.lever.co/v0/postings",
+};
 const MAX_LLM_CANDIDATES = 40;
 const MAX_RECOMMENDATIONS = 15;
 const RECOMMENDATION_CUTOFF = 70;
+const LEVER_PAGE_SIZE = 100;
 
 type AshbySource = {
   _id?: string;
@@ -83,6 +99,39 @@ export const seedAshbySourcesFromCareerOps = action({
       level: "success",
       message: `Seeded ${result.upserted} Ashby sources from ${sources.length} candidates.`,
       payload: { upserted: result.upserted, sourceCount: sources.length },
+    });
+    return {
+      upserted: result.upserted,
+      sourceCount: sources.length,
+    };
+  },
+});
+
+export const seedAtsSourcesFromCareerOps = action({
+  args: {
+    provider: v.optional(
+      v.union(
+        v.literal("greenhouse"),
+        v.literal("lever"),
+        v.literal("workday")
+      )
+    ),
+  },
+  returns: v.object({ upserted: v.number(), sourceCount: v.number() }),
+  handler: async (ctx, args) => {
+    const sources = await loadCareerOpsAtsSources(args.provider);
+    const result = await ctx.runMutation(anyApi.ashby.upsertAtsSources, {
+      sources,
+    });
+    await appendPipelineLog(ctx, {
+      stage: "sources",
+      level: "success",
+      message: `Seeded ${result.upserted} ATS sources from ${sources.length} Career Ops candidates.`,
+      payload: {
+        provider: args.provider,
+        upserted: result.upserted,
+        sourceCount: sources.length,
+      },
     });
     return {
       upserted: result.upserted,
@@ -230,6 +279,79 @@ export const runAshbyIngestion = action({
       });
       throw err;
     }
+  },
+});
+
+export const runGreenhouseIngestion = action({
+  args: {
+    demoUserId: v.optional(v.string()),
+    limitSources: v.optional(v.number()),
+    sources: v.optional(v.array(v.any())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return runProviderIngestion(ctx, {
+      provider: "greenhouse",
+      demoUserId: args.demoUserId,
+      limitSources: args.limitSources,
+      sources: args.sources,
+    });
+  },
+});
+
+export const runLeverIngestion = action({
+  args: {
+    demoUserId: v.optional(v.string()),
+    limitSources: v.optional(v.number()),
+    sources: v.optional(v.array(v.any())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return runProviderIngestion(ctx, {
+      provider: "lever",
+      demoUserId: args.demoUserId,
+      limitSources: args.limitSources,
+      sources: args.sources,
+    });
+  },
+});
+
+export const runWorkdayIngestion = action({
+  args: {
+    demoUserId: v.optional(v.string()),
+    limitSources: v.optional(v.number()),
+    sources: v.optional(v.array(v.any())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return runProviderIngestion(ctx, {
+      provider: "workday",
+      demoUserId: args.demoUserId,
+      limitSources: args.limitSources,
+      sources: args.sources,
+    });
+  },
+});
+
+export const runAtsIngestion = action({
+  args: {
+    provider: v.union(
+      v.literal("greenhouse"),
+      v.literal("lever"),
+      v.literal("workday")
+    ),
+    demoUserId: v.optional(v.string()),
+    limitSources: v.optional(v.number()),
+    sources: v.optional(v.array(v.any())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return runProviderIngestion(ctx, {
+      provider: args.provider,
+      demoUserId: args.demoUserId,
+      limitSources: args.limitSources,
+      sources: args.sources,
+    });
   },
 });
 
@@ -405,6 +527,244 @@ export const rankIngestionRun = action({
   },
 });
 
+async function runProviderIngestion(
+  ctx: any,
+  args: {
+    provider: AtsProvider;
+    demoUserId?: string;
+    limitSources?: number;
+    sources?: any[];
+  }
+) {
+  const demoUserId = args.demoUserId ?? DEMO_USER_ID;
+  let sources = normalizeAtsSources(args.provider, args.sources ?? []);
+
+  if (sources.length > 0) {
+    await ctx.runMutation(anyApi.ashby.upsertAtsSources, { sources });
+  } else {
+    sources = (await ctx.runQuery(anyApi.ashby.listEnabledAtsSourcesForAction, {
+      provider: args.provider,
+      limit: args.limitSources,
+    })) as AtsSource[];
+  }
+
+  if (typeof args.limitSources === "number") {
+    sources = sources.slice(0, args.limitSources);
+  }
+
+  const runId = await ctx.runMutation(anyApi.ashby.createIngestionRun, {
+    demoUserId,
+    sourceCount: sources.length,
+  });
+  await appendPipelineLog(ctx, {
+    demoUserId,
+    runId,
+    stage: "ingestion",
+    level: "info",
+    message: `Started ${args.provider} ingestion for ${sources.length} sources.`,
+    payload: {
+      provider: args.provider,
+      sources: sources.map((source) => ({
+        company: source.company,
+        slug: source.slug,
+      })),
+    },
+  });
+
+  try {
+    const errors: Array<{ source: string; message: string }> = [];
+    const seenDedupeKeys = new Set<string>();
+    const normalizedJobs: NormalizedAtsJob[] = [];
+    let fetchedCount = 0;
+
+    await parallelMapAts(sources, 5, async (source) => {
+      try {
+        await appendPipelineLog(ctx, {
+          demoUserId,
+          runId,
+          stage: "fetch",
+          level: "info",
+          message: `Fetching ${source.company} (${source.slug}) from ${args.provider}.`,
+          payload: { provider: args.provider, company: source.company, slug: source.slug },
+        });
+
+        const jobs = await fetchProviderJobs(source, String(runId));
+        fetchedCount++;
+        await appendPipelineLog(ctx, {
+          demoUserId,
+          runId,
+          stage: "fetch",
+          level: "success",
+          message: `Fetched ${jobs.length} jobs from ${source.company}.`,
+          payload: {
+            provider: args.provider,
+            company: source.company,
+            slug: source.slug,
+            jobCount: jobs.length,
+          },
+        });
+
+        for (const job of jobs) {
+          if (seenDedupeKeys.has(job.dedupeKey)) continue;
+          seenDedupeKeys.add(job.dedupeKey);
+          normalizedJobs.push(job);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({ source: source.company, message });
+        await appendPipelineLog(ctx, {
+          demoUserId,
+          runId,
+          stage: "fetch",
+          level: "error",
+          message: `Failed to fetch ${source.company}.`,
+          payload: {
+            provider: args.provider,
+            company: source.company,
+            slug: source.slug,
+            error: message,
+          },
+        });
+      }
+    });
+
+    const stored = await ctx.runMutation(anyApi.ashby.storeFetchedJobs, {
+      runId,
+      demoUserId,
+      sourceCount: sources.length,
+      fetchedCount,
+      jobs: toConvexValue(normalizedJobs),
+      errors,
+    });
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId,
+      stage: "storage",
+      level: stored.errorCount > 0 ? "warning" : "success",
+      message: `Stored ${stored.rawJobCount} ${args.provider} jobs with ${stored.errorCount} source errors.`,
+      payload: {
+        provider: args.provider,
+        rawJobCount: stored.rawJobCount,
+        errorCount: stored.errorCount,
+        fetchedCount,
+        sourceCount: sources.length,
+      },
+    });
+
+    return {
+      runId,
+      provider: args.provider,
+      sourceCount: sources.length,
+      fetchedCount,
+      rawJobCount: stored.rawJobCount,
+      errorCount: stored.errorCount,
+    };
+  } catch (err) {
+    await ctx.runMutation(anyApi.ashby.markRunFailed, {
+      runId,
+      source: args.provider,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    await appendPipelineLog(ctx, {
+      demoUserId,
+      runId,
+      stage: "ingestion",
+      level: "error",
+      message: `${args.provider} ingestion failed.`,
+      payload: { error: err instanceof Error ? err.message : String(err) },
+    });
+    throw err;
+  }
+}
+
+function normalizeAtsSources(provider: AtsProvider, sources: any[]): AtsSource[] {
+  return sources
+    .map((source) => {
+      const slug = String(
+        source.slug ??
+          source.boardToken ??
+          source.board_token ??
+          source.site ??
+          source.tenantReportSlug ??
+          ""
+      ).trim();
+      const company = String(source.company ?? source.name ?? "").trim();
+      if (!slug || !company) return null;
+      return {
+        ...source,
+        provider,
+        company,
+        slug,
+        enabled: source.enabled !== false,
+      } as AtsSource;
+    })
+    .filter((source): source is AtsSource => source !== null);
+}
+
+async function fetchProviderJobs(source: AtsSource, runId: string) {
+  if (source.provider === "greenhouse") {
+    const url = `${GREENHOUSE_API_BASE}/${encodeURIComponent(source.slug)}/jobs?content=true`;
+    const json = await fetchJsonWithRetry<{ jobs?: any[] }>(url);
+    return (Array.isArray(json.jobs) ? json.jobs : [])
+      .map((job) => normalizeGreenhouseJob(source, job, runId))
+      .filter((job): job is NormalizedAtsJob => job !== null);
+  }
+
+  if (source.provider === "lever") {
+    const region = source.config?.region === "eu" ? "eu" : "global";
+    const base = LEVER_API_BASES[region];
+    const jobs: NormalizedAtsJob[] = [];
+    let skip = 0;
+
+    while (true) {
+      const url = `${base}/${encodeURIComponent(source.slug)}?mode=json&skip=${skip}&limit=${LEVER_PAGE_SIZE}`;
+      const page = await fetchJsonWithRetry<any[]>(url);
+      const postings = Array.isArray(page) ? page : [];
+      jobs.push(
+        ...postings
+          .map((job) => normalizeLeverJob(source, job, runId))
+          .filter((job): job is NormalizedAtsJob => job !== null)
+      );
+      if (postings.length < LEVER_PAGE_SIZE) break;
+      skip += LEVER_PAGE_SIZE;
+    }
+
+    return jobs;
+  }
+
+  const reportUrl = typeof source.config?.reportUrl === "string" ? source.config.reportUrl : "";
+  if (!reportUrl) throw new Error("workday_missing_report_url");
+  const usernameEnv =
+    typeof source.config?.usernameEnv === "string"
+      ? source.config.usernameEnv
+      : "WORKDAY_USERNAME";
+  const passwordEnv =
+    typeof source.config?.passwordEnv === "string"
+      ? source.config.passwordEnv
+      : "WORKDAY_PASSWORD";
+  const username = process.env[usernameEnv];
+  const password = process.env[passwordEnv];
+  if (!username || !password) throw new Error("workday_missing_credentials");
+
+  const json = await fetchJsonWithRetry<any>(reportUrl, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+    },
+  });
+  return extractWorkdayRows(json)
+    .map((row) => normalizeWorkdayJob(source, row, runId))
+    .filter((job): job is NormalizedAtsJob => job !== null);
+}
+
+function extractWorkdayRows(json: any): any[] {
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json?.Report_Entry)) return json.Report_Entry;
+  if (Array.isArray(json?.reportEntry)) return json.reportEntry;
+  if (Array.isArray(json?.rows)) return json.rows;
+  if (Array.isArray(json?.data)) return json.data;
+  return [];
+}
+
 async function loadCareerOpsSources(): Promise<Required<AshbySource>[]> {
   try {
     const res = await fetchWithTimeout(CAREER_OPS_PORTALS_URL, {}, 12_000);
@@ -417,6 +777,19 @@ async function loadCareerOpsSources(): Promise<Required<AshbySource>[]> {
     // GitHub is unavailable from the Convex runtime.
   }
   return FALLBACK_ASHBY_SOURCES;
+}
+
+async function loadCareerOpsAtsSources(provider?: AtsProvider): Promise<AtsSource[]> {
+  try {
+    const res = await fetchWithTimeout(CAREER_OPS_PORTALS_URL, {}, 12_000);
+    if (!res.ok) throw new Error(`career_ops_${res.status}`);
+    const text = await res.text();
+    const sources = extractCareerOpsAtsSources(text, provider);
+    if (sources.length > 0) return sources;
+  } catch {
+    // Provider ingestion can still run with manually supplied sources.
+  }
+  return [];
 }
 
 function extractAshbySources(text: string): Required<AshbySource>[] {
@@ -469,6 +842,113 @@ function extractAshbySources(text: string): Required<AshbySource>[] {
     bySlug.set(source.slug, source);
   }
   return Array.from(bySlug.values());
+}
+
+function extractCareerOpsAtsSources(text: string, provider?: AtsProvider): AtsSource[] {
+  const companies = extractCareerOpsCompanies(text);
+  const sources: AtsSource[] = [];
+
+  for (const company of companies) {
+    if (company.enabled === false) continue;
+    const detected = detectCareerOpsAtsSource(company);
+    if (!detected) continue;
+    if (provider && detected.provider !== provider) continue;
+    sources.push(detected);
+  }
+
+  const byKey = new Map<string, AtsSource>();
+  for (const source of sources) {
+    byKey.set(`${source.provider}:${source.slug}`, source);
+  }
+  return Array.from(byKey.values());
+}
+
+function extractCareerOpsCompanies(text: string) {
+  const companies: Array<Record<string, any>> = [];
+  let inTrackedCompanies = false;
+  let current: Record<string, any> | null = null;
+
+  const flush = () => {
+    if (current?.name) companies.push(current);
+  };
+
+  for (const line of text.split("\n")) {
+    if (/^tracked_companies:\s*$/.test(line)) {
+      inTrackedCompanies = true;
+      continue;
+    }
+    if (!inTrackedCompanies) continue;
+    if (/^\S/.test(line) && !/^tracked_companies:\s*$/.test(line)) {
+      flush();
+      break;
+    }
+
+    const entry = line.match(/^\s*-\s+name:\s*(.+?)\s*$/);
+    if (entry) {
+      flush();
+      current = { name: cleanYamlScalar(entry[1]) };
+      continue;
+    }
+    if (!current) continue;
+
+    const field = line.match(/^\s+([a-zA-Z0-9_]+):\s*(.*?)\s*$/);
+    if (!field) continue;
+    current[field[1]] = parseYamlScalar(field[2]);
+  }
+  flush();
+
+  return companies;
+}
+
+function detectCareerOpsAtsSource(company: Record<string, any>): AtsSource | null {
+  const name = stringOrUndefined(company.name);
+  const careersUrl = stringOrUndefined(company.careers_url);
+  const api = stringOrUndefined(company.api);
+  if (!name || !careersUrl) return null;
+
+  const greenhouseUrl = api?.includes("greenhouse.io") ? api : careersUrl;
+  const greenhouseMatch = greenhouseUrl.match(
+    /(?:boards-api\.greenhouse\.io\/v1\/boards|job-boards(?:\.eu)?\.greenhouse\.io)\/([^/?#]+)/
+  );
+  if (greenhouseMatch) {
+    return {
+      provider: "greenhouse",
+      company: name,
+      slug: greenhouseMatch[1],
+      careersUrl,
+      enabled: company.enabled !== false,
+      seededFrom: "career-ops",
+      config: { apiUrl: api },
+    };
+  }
+
+  const leverMatch = careersUrl.match(/jobs\.lever\.co\/([^/?#]+)/);
+  if (leverMatch) {
+    return {
+      provider: "lever",
+      company: name,
+      slug: leverMatch[1],
+      careersUrl,
+      enabled: company.enabled !== false,
+      seededFrom: "career-ops",
+      config: { region: careersUrl.includes("api.eu.lever.co") ? "eu" : "global" },
+    };
+  }
+
+  const workdayMatch = careersUrl.match(/myworkdayjobs\.com\/([^/?#]+)/);
+  if (workdayMatch && stringOrUndefined(company.report_url)) {
+    return {
+      provider: "workday",
+      company: name,
+      slug: workdayMatch[1],
+      careersUrl,
+      enabled: company.enabled !== false,
+      seededFrom: "career-ops",
+      config: { reportUrl: stringOrUndefined(company.report_url) },
+    };
+  }
+
+  return null;
 }
 
 async function fetchAshbyBoard(slug: string): Promise<{ jobs?: AshbyApiJob[] }> {
@@ -781,6 +1261,27 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = cleanYamlScalar(value);
+  return trimmed || undefined;
+}
+
+function parseYamlScalar(value: string): string | boolean | undefined {
+  const cleaned = cleanYamlScalar(value);
+  if (!cleaned) return undefined;
+  if (cleaned === "true") return true;
+  if (cleaned === "false") return false;
+  return cleaned;
+}
+
+function cleanYamlScalar(value: string): string {
+  return value
+    .trim()
+    .replace(/^['"“‘]+|['"”’]+$/g, "")
+    .trim();
 }
 
 function toConvexValue<T>(value: T): T {
