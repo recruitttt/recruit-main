@@ -143,7 +143,7 @@ export type DashboardRunControls = {
   label: string;
   message?: string;
   error?: string;
-  onRunFirst3?: () => void;
+  onRunPipeline?: () => void;
 };
 
 export type LivePipelineLog = {

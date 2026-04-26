@@ -69,11 +69,11 @@ export function DashboardStatusStrip({
             <ActionButton
               variant="primary"
               disabled={!controls?.canRun || controls?.busy}
-              onClick={controls?.onRunFirst3}
+              onClick={controls?.onRunPipeline}
               className="min-w-[132px] bg-slate-950 text-white"
             >
               <Play className="h-4 w-4" />
-              {controls?.busy ? "Running" : controls?.label ?? "Run first 3"}
+              {controls?.busy ? "Running" : controls?.label ?? "Run pipeline"}
             </ActionButton>
           </div>
         </div>
