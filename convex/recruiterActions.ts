@@ -9,15 +9,13 @@ import {
   assembleRecruiterPrompt,
   summarizeProfile,
 } from "../lib/recruiter/prompt";
-import {
-  WEB_SEARCH_TOOL_DEF,
-  executeWebSearch,
-  formatWebSearchResults,
-} from "../lib/recruiter/web-search";
 import { extractBrainstormedAnswer } from "../lib/recruiter/insight-extractor";
 
 const action = actionGeneric;
 
+// Responses API + native web_search_preview hosted tool. The model decides
+// when to search; OpenAI runs the search server-side, returning citations
+// inline. No external search API key required.
 const MODEL = "gpt-5.4-nano";
 
 const FIRST_NAMES = [
@@ -160,55 +158,51 @@ export const sendMessage = action({
     });
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const messages: any[] = [
+    const input: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }> = [
       { role: "system", content: systemPrompt },
       ...((conversation?.messages ?? []).map((m: any) => ({
-        role: m.role === "recruiter" ? "assistant" : m.role,
+        role: (m.role === "recruiter" ? "assistant" : "user") as
+          | "user"
+          | "assistant",
         content: m.content,
       }))),
       { role: "user", content: userMessage },
     ];
 
     let assistantText: string | null = null;
-    for (let iteration = 0; iteration < 3; iteration++) {
-      const response = await client.chat.completions.create({
+    try {
+      const response = await client.responses.create({
         model: MODEL,
-        messages,
-        tools: [WEB_SEARCH_TOOL_DEF],
-        tool_choice: "auto",
+        input,
+        tools: [{ type: "web_search_preview" }],
       });
-      const choice = response.choices[0];
-      const toolCalls = choice.message.tool_calls ?? [];
-      if (toolCalls.length === 0) {
-        assistantText = choice.message.content ?? "";
-        break;
+
+      // Responses API returns an array of output items (search calls,
+      // reasoning, final message). Pull the last "message" item's text.
+      const messageItem = response.output?.findLast?.(
+        (o: { type?: string }) => o.type === "message",
+      ) as
+        | { content?: Array<{ type?: string; text?: string }> }
+        | undefined;
+      const textPart = messageItem?.content?.find(
+        (c) => c.type === "output_text",
+      );
+      assistantText =
+        textPart?.text?.trim() ?? response.output_text?.trim() ?? null;
+
+      // Soft-cache the latest assistant text on the recruiter row so we
+      // can show "remembered company context" without re-querying.
+      if (!recruiter.companyContext && assistantText) {
+        await ctx.runMutation(anyApi.recruiters.setCompanyContext, {
+          recruiterId,
+          companyContext: assistantText.slice(0, 4000),
+        });
       }
-      messages.push(choice.message);
-      for (const call of toolCalls) {
-        if ((call as any).function?.name === "web_search") {
-          let toolOut: string;
-          try {
-            const args = JSON.parse(
-              (call as any).function.arguments,
-            ) as { query: string };
-            const results = await executeWebSearch(args.query);
-            toolOut = formatWebSearchResults(results);
-            if (!recruiter.companyContext && results.length > 0) {
-              await ctx.runMutation(anyApi.recruiters.setCompanyContext, {
-                recruiterId,
-                companyContext: toolOut,
-              });
-            }
-          } catch (err) {
-            toolOut = `(web search unavailable: ${(err as Error).message})`;
-          }
-          messages.push({
-            role: "tool",
-            tool_call_id: (call as any).id,
-            content: toolOut,
-          });
-        }
-      }
+    } catch (err) {
+      assistantText = `(I'm having trouble responding right now: ${(err as Error).message})`;
     }
 
     if (!assistantText) {
