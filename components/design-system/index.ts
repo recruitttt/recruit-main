@@ -6,6 +6,6 @@ export { FilterChip } from "./filter-chip";
 export { GlassCard } from "./glass-card";
 export { Panel } from "./panel";
 export { StatusBadge } from "./status-badge";
-export { SelectField, TextField, Toggle } from "./form-controls";
+export { ChoiceChip, ChoiceChipGroup, FileUploadControl, ProgressMeter, SelectField, TextField, Toggle } from "./form-controls";
 export { cx } from "./utils";
 export { getStatusColor, mistClasses, mistColors, mistRadii, type StatusTone } from "./mist-tokens";
