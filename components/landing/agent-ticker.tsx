@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { CompanyLogo } from "@/components/ui/logo";
 
 type Event = {
@@ -49,44 +49,71 @@ const events: Event[] = [
   },
 ];
 
+const TICKER_DURATION_S = 28;
+
+function TickerItem({ ev }: { ev: Event }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-2 px-3">
+      <CompanyLogo
+        bg={ev.logoBg}
+        text={ev.logoText}
+        size={16}
+        className="rounded-[4px]"
+      />
+      <span className="tracking-tight text-[var(--color-fg)]">{ev.company}</span>
+      <span className="text-[var(--color-fg-subtle)]">·</span>
+      <span className="text-[var(--color-fg-muted)]">{ev.text}</span>
+      <span className="ml-1 text-[var(--color-fg-subtle)]">•</span>
+    </span>
+  );
+}
+
+// Duplicate the list so the seamless -50% translate creates an infinite loop.
+const loop: Event[] = [...events, ...events];
+
 export function AgentTicker() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => setIndex((i) => (i + 1) % events.length), 2400);
-    return () => clearInterval(t);
-  }, []);
-
-  const ev = events[index];
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div className="inline-flex items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-sm py-1 pl-1.5 pr-3.5 text-[12px] font-mono">
-      <span className="flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2">
+    <div className="inline-flex max-w-full items-center gap-2.5 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/60 py-1 pl-1.5 pr-3 text-[12px] font-mono backdrop-blur-sm">
+      <span className="flex shrink-0 items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-60" style={{ animation: "pulse-soft 1.6s ease-in-out infinite" }} />
+          <span
+            className="absolute inset-0 rounded-full bg-emerald-500 opacity-60"
+            style={{ animation: "pulse-soft 1.6s ease-in-out infinite" }}
+          />
           <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-500" />
         </span>
-        <span className="text-[10px] uppercase tracking-[0.18em] font-medium text-emerald-700">
+        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
           Live
         </span>
       </span>
 
-      <span className="h-3 w-px bg-[var(--color-border)]" />
+      <span className="h-3 w-px shrink-0 bg-[var(--color-border)]" />
 
-      <div key={ev.company} className="flex items-center gap-2 min-w-0 transition-opacity duration-300">
-        <CompanyLogo
-          bg={ev.logoBg}
-          text={ev.logoText}
-          size={16}
-          className="rounded-[4px]"
+      <div className="relative w-[260px] overflow-hidden sm:w-[360px]">
+        <motion.div
+          className="flex w-max whitespace-nowrap"
+          animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+          transition={
+            reduceMotion
+              ? undefined
+              : { repeat: Infinity, duration: TICKER_DURATION_S, ease: "linear" }
+          }
+        >
+          {loop.map((ev, i) => (
+            <TickerItem key={`${ev.company}-${i}`} ev={ev} />
+          ))}
+        </motion.div>
+
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--color-surface)] to-transparent"
         />
-        <span className="text-[var(--color-fg)] truncate tracking-tight">
-          {ev.company}
-        </span>
-        <span className="text-[var(--color-fg-subtle)]">·</span>
-        <span className="text-[var(--color-fg-muted)] truncate">
-          {ev.text}
-        </span>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--color-surface)] to-transparent"
+        />
       </div>
     </div>
   );

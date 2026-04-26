@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useRef, type ReactNode } from "react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import {
   ArrowRight,
   Check,
@@ -24,6 +25,16 @@ import {
   TopLine,
   topLinePillClass,
 } from "@/components/shell/top-line";
+
+const sectionContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+};
+
+const sectionItem: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+};
 
 const HERO_TITLE_WORDS = ["Apply", "to", "jobs", "without", "applying."];
 
@@ -88,6 +99,9 @@ const pricingPlans = [
 ];
 
 export default function LandingPage() {
+  const reduceMotion = useReducedMotion();
+  const viewport = { once: true, amount: 0.3 } as const;
+
   return (
     <main className="min-h-screen overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
       <TopLine
@@ -116,6 +130,7 @@ export default function LandingPage() {
         }
       />
 
+      {/* ====== HERO ANIMATIONS BELOW (DO NOT MODIFY) ====== */}
       <section className="relative">
         <div
           aria-hidden
@@ -198,11 +213,20 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ====== END HERO ANIMATIONS ====== */}
+
       <section className="bg-[var(--color-bg)] px-4 py-16 sm:px-6">
-        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3">
+        <motion.div
+          className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3"
+          variants={reduceMotion ? undefined : sectionContainer}
+          initial={reduceMotion ? false : "hidden"}
+          whileInView={reduceMotion ? undefined : "visible"}
+          viewport={viewport}
+        >
           {steps.map((step) => (
-            <div
+            <motion.div
               key={step.title}
+              variants={reduceMotion ? undefined : sectionItem}
               className="rounded-[28px] border border-white/70 bg-white/68 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/78 text-[var(--color-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -210,25 +234,42 @@ export default function LandingPage() {
               </div>
               <h2 className="mt-5 text-lg font-semibold tracking-tight text-slate-950">{step.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">{step.detail}</p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       <section className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <motion.div
+            className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            viewport={viewport}
+          >
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Simple pricing</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">Start free, then scale only when the agent is doing real work.</p>
             </div>
             <div className="text-sm font-medium text-slate-500">Cancel anytime</div>
-          </div>
+          </motion.div>
 
-          <div className="mt-5 grid gap-3 lg:grid-cols-3" style={{ perspective: "1100px" }}>
+          <motion.div
+            className="mt-5 grid gap-3 lg:grid-cols-3"
+            style={{ perspective: "1100px" }}
+            variants={reduceMotion ? undefined : sectionContainer}
+            initial={reduceMotion ? false : "hidden"}
+            whileInView={reduceMotion ? undefined : "visible"}
+            viewport={viewport}
+          >
             {pricingPlans.map((plan) => (
-              <TiltCard
+              <motion.div
                 key={plan.name}
+                variants={reduceMotion ? undefined : sectionItem}
+                className="min-w-0"
+              >
+              <TiltCard
                 className={`min-w-0 rounded-[22px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_36px_rgba(15,23,42,0.05)] ${
                   plan.featured
                     ? "border-[var(--color-accent)] bg-white/82"
@@ -273,12 +314,19 @@ export default function LandingPage() {
                   </Button>
                 </Link>
               </TiltCard>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-6 sm:px-6">
+      <motion.footer
+        className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-6 sm:px-6"
+        initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+        whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        viewport={viewport}
+      >
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <Wordmark />
           <div className="flex gap-5">
@@ -286,7 +334,7 @@ export default function LandingPage() {
             <Link href="/onboarding" className="transition hover:text-slate-950">Start</Link>
           </div>
         </div>
-      </footer>
+      </motion.footer>
     </main>
   );
 }

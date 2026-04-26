@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { mistColors } from "@/components/design-system";
 
 /**
@@ -12,12 +13,12 @@ import { mistColors } from "@/components/design-system";
  */
 export function HeroBg() {
   const ref = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
+    if (reduceMotion) return;
 
     let raf = 0;
     let tx = 50;
@@ -47,10 +48,21 @@ export function HeroBg() {
       window.removeEventListener("pointermove", onMove);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [reduceMotion]);
+
+  const pulseTransition = {
+    repeat: Infinity,
+    repeatType: "mirror",
+    duration: 8,
+    ease: "easeInOut",
+  } as const;
 
   return (
-    <div ref={ref} className="pointer-events-none fixed inset-0 overflow-hidden" style={{ backgroundColor: mistColors.bg }}>
+    <div
+      ref={ref}
+      className="pointer-events-none fixed inset-0 overflow-hidden"
+      style={{ backgroundColor: mistColors.bg }}
+    >
       {/* faint grid */}
       <div className="absolute inset-0 grid-bg grid-bg-fade opacity-35" />
 
@@ -66,22 +78,26 @@ export function HeroBg() {
       {/* subtle warm top wash */}
       <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-white/35 via-white/10 to-transparent" />
 
-      {/* drifting color orbs */}
-      <div
+      {/* drifting color orbs with slow parallax pulse */}
+      <motion.div
         className="absolute left-[10%] top-[20%] h-72 w-72 rounded-full blur-3xl"
         style={{
           background: "radial-gradient(circle, rgba(255,255,255,0.34), transparent 62%)",
-          animation: "drift-a 18s ease-in-out infinite",
+          animation: reduceMotion ? undefined : "drift-a 18s ease-in-out infinite",
           mixBlendMode: "soft-light",
         }}
+        animate={reduceMotion ? undefined : { opacity: [0.4, 0.7] }}
+        transition={reduceMotion ? undefined : pulseTransition}
       />
-      <div
+      <motion.div
         className="absolute right-[8%] top-[55%] h-80 w-80 rounded-full blur-3xl"
         style={{
           background: "radial-gradient(circle, rgba(63,122,86,0.14), transparent 62%)",
-          animation: "drift-b 22s ease-in-out infinite",
+          animation: reduceMotion ? undefined : "drift-b 22s ease-in-out infinite",
           mixBlendMode: "soft-light",
         }}
+        animate={reduceMotion ? undefined : { opacity: [0.7, 0.4] }}
+        transition={reduceMotion ? undefined : { ...pulseTransition, duration: 9 }}
       />
     </div>
   );

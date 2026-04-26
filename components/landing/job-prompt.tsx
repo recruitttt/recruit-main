@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { cx, mistClasses } from "@/components/design-system";
 
@@ -17,15 +17,23 @@ const ROTATION = [
 ];
 
 const ROTATE_MS = 3400;
+const WORD_STAGGER_S = 0.05;
+const WORD_FADE_DURATION_S = 0.32;
+
+function splitWords(text: string): string[] {
+  return text.split(/(\s+)/).filter(Boolean);
+}
 
 export function JobPrompt() {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [value, setValue] = useState("");
   const [index, setIndex] = useState(0);
   const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showOverlay = value.length === 0 && !focused;
+  const words = useMemo(() => splitWords(ROTATION[index]), [index]);
 
   // rotate through the overlay phrases while the field is empty + unfocused
   useEffect(() => {
@@ -86,13 +94,48 @@ export function JobPrompt() {
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={index}
-                    initial={{ y: 22, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -22, opacity: 0 }}
+                    initial={reduceMotion ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={reduceMotion ? undefined : { y: -22, opacity: 0 }}
                     transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full truncate text-[15px] leading-snug text-slate-500"
+                    className="flex w-full items-center truncate text-[15px] leading-snug text-slate-500"
                   >
-                    {ROTATION[index]}
+                    <span className="flex flex-wrap">
+                      {words.map((word, i) =>
+                        /^\s+$/.test(word) ? (
+                          <span key={`s-${i}`} className="whitespace-pre">
+                            {word}
+                          </span>
+                        ) : (
+                          <motion.span
+                            key={`w-${i}`}
+                            className="inline-block"
+                            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={
+                              reduceMotion
+                                ? undefined
+                                : {
+                                    duration: WORD_FADE_DURATION_S,
+                                    ease: [0.22, 1, 0.36, 1],
+                                    delay: i * WORD_STAGGER_S,
+                                  }
+                            }
+                          >
+                            {word}
+                          </motion.span>
+                        ),
+                      )}
+                      <span
+                        aria-hidden
+                        className="ml-0.5 inline-block h-[1em] w-px translate-y-[2px] bg-slate-500"
+                        style={{
+                          animation: reduceMotion
+                            ? undefined
+                            : "caret-blink 1.05s steps(2, start) infinite",
+                        }}
+                      />
+                    </span>
                   </motion.div>
                 </AnimatePresence>
               </div>
