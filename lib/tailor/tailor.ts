@@ -4,6 +4,8 @@
 // One retry with a temperature-0 nudge on failure.
 
 import { chatJSON, extractJSONBlock } from "@/lib/openai";
+import { geminiChatJSON } from "@/lib/gemini";
+import { hasK2Credentials, k2ChatJSON } from "@/lib/k2";
 import type { UserProfile } from "@/lib/profile";
 import { TAILOR_SYSTEM_PROMPT, tailorUserPrompt } from "./prompt";
 import { computeKeywordCoverage } from "./score";
@@ -18,6 +20,89 @@ const BANNED_CLICHES = [
   "team player",
 ];
 const DEFAULT_TAILOR_MODEL = "gpt-5.4-mini";
+const DEFAULT_GEMMA_TAILOR_MODEL = "gemma-4-26b-a4b-it";
+
+export type TailorProvider = "openai" | "gemini" | "k2";
+
+export type TailorModelConfig = {
+  provider: TailorProvider;
+  model: string;
+  apiKey: string;
+};
+
+function cleanEnv(value: string | undefined): string {
+  return value?.trim() ?? "";
+}
+
+export function resolveTailorModelConfig(openAiApiKey?: string): TailorModelConfig {
+  const requestedProvider = cleanEnv(process.env.TAILOR_PROVIDER).toLowerCase();
+  const requestedModel = cleanEnv(process.env.TAILOR_MODEL);
+  const explicitK2 =
+    requestedProvider === "k2" ||
+    requestedProvider === "k2think" ||
+    requestedModel.startsWith("k2-") ||
+    requestedModel.startsWith("MBZUAI");
+  if (explicitK2 || (requestedProvider === "" && !cleanEnv(openAiApiKey) && !cleanEnv(process.env.OPENAI_API_KEY) && !cleanEnv(process.env.AI_GATEWAY_API_KEY) && !cleanEnv(process.env.GEMINI_API_KEY) && hasK2Credentials())) {
+    return {
+      provider: "k2",
+      model: requestedModel || cleanEnv(process.env.K2THINK_MODEL) || "MBZUAI-IFM/K2-Think-v2",
+      apiKey: cleanEnv(process.env.K2THINK_API_KEY),
+    };
+  }
+
+  const useGemini =
+    requestedProvider === "gemini" ||
+    requestedProvider === "google" ||
+    requestedModel.startsWith("gemma-");
+
+  if (useGemini) {
+    return {
+      provider: "gemini",
+      model: requestedModel || cleanEnv(process.env.GEMMA_TAILOR_MODEL) || DEFAULT_GEMMA_TAILOR_MODEL,
+      apiKey: cleanEnv(process.env.GEMINI_API_KEY),
+    };
+  }
+
+  return {
+    provider: "openai",
+    model: requestedModel || DEFAULT_TAILOR_MODEL,
+    apiKey:
+      cleanEnv(openAiApiKey) ||
+      cleanEnv(process.env.OPENAI_API_KEY) ||
+      cleanEnv(process.env.AI_GATEWAY_API_KEY),
+  };
+}
+
+export function hasTailorCredentials(openAiApiKey?: string): boolean {
+  return resolveTailorModelConfig(openAiApiKey).apiKey.length > 0;
+}
+
+async function chatTailorJSON(
+  config: TailorModelConfig,
+  messages: Parameters<typeof chatJSON>[1],
+  opts?: { temperature?: number; signal?: AbortSignal }
+): ReturnType<typeof chatJSON> {
+  if (!config.apiKey) return { ok: false, reason: "no_api_key" };
+  if (config.provider === "k2") {
+    return k2ChatJSON(messages, {
+      model: config.model,
+      temperature: opts?.temperature,
+      signal: opts?.signal,
+    });
+  }
+  if (config.provider === "gemini") {
+    return geminiChatJSON(config.apiKey, messages, {
+      model: config.model,
+      temperature: opts?.temperature,
+      signal: opts?.signal,
+    });
+  }
+  return chatJSON(config.apiKey, messages, {
+    model: config.model,
+    temperature: opts?.temperature,
+    signal: opts?.signal,
+  });
+}
 
 export type ResumeQualityResult = {
   ok: boolean;
@@ -117,8 +202,8 @@ function normalizeProjects(rawProjects: unknown, profile: UserProfile): Tailored
       return {
         name,
         url: typeof p?.url === "string" && p.url.trim() ? p.url : repo?.url,
-        technologies: asStringArray(p?.technologies).slice(0, 6),
-        bullets: asStringArray(p?.bullets).slice(0, 3),
+        technologies: asStringArray(p?.technologies).slice(0, 8),
+        bullets: asStringArray(p?.bullets).slice(0, 4),
       };
     })
     .filter((p) => p.name.trim());
@@ -140,7 +225,7 @@ export function normalizeResume(raw: unknown, profile: UserProfile): TailoredRes
     },
     headline: typeof r.headline === "string" ? r.headline : profile.headline ?? "",
     summary: typeof r.summary === "string" ? r.summary : profile.summary ?? "",
-    skills: asStringArray(r.skills).slice(0, 12),
+    skills: asStringArray(r.skills).slice(0, 16),
     experience: Array.isArray(r.experience)
       ? r.experience.map((e) => ({
           company: typeof e?.company === "string" ? e.company : "",
@@ -355,16 +440,16 @@ function attachQuality(
 export async function tailorResume(
   profile: UserProfile,
   research: JobResearch,
-  apiKey: string,
+  apiKey?: string,
   signal?: AbortSignal
 ): Promise<{ ok: true; resume: TailoredResume } | { ok: false; reason: string }> {
-  const model = process.env.TAILOR_MODEL ?? DEFAULT_TAILOR_MODEL;
+  const modelConfig = resolveTailorModelConfig(apiKey);
   const baseMessages = [
     { role: "system" as const, content: TAILOR_SYSTEM_PROMPT },
     { role: "user" as const, content: tailorUserPrompt(profile, research) },
   ];
 
-  const first = await chatJSON(apiKey, baseMessages, { model, temperature: 0.3, signal });
+  const first = await chatTailorJSON(modelConfig, baseMessages, { temperature: 0.3, signal });
   if (!first.ok) return { ok: false, reason: `tailor_call_failed: ${first.reason}` };
 
   let parsed: unknown;
@@ -388,13 +473,13 @@ export async function tailorResume(
     `Issues: ${quality.issues.join(", ")}`,
     "Re-output the full JSON only, conforming exactly to the schema.",
     "Use only candidate-backed employers, skills, dates, metrics, and GitHub projects.",
-    "The PDF will render only Header, Experience, Education, Skills, Projects.",
+    "The PDF will render Header, Summary, Experience, Education, Skills, Projects.",
   ].join("\n");
 
-  const retry = await chatJSON(
-    apiKey,
+  const retry = await chatTailorJSON(
+    modelConfig,
     [...baseMessages, { role: "user", content: retryNudge }],
-    { model, temperature: 0, signal }
+    { temperature: 0, signal }
   );
   if (!retry.ok) return { ok: false, reason: `tailor_retry_failed: ${retry.reason}` };
 

@@ -3,18 +3,146 @@ import { readFileSync } from "node:fs";
 import { renderResumeHtml } from "../lib/resume-html";
 import { textToPdf } from "../lib/pdf";
 import { extractPdfTextForEvidence } from "../lib/pdf-text";
+import { resolveResearchModelConfig } from "../lib/tailor/research";
 import { computeTailoringScore } from "../lib/tailor/score";
 import { resumeFallbackText } from "../lib/tailor/resume-fallback-text";
-import { normalizeResume, validateResumeQuality } from "../lib/tailor/tailor";
+import {
+  normalizeResume,
+  resolveTailorModelConfig,
+  validateResumeQuality,
+} from "../lib/tailor/tailor";
 import type { JobResearch, TailoredResume } from "../lib/tailor/types";
 import type { UserProfile } from "../lib/profile";
+import { withEnv } from "./helpers";
 
 const tailorSource = readFileSync(
   new URL("../lib/tailor/tailor.ts", import.meta.url),
   "utf8"
 );
 assert.match(tailorSource, /DEFAULT_TAILOR_MODEL = "gpt-5\.4-mini"/);
+assert.match(tailorSource, /DEFAULT_GEMMA_TAILOR_MODEL = "gemma-4-26b-a4b-it"/);
 assert.equal(tailorSource.includes('?? "gpt-4o-mini"'), false);
+
+withEnv(
+  {
+    TAILOR_PROVIDER: "gemini",
+    TAILOR_MODEL: undefined,
+    GEMMA_TAILOR_MODEL: undefined,
+    GEMINI_API_KEY: "gemini_key",
+    OPENAI_API_KEY: undefined,
+  },
+  () => {
+    assert.deepEqual(resolveTailorModelConfig(), {
+      provider: "gemini",
+      model: "gemma-4-26b-a4b-it",
+      apiKey: "gemini_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    TAILOR_PROVIDER: undefined,
+    TAILOR_MODEL: "gemma-4-31b-it",
+    GEMINI_API_KEY: "gemini_key",
+    OPENAI_API_KEY: "openai_key",
+  },
+  () => {
+    assert.deepEqual(resolveTailorModelConfig("openai_key"), {
+      provider: "gemini",
+      model: "gemma-4-31b-it",
+      apiKey: "gemini_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    TAILOR_PROVIDER: undefined,
+    TAILOR_MODEL: undefined,
+    GEMINI_API_KEY: "gemini_key",
+    OPENAI_API_KEY: "openai_key",
+  },
+  () => {
+    assert.deepEqual(resolveTailorModelConfig(), {
+      provider: "openai",
+      model: "gpt-5.4-mini",
+      apiKey: "openai_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    TAILOR_PROVIDER: "k2",
+    TAILOR_MODEL: undefined,
+    K2THINK_API_KEY: "k2_key",
+    K2THINK_MODEL: "MBZUAI-IFM/K2-Think-v2",
+    GEMINI_API_KEY: undefined,
+    OPENAI_API_KEY: undefined,
+  },
+  () => {
+    assert.deepEqual(resolveTailorModelConfig(), {
+      provider: "k2",
+      model: "MBZUAI-IFM/K2-Think-v2",
+      apiKey: "k2_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    RESEARCH_PROVIDER: "k2",
+    RESEARCH_MODEL: undefined,
+    K2THINK_API_KEY: "k2_key",
+    K2THINK_MODEL: undefined,
+    GEMINI_API_KEY: undefined,
+    OPENAI_API_KEY: undefined,
+    AI_GATEWAY_API_KEY: undefined,
+  },
+  () => {
+    assert.deepEqual(resolveResearchModelConfig(), {
+      provider: "k2",
+      model: "MBZUAI-IFM/K2-Think-v2",
+      apiKey: "k2_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    RESEARCH_PROVIDER: undefined,
+    RESEARCH_MODEL: "gpt-4o-mini",
+    GEMMA_RESEARCH_MODEL: undefined,
+    GEMMA_TAILOR_MODEL: undefined,
+    GEMINI_API_KEY: "gemini_key",
+    OPENAI_API_KEY: undefined,
+    AI_GATEWAY_API_KEY: undefined,
+  },
+  () => {
+    assert.deepEqual(resolveResearchModelConfig(), {
+      provider: "gemini",
+      model: "gemma-4-26b-a4b-it",
+      apiKey: "gemini_key",
+    });
+  }
+);
+
+withEnv(
+  {
+    RESEARCH_PROVIDER: undefined,
+    RESEARCH_MODEL: "gemma-4-31b-it",
+    GEMINI_API_KEY: "gemini_key",
+    OPENAI_API_KEY: "openai_key",
+  },
+  () => {
+    assert.deepEqual(resolveResearchModelConfig("openai_key"), {
+      provider: "gemini",
+      model: "gemma-4-31b-it",
+      apiKey: "gemini_key",
+    });
+  }
+);
 
 const profile: UserProfile = {
   name: "Ada Lovelace",
@@ -88,7 +216,7 @@ function goodResume(): TailoredResume {
         linkedin: "https://linkedin.com/in/ada",
       },
       headline: "Full Stack Engineer",
-      summary: "Ignored in strict PDF rendering.",
+      summary: "Full stack engineer building TypeScript, Postgres, and React systems for data-heavy products.",
       skills: ["TypeScript", "Postgres", "React"],
       experience: [
         {
@@ -170,15 +298,17 @@ assert.ok(weakQuality.issues.some((issue) => issue.includes("empty_bullets")));
 assert.ok(weakQuality.issues.some((issue) => issue.includes("unsupported_skills")));
 
 const html = renderResumeHtml(goodResume());
+const summaryIndex = html.indexOf("<h2>Summary</h2>");
 const experienceIndex = html.indexOf("<h2>Experience</h2>");
 const educationIndex = html.indexOf("<h2>Education</h2>");
 const skillsIndex = html.indexOf("<h2>Skills</h2>");
 const projectsIndex = html.indexOf("<h2>Projects</h2>");
-assert.ok(experienceIndex > -1);
+assert.ok(summaryIndex > -1);
+assert.ok(experienceIndex > summaryIndex);
 assert.ok(educationIndex > experienceIndex);
 assert.ok(skillsIndex > educationIndex);
 assert.ok(projectsIndex > skillsIndex);
-assert.equal(html.includes("<h2>Summary</h2>"), false);
+assert.ok(html.includes("Full stack engineer building TypeScript"));
 assert.equal(html.includes("<h2>Why this role</h2>"), false);
 assert.equal(html.includes("Ignored in strict PDF rendering."), false);
 
@@ -186,6 +316,7 @@ const fallbackText = resumeFallbackText(goodResume());
 assert.ok(fallbackText.includes("Ada Lovelace"));
 assert.ok(fallbackText.includes("ada@example.com"));
 assert.ok(fallbackText.includes("https://linkedin.com/in/ada"));
+assert.ok(fallbackText.includes("Full stack engineer building TypeScript"));
 assert.ok(fallbackText.includes("Analytical Engines"));
 assert.ok(fallbackText.includes("TypeScript"));
 
