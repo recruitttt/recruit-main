@@ -80,6 +80,7 @@ export default defineSchema({
         v.literal("ashby"),
         v.literal("greenhouse"),
         v.literal("lever"),
+        v.literal("mixed"),
         v.literal("workday"),
         v.literal("workable")
       )
