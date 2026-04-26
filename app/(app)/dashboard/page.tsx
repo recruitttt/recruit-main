@@ -1,8 +1,8 @@
 import { RecruitDashboard } from "@/components/recruit-dashboard";
 
 export const metadata = {
-  title: "Recruit command center",
-  description: "Glass UI dashboard for the autonomous job pipeline.",
+  title: "Recruit dashboard",
+  description: "Minimal application list for jobs in progress.",
 };
 
 export default function DashboardPage() {

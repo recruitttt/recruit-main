@@ -9,7 +9,7 @@ const STAGE_TINT: Record<string, string> = {
   queued: "#94A3B8",
   tailoring: "#D97706",
   reviewing: "#7C3AED",
-  submitting: "#0891B2",
+  submitting: "#3F7A56",
   submitted: "#059669",
   blocked: "#DC2626",
 };

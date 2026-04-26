@@ -5,7 +5,7 @@ const stageColors: Record<Stage, string> = {
   queued: "bg-zinc-400",
   tailoring: "bg-amber-500",
   reviewing: "bg-violet-500",
-  submitting: "bg-cyan-600",
+  submitting: "bg-[var(--color-accent)]",
   submitted: "bg-emerald-500",
   blocked: "bg-red-500",
 };

@@ -76,9 +76,9 @@ type VariantKey = "lightMist";
 const variants = {
   lightMist: {
     eyebrow: "D / Light Glass Mist",
-    title: "Misty blue glass cockpit",
-    description: "Cool gray-blue glass with cyan telemetry and stronger app energy. Best if Recruit should feel intelligent and technical without going dark.",
-    pageBg: "bg-[#CDD5DF]",
+    title: "Sage glass cockpit",
+    description: "Pastel green glass with quieter telemetry and stronger app energy. Best if Recruit should feel intelligent and focused without going dark.",
+    pageBg: "bg-[var(--color-bg)]",
     panel: mistClasses.panel,
     panelAlt: mistClasses.card,
     text: "text-[#101827]",
@@ -118,9 +118,9 @@ const recruitIcons: Array<{
   { label: "Agent Core", description: "Autonomous system active", icon: AgentCoreIcon, tone: "accent", accent2: "#16A34A" },
   { label: "Role Radar", description: "Role discovery scan", icon: RoleRadarIcon, tone: "accent", accent2: "#16A34A" },
   { label: "Match Signal", description: "Fit and signal graph", icon: MatchSignalIcon, tone: "accent", accent2: "#16A34A" },
-  { label: "Resume Tailor", description: "Material customization", icon: ResumeTailorIcon, tone: "success", accent2: "#0EA5E9" },
+  { label: "Resume Tailor", description: "Material customization", icon: ResumeTailorIcon, tone: "success", accent2: "#3F7A56" },
   { label: "Application Send", description: "Submission handoff", icon: ApplicationSendIcon, tone: "accent", accent2: "#16A34A" },
-  { label: "Pipeline Path", description: "Lifecycle progression", icon: PipelinePathIcon, tone: "success", accent2: "#0EA5E9" },
+  { label: "Pipeline Path", description: "Lifecycle progression", icon: PipelinePathIcon, tone: "success", accent2: "#3F7A56" },
 ];
 
 const agentRuns = [
@@ -297,7 +297,7 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
               <div className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Display</div>
               <h2 className="mt-3 font-serif text-6xl font-light tracking-[-0.05em] text-slate-950">Misty Glass</h2>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                Cool gray-blue glass, cyan telemetry, quiet slate text, and product-focused density.
+                Sage glass, quiet green telemetry, grounded slate text, and product-focused density.
               </p>
             </div>
             <GlassCard>
@@ -319,7 +319,7 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
             </GlassCard>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
-            {["#CDD5DF", "#F8FBFF4D", "#0EA5E9", "#64748B"].map((color) => (
+            {["#F5F8F1", "#F8FBFF4D", "#3F7A56", "#6E7B6C"].map((color) => (
               <GlassCard key={color} density="compact">
                 <div className="h-12 rounded-[inherit] border border-white/70" style={{ backgroundColor: color }} />
                 <div className="mt-2 font-mono text-xs text-slate-500">{color}</div>
@@ -483,7 +483,7 @@ function MistWorkbench({ variantKey }: { variantKey: VariantKey }) {
               <GlassCard key={label as string}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-slate-700">{label as string}</div>
-                  <Icon className={cx("h-4 w-4", label === "Agents Running" ? "text-sky-500" : "text-slate-500")} />
+                  <Icon className={cx("h-4 w-4", label === "Agents Running" ? "text-[var(--color-accent)]" : "text-slate-500")} />
                 </div>
                 <div className="mt-2 font-mono text-3xl text-slate-950">{value as string}</div>
                 <div className="mt-1 text-sm text-slate-500">{note as string}</div>
@@ -873,7 +873,7 @@ function RoleDetailDrawer({ variantKey }: { variantKey: VariantKey }) {
           <div className="space-y-2">
             {roleDetails.requirements.map((item) => (
               <GlassCard key={item} density="compact" className="flex items-center justify-between rounded-[18px] text-sm text-slate-700">
-                {item}<span className="font-mono text-xs text-sky-600">match</span>
+                {item}<span className="font-mono text-xs text-[var(--color-accent)]">match</span>
               </GlassCard>
             ))}
           </div>
@@ -1004,7 +1004,7 @@ function AnalyticsFunnel({ variantKey }: { variantKey: VariantKey }) {
         </GlassCard>
         <GlassCard>
           <div className="mb-3 text-sm font-semibold text-slate-950">Response time histogram</div>
-          <div className="flex h-28 items-end gap-2">{[34, 56, 78, 52, 36, 22, 14].map((height, index) => <div key={index} className="flex-1 rounded-t-full" style={{ height: `${height}%`, background: `linear-gradient(180deg, ${v.accent}, rgba(14,165,233,0.16))` }} />)}</div>
+          <div className="flex h-28 items-end gap-2">{[34, 56, 78, 52, 36, 22, 14].map((height, index) => <div key={index} className="flex-1 rounded-t-full" style={{ height: `${height}%`, background: `linear-gradient(180deg, ${v.accent}, rgba(63,122,86,0.16))` }} />)}</div>
         </GlassCard>
         <GlassCard>
           <div className="text-sm font-semibold text-slate-950">What&apos;s working</div>
@@ -1050,7 +1050,7 @@ function LiveRunViewer({ variantKey }: { variantKey: VariantKey }) {
                 <Pill variantKey={variantKey} tone="active">autofill</Pill>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="h-10 rounded-[14px] border border-sky-400/35 bg-sky-400/10" />
+                <div className="h-10 rounded-[14px] border border-[var(--color-accent)] bg-[var(--color-accent-soft)]" />
                 <div className="h-10 rounded-[14px] border border-white/50 bg-white/30" />
                 <div className="h-10 rounded-[14px] border border-white/50 bg-white/30" />
                 <div className="h-10 rounded-[14px] border border-emerald-400/30 bg-emerald-400/10" />
@@ -1275,7 +1275,7 @@ function ApplicationDetailPageComponents({ variantKey }: { variantKey: VariantKe
                   <div className="h-9 rounded-[12px] border border-white/45 bg-white/30" />
                   <div className="h-9 rounded-[12px] border border-emerald-400/30 bg-emerald-400/10" />
                 </div>
-                <div className="h-14 rounded-[14px] border border-sky-400/30 bg-sky-400/10" />
+                <div className="h-14 rounded-[14px] border border-[var(--color-accent)] bg-[var(--color-accent-soft)]" />
               </div>
             </BrowserPreview>
           </GlassCard>
@@ -1449,7 +1449,7 @@ function PricingPageComponents({ variantKey }: { variantKey: VariantKey }) {
             <div className="text-sm font-semibold text-slate-950">Human-in-loop vs autonomous compare</div>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-[16px] border border-white/45 bg-white/24 p-3 text-slate-600">Manual approval for every submit</div>
-              <div className="rounded-[16px] border border-sky-400/30 bg-sky-400/10 p-3 text-slate-700">Autonomous runs with safety stops</div>
+              <div className="rounded-[16px] border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-3 text-slate-700">Autonomous runs with safety stops</div>
             </div>
           </GlassCard>
         </div>
@@ -1520,7 +1520,7 @@ export function VariationPage() {
             <GlassCard>
               <div className="flex items-center justify-between">
                 <span className={cx("text-sm font-semibold", v.text)}>Applications</span>
-                <SendHorizontal className="h-4 w-4 text-sky-500" />
+                <SendHorizontal className="h-4 w-4 text-[var(--color-accent)]" />
               </div>
               <div className={cx("mt-3 text-5xl", v.fontTitle)}>23</div>
               <div className={cx("mt-2 text-sm", v.muted)}>+7 this week</div>

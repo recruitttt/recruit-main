@@ -1,5 +1,5 @@
 // The tailor agent. Takes a UserProfile + JobResearch, produces a
-// TailoredResume via gpt-4o-mini in JSON mode. Anti-fabrication validator
+// TailoredResume via GPT-5.4 Mini in JSON mode. Anti-fabrication validator
 // rejects any employer in the output that isn't in the input profile.
 // One retry with a temperature-0 nudge on failure.
 
@@ -17,6 +17,7 @@ const BANNED_CLICHES = [
   "results-driven",
   "team player",
 ];
+const DEFAULT_TAILOR_MODEL = "gpt-5.4-mini";
 
 export type ResumeQualityResult = {
   ok: boolean;
@@ -357,7 +358,7 @@ export async function tailorResume(
   apiKey: string,
   signal?: AbortSignal
 ): Promise<{ ok: true; resume: TailoredResume } | { ok: false; reason: string }> {
-  const model = process.env.TAILOR_MODEL ?? "gpt-4o-mini";
+  const model = process.env.TAILOR_MODEL ?? DEFAULT_TAILOR_MODEL;
   const baseMessages = [
     { role: "system" as const, content: TAILOR_SYSTEM_PROMPT },
     { role: "user" as const, content: tailorUserPrompt(profile, research) },
