@@ -7,6 +7,7 @@ import { Mark } from "@/components/ui/logo";
 import { cx, mistClasses, StatusBadge } from "@/components/design-system";
 import { authClient } from "@/lib/auth-client";
 import {
+  Box,
   ChevronDown,
   CreditCard,
   LogIn,
