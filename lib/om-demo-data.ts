@@ -15,6 +15,18 @@ import type {
 
 export const OM_DEMO_USER_ID = "om-demo";
 const OM_DEMO_RECOMMENDATION_COUNT = 100;
+const OM_DEMO_COMPANY_PAGE_BASE_URL = "https://recruit-company-pages.vercel.app";
+const OM_DEMO_COMPANY_PAGE_SLUGS: Record<string, string> = {
+  "google-deepmind": "google-deepmind",
+  apple: "apple",
+  nvidia: "nvidia",
+  openai: "openai",
+  meta: "meta",
+  "microsoft-ai": "microsoft-ai",
+  "amazon-agi": "amazon-agi",
+  anthropic: "anthropic",
+  tesla: "tesla",
+};
 
 type OmDemoOrganization = OrganizationLogo & {
   title: string;
@@ -357,8 +369,10 @@ function generatedRecordId(id: string | undefined, prefix: string, index: number
 }
 
 function generatedJobUrl(org: OmDemoOrganization, index: number) {
-  if (index === 0) return org.jobUrl;
-  return `${org.jobUrl.replace(/\/+$/, "")}?demoRole=${index + 1}`;
+  const pageSlug = OM_DEMO_COMPANY_PAGE_SLUGS[org.sourceSlug];
+  const baseUrl = pageSlug ? `${OM_DEMO_COMPANY_PAGE_BASE_URL}/${pageSlug}` : org.jobUrl;
+  if (index === 0) return baseUrl;
+  return `${baseUrl.replace(/\/+$/, "")}?demoRole=${index + 1}`;
 }
 
 function rotateList<T>(items: T[], index: number): T[] {
