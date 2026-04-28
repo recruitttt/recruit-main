@@ -2,6 +2,8 @@
 
 Hackathon OS is a cloneable command pack and knowledge layer for running fast hackathon teams.
 
+This repo folder is named `god-speed`; the product inside it is Hackathon OS.
+
 It is not just a prompt library. It is an installable execution system: markdown slash commands, structured knowledge, Linear-ready issue formats, sprint playbooks, and a setup script for local project state.
 
 Linear is the source of truth. Hackathon OS is the execution layer. AI skills operate on the structured context.
@@ -22,6 +24,8 @@ cd god-speed
 npm install
 npm run setup
 ```
+
+`npm run setup` creates a local `.hackathon-os/` workspace in the directory where you run it. In normal use, run it from the cloned `god-speed` folder. If you copy this command pack into another project, run setup from that project root.
 
 Then fill in `.hackathon-os/knowledge/project-source-of-truth.md`, run `/brief create`, run `/issues generate`, copy/import issues into Linear, and use `/next`.
 
@@ -57,6 +61,14 @@ The `knowledge/` folder contains context AI needs to avoid random execution: pro
 - `/demo plan`: creates the safest demo path.
 - `/rescue`: runs final-3-hours rescue mode.
 
+See `commands/README.md` for the full command index.
+
+## Recommended Skills
+
+The `skills/` folder mirrors the core command set with shorter role files such as `brief.md`, `issues.md`, `next.md`, `implement.md`, `verify.md`, and `rescue.md`. Use a skill when you want the assistant to stay in one role across a longer task.
+
+See `skills/README.md` for the full skill index.
+
 ## How It Works With Linear
 
 Linear remains the source of truth for owner, priority, status, and comments. Hackathon OS produces issue content and status recommendations, but v1 does not write to Linear automatically. Copy generated issues into Linear and keep statuses aligned with `linear/statuses.md`.
@@ -85,6 +97,10 @@ linear/     statuses, labels, views, issue template
 examples/   AI Study Buddy example artifacts
 scripts/    setup and creation helpers
 ```
+
+## License
+
+MIT. See `LICENSE`.
 
 ## How Teammates Should Use It
 
