@@ -208,7 +208,6 @@ Rules:
 
 function formatTranscript(messages: ChatHistoryMessage[]): string {
   const lines: string[] = [];
-  let totalChars = 0;
   // Walk newest-last so when we trim we keep the earliest context.
   for (const m of messages) {
     if (typeof m?.content !== "string") continue;
@@ -216,7 +215,6 @@ function formatTranscript(messages: ChatHistoryMessage[]): string {
     const tag = m.role === "user" ? "USER" : "ASSISTANT";
     const line = `${tag}: ${m.content}`;
     lines.push(line);
-    totalChars += line.length + 1;
   }
   let joined = lines.join("\n");
   if (joined.length > MAX_HISTORY_CHARS) {

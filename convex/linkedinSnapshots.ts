@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 //
 // linkedinSnapshots — latest LinkedIn scrape result per user.
 

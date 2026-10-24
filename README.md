@@ -213,7 +213,7 @@ npm run ci:quality
 ```
 
 Production-like smoke testing lives in
-[`PRODUCTION_E2E_TEST_PROMPT.md`](PRODUCTION_E2E_TEST_PROMPT.md). That runbook
+[`docs/runbooks/production-e2e.md`](docs/runbooks/production-e2e.md). That runbook
 keeps ATS submit dry-run by default and requires an explicit test-only submit
 gate before any real final submit.
 

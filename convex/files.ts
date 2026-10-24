@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 //
 // files — Convex `_storage` upload helpers used by intake adapters.
 //

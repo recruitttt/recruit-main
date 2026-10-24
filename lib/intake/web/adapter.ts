@@ -93,7 +93,7 @@ Return a JSON object with this exact shape (omit fields you cannot determine):
 
 async function* runWebAdapter(
   input: WebIntakeInput,
-  ctx: IntakeContext
+  _ctx: IntakeContext
 ): AsyncGenerator<IntakeProgressEvent> {
   const { url, kind } = input;
 

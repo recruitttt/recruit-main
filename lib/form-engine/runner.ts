@@ -183,32 +183,3 @@ function sameUrl(left: string, right: string): boolean {
     return left === right;
   }
 }
-
-function unsupportedProviderResult(job: ApplicationJobInput, provider: string): RunFormAutomationResult {
-  const submission: SubmissionResult = {
-    status: "needs_human_review",
-    provider: "generic",
-    confidence: 0,
-    submitAttempted: false,
-    submitCompleted: false,
-    failureCategory: "failed_unsupported_widget",
-    evidence: {
-      finalUrl: job.targetUrl,
-      notes: [`provider_not_supported=${provider}`],
-    },
-  };
-  return {
-    provider,
-    formIR: {
-      provider: "generic",
-      targetUrl: job.targetUrl,
-      questions: [],
-      controls: [],
-      networkHints: [],
-      evidence: [`provider_not_supported=${provider}`],
-    },
-    submission,
-    evidence: submission.evidence,
-    rawResult: null,
-  };
-}

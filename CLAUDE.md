@@ -34,7 +34,7 @@ Adapters yield `IntakeProgressEvent` objects with:
 
 ## LinkedIn special case
 
-LinkedIn scraping runs as a Next.js API route (`app/api/intake/linkedin/route.ts`), not a Convex action, because playwright-core is not bundleable by Convex. The route streams SSE events and calls the same `runIntake` driver via `convexHttpClientToCtx` shim (`lib/intake/runIntakeNode.ts`).
+LinkedIn scraping runs as a Next.js API route (`app/api/intake/linkedin/route.ts`), not a Convex action, because playwright-core is not bundleable by Convex. The route streams SSE events and calls the same `runIntake` driver via `convexHttpClientToCtx` shim (`lib/intake/shared/runIntakeNode.ts`).
 
 ## Provenance
 
