@@ -1,5 +1,5 @@
 {
-  "name": "recruit-mockup",
+  "name": "recruit",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -17,12 +17,15 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "ci:quality": "npm run lint && npm run test:core && npm run test:api && npm run build",
-    "test:core": "npm run test:profile && npm run test:ranking && npm run test:ranking-eval && npm run test:ats && npm run test:tailor && npm run test:followups && npm run test:ingestion && npm run test:ashby && npm run test:lever && npm run test:form-engine && npm run test:apply-service",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:core && npm run test:api",
+    "test:unit": "vitest run",
+    "ci:quality": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "test:core": "npm run test:profile && npm run test:ranking && npm run test:ranking-eval && npm run test:ats && npm run test:tailor && npm run test:followups && npm run test:ingestion && npm run test:ashby && npm run test:lever && npm run test:form-engine && npm run test:apply-service && npm run test:convex",
     "test:api": "npm run test:auth && npm run test:resume && npm run test:linkedin && tsx tests/source-connection.test.ts && tsx tests/dashboard-data-source.test.ts && tsx tests/api-contracts.test.ts && tsx tests/dashboard-command.test.ts && npm run test:apply-service-api",
     "test:auth": "tsx tests/auth-flow.test.ts",
     "test:resume": "tsx tests/resume-parse.test.ts",
-    "test:linkedin": "tsx tests/linkedin-experience-dedupe.test.ts && tsx tests/linkedin-dedupe-fields.test.ts",
+    "test:linkedin": "tsx tests/linkedin-experience-dedupe.test.ts && tsx tests/linkedin-dedupe-fields.test.ts && tsx tests/linkedin-runtime-config.test.ts",
     "test:ingestion": "tsx tests/ingestion-adapters.test.ts",
     "test:profile": "tsx tests/profile-merge.test.ts",
     "test:followups": "tsx tests/followups.test.ts",
@@ -34,9 +37,10 @@
     "test:apply-service-api": "tsx tests/apply-service-api.test.ts",
     "test:ranking-eval": "tsx tests/ranking-eval.test.ts",
     "poc:rank": "tsx scripts/poc-rank.ts",
-    "test:ats": "tsx tests/ats-ingestion.test.ts",
+    "test:ats": "tsx tests/ats-ingestion.test.ts && tsx tests/ats-benchmark.test.ts",
     "test:tailor": "tsx tests/tailor-quality.test.ts",
-    "test:ats-benchmark": "tsx tests/ats-benchmark.test.ts"
+    "test:ats-benchmark": "tsx tests/ats-benchmark.test.ts",
+    "test:convex": "tsx convex/__tests__/assembleForPipeline.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.77",

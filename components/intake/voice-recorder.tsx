@@ -129,7 +129,7 @@ export function VoiceRecorder({
       let buffer = "";
       // Read SSE frames. Frames are terminated by `\n\n`; payload lines start
       // with `data: `. We tolerate split chunks by buffering between reads.
-      // eslint-disable-next-line no-constant-condition
+       
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;

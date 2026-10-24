@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 //
 // aiReports — Sonnet consolidated AI report (one per user, replaces on regeneration).
 

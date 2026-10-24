@@ -19,7 +19,6 @@ import {
   buildProfileSearchQuery,
   evaluateHardFilters,
   normalizeScore,
-  type RankingJob,
 } from "../lib/job-ranking";
 import { rankWithHybridV2 } from "../lib/job-ranking-v2";
 import {

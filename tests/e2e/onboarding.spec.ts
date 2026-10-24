@@ -139,18 +139,6 @@ async function waitForStep(page: Page, stepNumber: number) {
   });
 }
 
-/**
- * Click a button whose visible text matches `label` and wait for the typing
- * indicator animation (360 ms in source) to finish before the next step card
- * appears.
- */
-async function clickAndWaitAdvance(page: Page, label: string | RegExp) {
-  await page.getByRole("button", { name: label }).click();
-  // The page animates a 360 ms "typing" delay. Wait for the next step card
-  // to mount rather than using a fixed sleep.
-  await page.waitForTimeout(600);
-}
-
 // ---------------------------------------------------------------------------
 // Test suite 1: Happy-path smoke (full onboarding walk-through)
 // ---------------------------------------------------------------------------
